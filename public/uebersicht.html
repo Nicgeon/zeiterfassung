@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Übersicht – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html"><span class="label">Erfassung</span></a>
+    <a href="/uebersicht.html" class="active"><span class="label">Übersicht</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Wochenbericht</span></a>
+    <a href="/account.html"><span class="label">Konto</span></a>
+    <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell shell--wide">
+
+  <div class="card">
+    <div class="card__header">
+      <div class="flex items-center gap-sm">
+        <button type="button" class="btn btn--icon" id="prevBtn" title="Zurück">&larr;</button>
+        <h2 id="rangeLabel" class="range-label"></h2>
+        <button type="button" class="btn btn--icon" id="nextBtn" title="Vor">&rarr;</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="todayBtn">Heute</button>
+      </div>
+      <div class="flex gap-sm">
+        <button type="button" class="btn btn--secondary btn--sm" id="weekModeBtn">Woche</button>
+        <button type="button" class="btn btn--secondary btn--sm" id="monthModeBtn">Monat</button>
+      </div>
+    </div>
+
+    <div id="rangeError"></div>
+
+    <div class="stat-row">
+      <div class="stat">
+        <span class="stat__label">Gesamt</span>
+        <strong class="stat__value mono" id="statTotal">–</strong>
+      </div>
+      <div class="stat">
+        <span class="stat__label">Noch nicht in Jira</span>
+        <strong class="stat__value mono" id="statOpen">–</strong>
+      </div>
+      <div class="stat">
+        <span class="stat__label">Erfasste Tage</span>
+        <strong class="stat__value mono" id="statDays">–</strong>
+      </div>
+      <div class="stat">
+        <span class="stat__label">Ø pro erfasstem Tag</span>
+        <strong class="stat__value mono" id="statAvg">–</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__header"><h2>Tage</h2></div>
+    <div id="dayBars"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__header">
+      <h2>Nach Ticket</h2>
+      <button type="button" class="btn btn--secondary btn--sm" id="copyJiraBtn">Zusammenfassung kopieren</button>
+    </div>
+    <div id="jiraList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card__header"><h2>Alle Einträge</h2></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Datum</th><th>Zeit</th><th>Dauer</th><th>Aufgabe</th><th>Ticket</th><th>Jira</th></tr>
+        </thead>
+        <tbody id="entriesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/overview.js"></script>
+</body>
+</html>

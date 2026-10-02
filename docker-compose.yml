@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .
+    image: zeiterfassung-jira:latest
+    container_name: zeiterfassung
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - zeiterfassung_data:/app/data
+    # Variante A (empfohlen): nginx proxy manager haengt im selben Docker-
+    # Netzwerk und spricht den Container ueber seinen Service-Namen an
+    # (http://zeiterfassung:3000). Dann braucht es hier KEIN "ports:" und
+    # der Port ist ueberhaupt nicht auf dem Host erreichbar.
+    #
+    # Variante B: nginx proxy manager laeuft ausserhalb dieses Compose-
+    # Projekts (z.B. eigener Host/eigene VM). Dann die folgende Zeile
+    # einkommentieren, damit der Port lokal auf dem Docker-Host bereitsteht
+    # (nur auf 127.0.0.1 gebunden, nicht auf allen Interfaces):
+    # ports:
+    #   - "127.0.0.1:3000:3000"
+    networks:
+      - zeiterfassung_net
+      # Bei Variante A zusaetzlich das gemeinsame Netzwerk von nginx proxy
+      # manager eintragen, z.B.:
+      # - npm_default
+
+volumes:
+  zeiterfassung_data:
+
+networks:
+  zeiterfassung_net:

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Wochenbericht – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html"><span class="label">Erfassung</span></a>
+    <a href="/uebersicht.html"><span class="label">Übersicht</span></a>
+    <a href="/wochenbericht.html" class="active"><span class="label">Wochenbericht</span></a>
+    <a href="/account.html"><span class="label">Konto</span></a>
+    <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <div class="card">
+    <div class="card__header">
+      <div class="flex items-center gap-sm">
+        <button type="button" class="btn btn--icon" id="prevWeekBtn" title="Vorherige Woche">&larr;</button>
+        <h2 id="weekLabel" class="week-label"></h2>
+        <button type="button" class="btn btn--icon" id="nextWeekBtn" title="Naechste Woche">&rarr;</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="thisWeekBtn">Diese Woche</button>
+      </div>
+    </div>
+
+    <p class="field-hint mb-md">
+      Für den Wochenbericht in der Berufsschule. Die Ausgabe enthält nur die
+      Aufgabentexte, ohne Uhrzeiten und ohne Dauer.
+    </p>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="formatSelect">Format</label>
+        <select id="formatSelect">
+          <option value="grouped">Nach Tagen gruppiert</option>
+          <option value="flat">Fortlaufende Liste (ohne Tage)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="bulletSelect">Aufzählungszeichen</label>
+        <select id="bulletSelect">
+          <option value="- ">Strich (-)</option>
+          <option value="• ">Punkt (•)</option>
+          <option value="">ohne</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="checkbox-label">
+        <input type="checkbox" id="mergeDuplicates" checked />
+        Gleiche Aufgaben innerhalb eines Tages zusammenfassen
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" id="includeJira" />
+        Jira-Ticketnummern mit ausgeben
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__header">
+      <h2>Vorschau</h2>
+      <div class="flex gap-md">
+        <button type="button" class="btn btn--secondary btn--sm" id="downloadBtn">Als .txt speichern</button>
+        <button type="button" class="btn btn--sm" id="copyBtn">Kopieren</button>
+      </div>
+    </div>
+    <div id="reportError"></div>
+    <pre class="report-preview mono" id="reportPreview"></pre>
+  </div>
+
+</div>
+
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/weekly.js"></script>
+</body>
+</html>

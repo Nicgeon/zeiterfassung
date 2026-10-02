@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Team – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html"><span class="label">Erfassung</span></a>
+    <a href="/uebersicht.html"><span class="label">Übersicht</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Wochenbericht</span></a>
+    <a href="/account.html"><span class="label">Konto</span></a>
+    <a href="/admin.html" class="active"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell shell--wide">
+
+  <div class="card">
+    <div class="card__header"><h2>Neuen Nutzer anlegen</h2></div>
+    <div id="createError"></div>
+    <div id="tempPasswordBox" class="alert alert--success hidden"></div>
+    <form id="createForm">
+      <div class="field-row">
+        <div class="field">
+          <label for="newUsername">Benutzername</label>
+          <input type="text" id="newUsername" class="mono" placeholder="m.mustermann" required />
+        </div>
+        <div class="field">
+          <label for="newDisplayName">Anzeigename</label>
+          <input type="text" id="newDisplayName" placeholder="Max Mustermann" required />
+        </div>
+      </div>
+      <div class="field max-w-sm">
+        <label for="newRole">Rolle</label>
+        <select id="newRole">
+          <option value="user">Mitarbeiter:in</option>
+          <option value="admin">Administrator:in</option>
+        </select>
+      </div>
+      <button type="submit" class="btn">Anlegen</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card__header"><h2>Team</h2></div>
+    <div id="usersError"></div>
+    <div class="table-wrap">
+      <table class="data-table" id="usersTable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Benutzername</th>
+            <th>Rolle</th>
+            <th>Status</th>
+            <th>2FA</th>
+            <th>Passkeys</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__header"><h2>Sicherheits-Protokoll</h2></div>
+    <p class="field-hint mb-md">Login-Versuche und Konto-Aenderungen, neueste zuerst. Zeigt keine Aufgaben-Inhalte.</p>
+    <div class="table-wrap">
+      <table class="data-table" id="auditTable">
+        <thead>
+          <tr><th>Zeitpunkt</th><th>Ereignis</th><th>Benutzer</th><th>Details</th><th>IP</th></tr>
+        </thead>
+        <tbody id="auditTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

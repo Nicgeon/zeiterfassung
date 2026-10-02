@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Konto – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html"><span class="label">Erfassung</span></a>
+    <a href="/uebersicht.html"><span class="label">Übersicht</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Wochenbericht</span></a>
+    <a href="/account.html" class="active"><span class="label">Konto</span></a>
+    <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- Passwort -->
+  <div class="card">
+    <div class="card__header"><h2>Passwort</h2></div>
+    <div id="pwError"></div>
+    <form id="pwForm">
+      <div class="field">
+        <label for="currentPassword">Aktuelles Passwort</label>
+        <input type="password" id="currentPassword" autocomplete="current-password" required />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="newPassword">Neues Passwort</label>
+          <input type="password" id="newPassword" autocomplete="new-password" minlength="10" required />
+        </div>
+        <div class="field">
+          <label for="newPasswordRepeat">Wiederholen</label>
+          <input type="password" id="newPasswordRepeat" autocomplete="new-password" minlength="10" required />
+        </div>
+      </div>
+      <button type="submit" class="btn">Passwort aendern</button>
+    </form>
+  </div>
+
+  <!-- 2FA -->
+  <div class="card">
+    <div class="card__header">
+      <h2>Zwei-Faktor-Authentifizierung</h2>
+      <span class="badge" id="totpStatusBadge">–</span>
+    </div>
+    <div id="totpError"></div>
+
+    <!-- Status: aus -->
+    <div id="totpDisabledView">
+      <p class="text-muted text-sm">
+        Schuetzt dein Konto zusaetzlich mit einer Authenticator-App (z.B. Microsoft Authenticator, Google Authenticator, 1Password).
+      </p>
+      <button type="button" class="btn" id="totpStartBtn">2FA aktivieren</button>
+    </div>
+
+    <!-- Setup in Arbeit -->
+    <div id="totpSetupView" class="hidden">
+      <p class="text-sm text-muted">QR-Code mit der Authenticator-App scannen:</p>
+      <img id="totpQr" alt="QR-Code fuer 2FA-Setup" class="totp-qr" />
+      <p class="field-hint">Alternativ manuell eingeben: <code id="totpSecretText" class="mono"></code></p>
+      <div class="field max-w-sm mt-md">
+        <label for="totpConfirmCode">Code aus der App</label>
+        <input type="text" id="totpConfirmCode" class="mono" inputmode="numeric" maxlength="6" />
+      </div>
+      <button type="button" class="btn" id="totpConfirmBtn">Bestaetigen &amp; aktivieren</button>
+      <button type="button" class="btn btn--ghost" id="totpCancelBtn">Abbrechen</button>
+    </div>
+
+    <!-- Backup-Codes einmalige Anzeige -->
+    <div id="backupCodesView" class="hidden">
+      <div class="alert alert--info">Bitte diese Wiederherstellungs-Codes sicher speichern (z.B. Passwort-Manager). Jeder Code funktioniert einmalig, falls du keinen Zugriff auf deine Authenticator-App hast.</div>
+      <div class="mono backup-codes-box" id="backupCodesList"></div>
+      <button type="button" class="btn mt-lg" id="backupCodesAckBtn">Codes gespeichert – schliessen</button>
+    </div>
+
+    <!-- Status: an -->
+    <div id="totpEnabledView" class="hidden">
+      <p class="text-muted text-sm">2FA ist aktiv. Verbleibende Backup-Codes: <strong id="backupCodesRemaining">–</strong></p>
+      <div class="flex gap-md flex-wrap">
+        <button type="button" class="btn btn--secondary btn--sm" id="regenBackupBtn">Backup-Codes neu erzeugen</button>
+        <button type="button" class="btn btn--danger btn--sm" id="disableTotpBtn">2FA deaktivieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passkeys -->
+  <div class="card">
+    <div class="card__header">
+      <h2>Passkeys</h2>
+      <button type="button" class="btn btn--secondary btn--sm" id="addPasskeyBtn">Passkey hinzufuegen</button>
+    </div>
+    <div id="passkeyError"></div>
+    <p class="field-hint mb-md" id="passkeyDomainHint">
+      Passkeys gelten immer nur für die Web-Adresse, unter der sie angelegt wurden.
+      Ist die Anwendung über mehrere Adressen erreichbar, lege dort jeweils einen
+      eigenen Passkey an.
+    </p>
+    <div id="passkeyList"></div>
+  </div>
+
+</div>
+
+<!-- Passwort-Bestaetigungs-Dialog (fuer 2FA deaktivieren / Backup-Codes neu erzeugen) -->
+<div id="confirmOverlay" class="overlay hidden">
+  <div class="card overlay-card">
+    <h2 id="confirmTitle">Bestaetigen</h2>
+    <div class="field mt-lg">
+      <label for="confirmPassword">Passwort</label>
+      <input type="password" id="confirmPassword" autocomplete="current-password" />
+    </div>
+    <div id="confirmError"></div>
+    <div class="flex gap-md mt-sm">
+      <button type="button" class="btn btn--block" id="confirmOkBtn">Bestaetigen</button>
+      <button type="button" class="btn btn--secondary btn--block" id="confirmCancelBtn">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/simplewebauthn-browser.umd.min.js"></script>
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/account.js"></script>
+</body>
+</html>

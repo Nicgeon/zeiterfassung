@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html" class="active"><span class="label">Erfassung</span></a>
+    <a href="/uebersicht.html"><span class="label">Übersicht</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Wochenbericht</span></a>
+    <a href="/account.html"><span class="label">Konto</span></a>
+    <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <div class="card timer-card" id="timerCard">
+    <div class="card__header">
+      <h2>Timer</h2>
+      <span class="timer-elapsed mono" id="timerElapsed"></span>
+    </div>
+    <div id="timerError"></div>
+
+    <div id="timerIdleView">
+      <p class="field-hint mb-md">
+        Läuft serverseitig weiter, auch wenn du den Tab schließt. Beschreibung
+        kannst du jetzt oder beim Stoppen eintragen.
+      </p>
+      <div class="field">
+        <label for="timerDescription">Woran arbeitest du? <span class="optional-label">(optional)</span></label>
+        <input type="text" id="timerDescription" maxlength="2000" placeholder="z.B. Rechnungen prüfen" />
+      </div>
+      <button type="button" class="btn" id="timerStartBtn">Timer starten</button>
+    </div>
+
+    <div id="timerRunningView" class="hidden">
+      <p class="field-hint mb-md">Gestartet um <strong class="mono" id="timerStartLabel"></strong>.</p>
+      <div class="field">
+        <label for="timerRunningDescription">Beschreibung</label>
+        <input type="text" id="timerRunningDescription" maxlength="2000" placeholder="Wird beim Stoppen übernommen" />
+      </div>
+      <div class="field">
+        <label for="timerRunningJira">Jira-Ticket <span class="optional-label">(optional)</span></label>
+        <input type="text" id="timerRunningJira" class="mono" maxlength="40" placeholder="z.B. PROJ-123" />
+      </div>
+      <div class="flex gap-md flex-wrap">
+        <button type="button" class="btn" id="timerStopBtn">Stoppen &amp; eintragen</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="timerDiscardBtn">Verwerfen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card__header">
+      <h2 id="formTitle">Neuer Eintrag</h2>
+      <button type="button" class="btn btn--ghost btn--sm hidden" id="cancelEditBtn">Abbrechen</button>
+    </div>
+
+    <div id="formError"></div>
+
+    <form id="entryForm">
+      <div class="field-row">
+        <div class="field">
+          <label for="startTime">Start</label>
+          <input type="time" id="startTime" class="time-input" required />
+        </div>
+        <div class="field">
+          <label for="endTime">Ende</label>
+          <div class="flex gap-sm">
+            <input type="time" id="endTime" class="time-input flex-1" required />
+            <button type="button" class="btn btn--secondary btn--sm" id="nowBtn" title="Aktuelle Uhrzeit uebernehmen">Jetzt</button>
+          </div>
+        </div>
+      </div>
+      <div class="field-hint" id="durationHint">&nbsp;</div>
+
+      <div class="field">
+        <label for="description">Aufgabe / Beschreibung</label>
+        <div class="suggest-wrap">
+          <textarea id="description" required maxlength="2000" autocomplete="off"
+                    placeholder="Was hast du gemacht?"></textarea>
+          <ul class="suggest-list hidden" id="suggestList"></ul>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="jiraKey">Jira-Ticket <span class="optional-label">(optional)</span></label>
+        <input type="text" id="jiraKey" class="mono" placeholder="z.B. PROJ-123" maxlength="40" />
+      </div>
+
+      <button type="submit" class="btn btn--block" id="saveBtn">Eintrag speichern</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card__header">
+      <div class="flex items-center gap-sm">
+        <button type="button" class="btn btn--icon" id="prevDayBtn" title="Vorheriger Tag">&larr;</button>
+        <h2 id="dateLabel" class="date-label"></h2>
+        <button type="button" class="btn btn--icon" id="nextDayBtn" title="Naechster Tag">&rarr;</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="todayBtn">Heute</button>
+      </div>
+      <button type="button" class="btn btn--secondary btn--sm" id="copyAllBtn">Tag kopieren</button>
+    </div>
+
+    <div id="ledger" class="ledger"></div>
+    <div class="ledger-total hidden" id="ledgerTotal">
+      <span>Gesamt</span>
+      <strong id="ledgerTotalValue"></strong>
+    </div>
+  </div>
+
+</div>
+
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

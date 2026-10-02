@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Anmelden – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-card__brand"><span class="mark"></span><span>Zeiterfassung</span></div>
+
+    <div id="formError"></div>
+
+    <!-- Schritt 1: Benutzername + Passwort -->
+    <form id="step-password">
+      <div class="field">
+        <label for="username">Benutzername</label>
+        <input type="text" id="username" autocomplete="username" required autofocus />
+      </div>
+      <div class="field">
+        <label for="password">Passwort</label>
+        <input type="password" id="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" class="btn btn--block" id="loginBtn">Anmelden</button>
+    </form>
+
+    <div id="passkeyArea" class="mt-md">
+      <button type="button" class="btn btn--secondary btn--block" id="passkeyBtn">Mit Passkey anmelden</button>
+    </div>
+
+    <!-- Schritt 2: Passwort aendern (erzwungen) -->
+    <form id="step-change-password" class="hidden">
+      <p class="text-sm text-muted mb-lg">
+        Dies ist dein erstes Login (oder ein Passwort-Reset). Bitte lege ein neues, eigenes Passwort fest.
+      </p>
+      <div class="field">
+        <label for="newPassword">Neues Passwort (mind. 10 Zeichen)</label>
+        <input type="password" id="newPassword" autocomplete="new-password" required minlength="10" />
+      </div>
+      <div class="field">
+        <label for="newPasswordRepeat">Neues Passwort wiederholen</label>
+        <input type="password" id="newPasswordRepeat" autocomplete="new-password" required minlength="10" />
+      </div>
+      <button type="submit" class="btn btn--block">Passwort setzen &amp; anmelden</button>
+    </form>
+
+    <!-- Schritt 3: 2FA -->
+    <form id="step-totp" class="hidden">
+      <p class="text-sm text-muted mb-lg">
+        Bitte den 6-stelligen Code aus deiner Authenticator-App eingeben.
+      </p>
+      <div class="field" id="totpCodeField">
+        <label for="totpCode">Code</label>
+        <input type="text" id="totpCode" class="mono" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" required />
+      </div>
+      <div class="field hidden" id="backupCodeField">
+        <label for="backupCode">Backup-Code</label>
+        <input type="text" id="backupCode" class="mono" autocomplete="off" />
+      </div>
+      <button type="submit" class="btn btn--block">Bestaetigen</button>
+      <button type="button" class="btn btn--ghost btn--block mt-sm" id="toggleBackupBtn">
+        Backup-Code stattdessen verwenden
+      </button>
+    </form>
+
+  </div>
+</div>
+
+<script src="/vendor/simplewebauthn-browser.umd.min.js"></script>
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/login.js"></script>
+</body>
+</html>
