@@ -33,6 +33,7 @@
     nextDayBtn: $('#nextDayBtn'),
     todayBtn: $('#todayBtn'),
     copyAllBtn: $('#copyAllBtn'),
+    copyOpenBtn: $('#copyOpenBtn'),
     ledger: $('#ledger'),
     ledgerTotal: $('#ledgerTotal'),
     ledgerTotalValue: $('#ledgerTotalValue'),
@@ -151,10 +152,14 @@
       els.ledger.innerHTML = '<div class="ledger-empty">Noch keine Eintraege fuer diesen Tag.</div>';
       els.ledgerTotal.classList.add('hidden');
       els.copyAllBtn.disabled = true;
+      els.copyOpenBtn.disabled = true;
       return;
     }
 
     els.copyAllBtn.disabled = false;
+    const openCount = state.entries.filter((e) => !e.transferred).length;
+    els.copyOpenBtn.disabled = openCount === 0;
+    els.copyOpenBtn.textContent = openCount > 0 ? `Offene kopieren (${openCount})` : 'Offene kopieren';
     els.ledger.innerHTML = sortedEntries().map((e) => `
       <div class="ledger-row${e.transferred ? ' ledger-row--transferred' : ''}" data-id="${e.id}">
         <div class="ledger-row__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}<br>${formatDurationLong(e.durationMinutes)}</div>
@@ -553,20 +558,24 @@
     }
   });
 
-  els.copyAllBtn.addEventListener('click', async () => {
-    if (state.entries.length === 0) return;
-    const total = state.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+  /**
+   * Kopiert die uebergebenen Eintraege (in angezeigter Reihenfolge) samt Summe und
+   * bietet danach an, die noch offenen davon als "in Jira eingetragen" zu markieren.
+   */
+  async function copyEntries(list, doneMessage) {
+    if (list.length === 0) return;
+    const total = list.reduce((sum, e) => sum + e.durationMinutes, 0);
     const text = [
-      ...sortedEntries().map(entryLine),
+      ...list.map(entryLine),
       '',
       `Gesamt: ${formatDurationLong(total)} (${total} Min)`,
     ].join('\n');
     const ok = await copyToClipboard(text);
     if (!ok) return showToast('Kopieren fehlgeschlagen.');
 
-    const openIds = state.entries.filter((e) => !e.transferred).map((e) => e.id);
-    if (openIds.length === 0) return showToast('Tag kopiert.');
-    showToast('Tag kopiert.', {
+    const openIds = list.filter((e) => !e.transferred).map((e) => e.id);
+    if (openIds.length === 0) return showToast(doneMessage);
+    showToast(doneMessage, {
       label: 'Alle als „in Jira" markieren',
       durationMs: 15000,
       onClick: async () => {
@@ -580,7 +589,12 @@
         }
       },
     });
-  });
+  }
+
+  els.copyAllBtn.addEventListener('click', () => copyEntries(sortedEntries(), 'Tag kopiert.'));
+  els.copyOpenBtn.addEventListener('click', () =>
+    copyEntries(sortedEntries().filter((e) => !e.transferred), 'Offene Einträge kopiert.')
+  );
 
   els.sortSelect.value = state.sortMode;
   els.sortSelect.addEventListener('change', () => {

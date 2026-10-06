@@ -233,7 +233,11 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Autovervollständigung gibt es auch beim Timer.
 - **Überschneidungen**: Überlappt ein Zeitraum mit einem anderen Eintrag des
   Tages, erscheint unter der Dauer eine Warnung (Speichern bleibt möglich).
-- **Nach dem Kopieren abhaken**: Nach „Tag kopieren" bietet die Einblendung
+- **Offene kopieren**: Der Knopf „Offene kopieren" neben „Tag kopieren"
+  kopiert nur die Einträge des Tages, die noch nicht als „in Jira
+  eingetragen" abgehakt sind (samt Summe), und zeigt in Klammern, wie viele
+  das sind.
+- **Nach dem Kopieren abhaken**: Nach „Tag kopieren" oder „Offene kopieren" bietet die Einblendung
   an, alle Einträge des Tages als „in Jira eingetragen" zu markieren.
 - **Timer**: Die laufende Zeit steht im Browser-Tab. Läuft der Timer seit
   über 10 Stunden oder wurde er an einem früheren Tag gestartet, erscheint

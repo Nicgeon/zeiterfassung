@@ -122,7 +122,10 @@
         <button type="button" class="btn btn--icon" id="nextDayBtn" title="Naechster Tag">&rarr;</button>
         <button type="button" class="btn btn--ghost btn--sm" id="todayBtn">Heute</button>
       </div>
-      <button type="button" class="btn btn--secondary btn--sm" id="copyAllBtn">Tag kopieren</button>
+      <div class="flex gap-sm">
+        <button type="button" class="btn btn--secondary btn--sm" id="copyOpenBtn" title="Nur Einträge kopieren, die noch nicht in Jira eingetragen sind">Offene kopieren</button>
+        <button type="button" class="btn btn--secondary btn--sm" id="copyAllBtn">Tag kopieren</button>
+      </div>
     </div>
 
     <div class="ledger-toolbar">
