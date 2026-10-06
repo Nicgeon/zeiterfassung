@@ -381,6 +381,8 @@ Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Doc
 
 Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automatisch erzeugt und der Browser geoeffnet (`http://localhost:4711`). Beenden: Fenster schliessen oder Strg+C.
 
+**Node.js-Version gewechselt?** Das native Modul `better-sqlite3` gilt nur für die Node-Version, mit der es installiert wurde (Fehler `NODE_MODULE_VERSION … requires …`). Die Startskripte erkennen das und bauen es automatisch neu. Von Hand: `npm rebuild better-sqlite3`, notfalls den Ordner `node_modules` löschen und `npm install --omit=dev` ausführen. Die Daten sind davon nicht betroffen.
+
 **Was im lokalen Modus anders ist**
 - Die App lauscht ausschliesslich auf `127.0.0.1`; aus dem Netzwerk ist sie nicht erreichbar. Fremde Hostnamen werden abgewiesen (Schutz gegen DNS-Rebinding).
 - Es gibt keine Anmeldung: Der lokale Nutzer ist automatisch angemeldet. Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Geschuetzt sind die Daten durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschluesselung der Beschreibungen (AES-256-GCM).

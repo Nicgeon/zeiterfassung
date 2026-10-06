@@ -28,6 +28,19 @@ if not exist node_modules (
   call npm install --omit=dev
   if errorlevel 1 ( pause & exit /b 1 )
 )
+rem Native Module (better-sqlite3) gelten nur fuer die Node-Version, mit der sie installiert wurden.
+rem Wechselt die Version, wird das Modul automatisch neu gebaut.
+node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
+if errorlevel 1 (
+  echo Node.js-Version hat sich geaendert - better-sqlite3 wird neu gebaut ...
+  call npm rebuild better-sqlite3
+  node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
+  if errorlevel 1 (
+    echo Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und start-local.bat erneut starten.
+    pause
+    exit /b 1
+  )
+)
 set LOCAL_MODE=true
 set OPEN_BROWSER=1
 node src\server.js
