@@ -476,6 +476,24 @@ Die Datenbank (Docker-Volume) bleibt dabei erhalten.
   lokale Zeitzone stimmt, heißt aber auch: Eine falsch gestellte Uhr am
   Arbeitsplatz führt zu falschen Zeiten.
 
+## Aufbau für die Weiterentwicklung
+
+Server- und Lokalbetrieb sind **dieselbe Codebasis**; umgeschaltet wird nur
+über `LOCAL_MODE`. Neue Funktionen (Routen, Seiten, Skripte) gelten damit
+automatisch für beide Varianten, es gibt nichts doppelt zu pflegen.
+
+- `src/localMode.js` bündelt alles, was nur lokal anders ist (automatische
+  Anmeldung, gesperrte Anmelde-Funktionen, Startmeldung, Browser öffnen,
+  Helmet-Anpassungen). Ohne `LOCAL_MODE` bleiben diese Teile wirkungslos.
+- `src/lib/localKeys.js` legt Datenordner und `keys.json` für den lokalen
+  Betrieb an.
+- `src/config.js` ist die einzige Stelle, die Umgebungsvariablen liest.
+- Im Frontend erkennt `public/js/api.js` den lokalen Modus über
+  `/api/auth/me` und setzt `body.local-mode`; Elemente lassen sich mit den
+  CSS-Klassen `local-only` bzw. `local-hide` je Variante ein- oder ausblenden.
+- Neue Routen, die Daten ändern, gehören **hinter** den CSRF-Schutz in
+  `server.js`, auch im lokalen Modus.
+
 ## Grenzen / bewusste Design-Entscheidungen
 
 - **Kein Auslastungs-Reporting in diesem Tool.** Absichtlich: Jede Person

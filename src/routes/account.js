@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const config = require('../config');
 const { db, audit, destroyUserSessions } = require('../db');
 const { verifyPassword, hashPassword, isPasswordStrongEnough } = require('../lib/passwords');
 const totp = require('../lib/totp');
@@ -11,7 +12,7 @@ const router = express.Router();
 
 // Einstellungen des lokalen Nutzers (im Serverbetrieb legt der Admin das fest).
 router.patch('/settings', (req, res) => {
-  if (!require('../config').localMode) return res.status(403).json({ error: 'Nur im lokalen Modus verfuegbar.' });
+  if (!config.localMode) return res.status(403).json({ error: 'Nur im lokalen Modus verfuegbar.' });
   const { isApprentice } = req.body || {};
   if (typeof isApprentice !== 'boolean') return res.status(400).json({ error: 'Ungueltige Eingabe.' });
   db.prepare('UPDATE users SET is_apprentice = ? WHERE id = ?').run(isApprentice ? 1 : 0, req.user.id);
