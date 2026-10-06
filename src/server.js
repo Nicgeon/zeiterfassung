@@ -90,8 +90,11 @@ app.use(
         baseUri: ["'none'"],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
+        // Lokal laeuft die App ueber http://localhost - nicht auf https hochstufen.
+        ...(config.localMode ? { upgradeInsecureRequests: null } : {}),
       },
     },
+    ...(config.localMode ? { strictTransportSecurity: false } : {}),
     crossOriginEmbedderPolicy: false,
   })
 );
@@ -139,6 +142,36 @@ app.use(
     },
   })
 );
+
+// Lokaler Modus: Der eine lokale Nutzer wird automatisch angemeldet. Die
+// Anmelde-, Passwort-, 2FA- und Passkey-Funktionen sind dort abgeschaltet,
+// weil es nichts gibt, wogegen sie schuetzen wuerden (nur localhost).
+let localUserId = null;
+if (config.localMode) {
+  const crypto2 = require('crypto');
+  const osUser = (() => { try { return require('os').userInfo().username; } catch { return 'Lokal'; } })();
+  const existing = db.prepare("SELECT id FROM users WHERE username = 'lokal'").get();
+  if (existing) {
+    localUserId = existing.id;
+  } else {
+    // Zufaelliger, nicht verwendbarer Hash: Anmeldung per Passwort ist im lokalen Modus ohnehin gesperrt.
+    const info = db
+      .prepare("INSERT INTO users (username, display_name, password_hash, role) VALUES ('lokal', ?, ?, 'user')")
+      .run(osUser, '!local-' + crypto2.randomBytes(16).toString('hex'));
+    localUserId = Number(info.lastInsertRowid);
+  }
+  app.use((req, res, next) => {
+    if (!req.session.userId) req.session.userId = localUserId;
+    next();
+  });
+  const blocked = (req, res) =>
+    res.status(403).json({ error: 'Im lokalen Modus nicht verfuegbar.' });
+  app.use('/api/auth/login', blocked);
+  app.use('/api/account/password', blocked);
+  app.use('/api/account/totp', blocked);
+  app.use('/api/account/passkeys', blocked);
+  app.post('/api/auth/logout', (req, res) => res.json({ status: 'ok' }));
+}
 
 // Lazily provision a per-session CSRF secret (also ensures every visitor
 // gets a session cookie immediately, which WebAuthn login needs anyway).
@@ -249,7 +282,15 @@ app.use((req, res) => res.status(404).sendFile(path.join(__dirname, '..', 'publi
 runRetentionCleanup();
 setInterval(runRetentionCleanup, 24 * 60 * 60 * 1000).unref();
 
-app.listen(config.port, () => {
+const listenArgs = config.host ? [config.port, config.host] : [config.port];
+const server = app.listen(...listenArgs, () => {
+  if (config.localMode) {
+    const url = `http://localhost:${config.port}`;
+    // eslint-disable-next-line no-console
+    console.log(`\nZeiterfassung laeuft lokal: ${url}\nDaten: ${config.dataDir}\nZum Beenden dieses Fenster schliessen oder Strg+C druecken.\n`);
+    if (process.env.OPEN_BROWSER === '1') openBrowser(url);
+    return;
+  }
   // eslint-disable-next-line no-console
   console.log(`Zeiterfassung laeuft auf Port ${config.port} (${config.nodeEnv}).`);
   // eslint-disable-next-line no-console
@@ -257,3 +298,26 @@ app.listen(config.port, () => {
     `Konfigurierte Adressen (Passkeys funktionieren nur unter diesen): ${[...config.originByHost.keys()].join(', ')}`
   );
 });
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    // eslint-disable-next-line no-console
+    console.error(
+      `\nPort ${config.port} ist belegt. Laeuft die Zeiterfassung schon (anderes Fenster)? ` +
+        'Sonst einen anderen Port waehlen, z.B. PORT=4712.\n'
+    );
+    process.exit(1);
+  }
+  throw err;
+});
+
+function openBrowser(url) {
+  const { spawn } = require('child_process');
+  const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
+    : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+  try {
+    const child = spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true });
+    child.on('error', () => {});
+    child.unref();
+  } catch { /* Browser oeffnen ist nur Komfort */ }
+}

@@ -75,6 +75,19 @@
     if (me.user.role === 'admin') els.adminNavLink.classList.remove('hidden');
     if (me.user.isApprentice) document.getElementById('weeklyNavLink').classList.remove('hidden');
     await Api.primeCsrf();
+    if (me.localMode) {
+      const toggle = document.getElementById('localApprenticeToggle');
+      toggle.checked = !!me.user.isApprentice;
+      toggle.addEventListener('change', async () => {
+        try {
+          await Api.patch('/api/account/settings', { isApprentice: toggle.checked });
+          document.getElementById('weeklyNavLink').classList.toggle('hidden', !toggle.checked);
+        } catch {
+          toggle.checked = !toggle.checked;
+        }
+      });
+      return; // Passwort/2FA/Passkeys gibt es lokal nicht
+    }
     renderTotpStatus(me.user.totpEnabled);
     if (me.user.totpEnabled) await loadBackupCodeCount();
     await loadPasskeys();

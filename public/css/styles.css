@@ -726,3 +726,9 @@ table.data-table {
 @media (max-width: 640px) {
   .day-bar__label, .day-bar__value { min-width: 72px; font-size: 11.5px; }
 }
+
+/* Lokaler Modus (body.local-mode wird von api.js nach /api/auth/me gesetzt) */
+.local-only { display: none; }
+.local-mode .local-only { display: block; }
+.local-mode .local-hide,
+.local-mode #logoutBtn { display: none !important; }

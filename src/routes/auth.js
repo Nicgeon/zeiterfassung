@@ -236,7 +236,7 @@ router.get('/me', (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Nicht angemeldet.' });
   const user = getUserById.get(req.session.userId);
   if (!user || !user.active) return res.status(401).json({ error: 'Nicht angemeldet.' });
-  res.json({ user: publicUser(user) });
+  res.json({ user: publicUser(user), localMode: config.localMode });
 });
 
 router.post('/logout', (req, res) => {

@@ -9,6 +9,15 @@ const { secondFactorLimiter, passkeyCeremonyLimiter } = require('../middleware/r
 
 const router = express.Router();
 
+// Einstellungen des lokalen Nutzers (im Serverbetrieb legt der Admin das fest).
+router.patch('/settings', (req, res) => {
+  if (!require('../config').localMode) return res.status(403).json({ error: 'Nur im lokalen Modus verfuegbar.' });
+  const { isApprentice } = req.body || {};
+  if (typeof isApprentice !== 'boolean') return res.status(400).json({ error: 'Ungueltige Eingabe.' });
+  db.prepare('UPDATE users SET is_apprentice = ? WHERE id = ?').run(isApprentice ? 1 : 0, req.user.id);
+  res.json({ status: 'ok', isApprentice });
+});
+
 const getUserById = db.prepare('SELECT * FROM users WHERE id = ?');
 const setPasswordStmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
 const setTotpStmt = db.prepare(

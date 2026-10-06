@@ -26,8 +26,18 @@
 
 <div class="shell">
 
+  <!-- Einstellungen (nur lokaler Modus) -->
+  <div class="card local-only" id="localSettingsCard">
+    <div class="card__header"><h2>Einstellungen</h2></div>
+    <label class="checkbox-label">
+      <input type="checkbox" id="localApprenticeToggle" />
+      <span>Ich bin Azubi (aktiviert den Wochenbericht-Export)</span>
+    </label>
+    <p class="field-hint">Die Daten liegen verschluesselt nur auf diesem Rechner.</p>
+  </div>
+
   <!-- Passwort -->
-  <div class="card">
+  <div class="card local-hide">
     <div class="card__header"><h2>Passwort</h2></div>
     <div id="pwError"></div>
     <form id="pwForm">
@@ -50,7 +60,7 @@
   </div>
 
   <!-- 2FA -->
-  <div class="card">
+  <div class="card local-hide">
     <div class="card__header">
       <h2>Zwei-Faktor-Authentifizierung</h2>
       <span class="badge" id="totpStatusBadge">–</span>
@@ -96,7 +106,7 @@
   </div>
 
   <!-- Passkeys -->
-  <div class="card">
+  <div class="card local-hide">
     <div class="card__header">
       <h2>Passkeys</h2>
       <button type="button" class="btn btn--secondary btn--sm" id="addPasskeyBtn">Passkey hinzufuegen</button>

@@ -48,6 +48,10 @@ const Api = (() => {
       data = null;
     }
 
+    if (path === '/api/auth/me' && data && data.localMode && document.body) {
+      document.body.classList.add('local-mode');
+    }
+
     if (res.status === 403 && data && data.error && /Sicherheitstoken/.test(data.error) && retry) {
       await fetchCsrfToken(true);
       return request(method, path, body, { retry: false });

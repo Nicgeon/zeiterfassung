@@ -7,6 +7,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "local": "LOCAL_MODE=true OPEN_BROWSER=1 node src/server.js",
     "dev": "node --watch src/server.js",
     "create-admin": "node src/scripts/create-user.js",
     "clear-sessions": "node src/scripts/clear-sessions.js",
@@ -15,7 +16,7 @@
   "dependencies": {
     "@simplewebauthn/server": "^14.0.2",
     "argon2": "^0.41.1",
-    "better-sqlite3": "^11.3.0",
+    "better-sqlite3": "^12.11.1",
     "cookie-parser": "^1.4.7",
     "csrf-csrf": "^3.1.0",
     "dotenv": "^16.4.5",

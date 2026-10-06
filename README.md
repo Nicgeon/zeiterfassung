@@ -344,6 +344,31 @@ steht dort `-` und die betroffene Person unter `Details`. Aufgaben-Inhalte
 werden nie geloggt. Die Zeitzone ist standardmäßig `Europe/Berlin` und
 lässt sich über `LOG_TIMEZONE` in der `.env` ändern.
 
+## Lokaler Betrieb (ohne Server)
+
+Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Docker, Proxy, Domain oder Zertifikate. Jede Person betreibt dann ihre eigene Instanz mit eigenen Daten.
+
+**Voraussetzung:** Node.js 20 oder neuer (getestet mit 22; 24 wird unterstuetzt). Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `start-local.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
+
+**Start**
+- Windows: Doppelklick auf `start-local.bat`
+- macOS/Linux: `./start-local.sh`
+- Alternativ: `LOCAL_MODE=true node src/server.js`
+
+Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automatisch erzeugt und der Browser geoeffnet (`http://localhost:4711`). Beenden: Fenster schliessen oder Strg+C.
+
+**Was im lokalen Modus anders ist**
+- Die App lauscht ausschliesslich auf `127.0.0.1`; aus dem Netzwerk ist sie nicht erreichbar. Fremde Hostnamen werden abgewiesen (Schutz gegen DNS-Rebinding).
+- Es gibt keine Anmeldung: Der lokale Nutzer ist automatisch angemeldet. Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Geschuetzt sind die Daten durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschluesselung der Beschreibungen (AES-256-GCM).
+- Den Azubi-Schalter (Wochenbericht) gibt es unter *Konto -> Einstellungen*.
+- Anderen Port: Umgebungsvariable `PORT`, z.B. `PORT=4712`.
+
+**Datenablage:** Windows `%APPDATA%\Zeiterfassung`, sonst `~/.zeiterfassung` (oder `DATA_DIR`). Enthalten sind `app.db` (Daten) und `keys.json` (Schluessel, nur fuer den eigenen Benutzer lesbar).
+
+**Backup:** Immer den **ganzen Ordner** sichern (`app.db` *und* `keys.json`). Ohne `keys.json` sind die Eintraege unwiederbringlich unlesbar; die App erzeugt bewusst keinen neuen Schluessel, wenn nur die Datenbank vorhanden ist. Die Sicherung gehoert verschluesselt abgelegt, da `keys.json` im Klartext liegt.
+
+**Update:** Neuen Programmordner entpacken, `node_modules` und die Daten bleiben unberuehrt (Daten liegen ausserhalb des Programmordners).
+
 ## Backup & Wiederherstellung
 
 Gesichert werden müssen **zwei** Dinge zusammen – eines ohne das andere
