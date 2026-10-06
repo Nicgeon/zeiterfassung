@@ -3,7 +3,7 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
-  const state = { mode: 'week', anchor: todayISO(), data: null };
+  const state = { mode: 'week', anchor: todayISO(), data: null, sortMode: loadSortMode(), onlyOpen: false };
 
   const els = {
     userLabel: $('#userLabel'),
@@ -25,6 +25,9 @@
     jiraList: $('#jiraList'),
     entriesTableBody: $('#entriesTableBody'),
     copyJiraBtn: $('#copyJiraBtn'),
+    csvBtn: $('#csvBtn'),
+    sortSelect: $('#sortSelect'),
+    onlyOpenToggle: $('#onlyOpenToggle'),
   };
 
   function parts(dateStr) {
@@ -79,6 +82,12 @@
     }
   }
 
+  /** Eintraege der Tabelle: Filter und Sortierung wie gewaehlt (auch fuer den CSV-Export). */
+  function visibleEntries() {
+    const list = state.data ? state.data.entries : [];
+    return sortEntries(state.onlyOpen ? list.filter((e) => !e.transferred) : list, state.sortMode);
+  }
+
   function render() {
     const data = state.data;
     if (!data) return;
@@ -128,8 +137,10 @@
       : '<p class="text-sm text-faint">Keine Einträge in diesem Zeitraum.</p>';
     els.copyJiraBtn.disabled = data.jira.length === 0;
 
-    els.entriesTableBody.innerHTML = data.entries.length
-      ? data.entries
+    const rowsToShow = visibleEntries();
+    els.csvBtn.disabled = rowsToShow.length === 0;
+    els.entriesTableBody.innerHTML = rowsToShow.length
+      ? rowsToShow
           .map(
             (e) => `<tr${e.transferred ? ' class="row--transferred"' : ''}>
               <td class="mono">${shortDate(e.workDate)}</td>
@@ -198,6 +209,27 @@
     lines.push('', `Gesamt: ${formatDurationJira(state.data.totalMinutes)} (${state.data.totalMinutes} Min)`);
     const ok = await copyToClipboard(lines.join('\n'));
     showToast(ok ? 'Zusammenfassung kopiert.' : 'Kopieren fehlgeschlagen.');
+  });
+
+  els.sortSelect.value = state.sortMode;
+  els.sortSelect.addEventListener('change', () => {
+    state.sortMode = els.sortSelect.value;
+    saveSortMode(state.sortMode);
+    render();
+  });
+  els.onlyOpenToggle.addEventListener('change', () => {
+    state.onlyOpen = els.onlyOpenToggle.checked;
+    render();
+  });
+
+  els.csvBtn.addEventListener('click', () => {
+    const rows = [['Datum', 'Start', 'Ende', 'Dauer (Min)', 'Beschreibung', 'Ticket', 'In Jira eingetragen']];
+    for (const e of visibleEntries()) {
+      rows.push([e.workDate, e.startTime, e.endTime, e.durationMinutes, e.description, e.jiraKey || '', e.transferred ? 'ja' : 'nein']);
+    }
+    const { from, to } = currentRange();
+    downloadFile(`zeiterfassung_${from}_${to}.csv`, toCsv(rows), 'text/csv;charset=utf-8');
+    showToast('CSV gespeichert.');
   });
 
   els.logoutBtn.addEventListener('click', async () => {

@@ -51,6 +51,71 @@ function escapeHtml(str) {
     .replaceAll("'", '&#39;');
 }
 
+// --- Sortierung von Eintraegen (Tagesliste und Uebersicht) ----------------
+// Die Auswahl wird pro Browser gemerkt (kein Server-Zustand noetig).
+
+const SORT_KEY = 'zeit.sortMode';
+const SORT_MODES = ['time-asc', 'time-desc', 'duration-desc', 'ticket'];
+
+function loadSortMode() {
+  try {
+    const saved = localStorage.getItem(SORT_KEY);
+    if (SORT_MODES.includes(saved)) return saved;
+  } catch { /* localStorage nicht verfuegbar - Standard verwenden */ }
+  return 'time-asc';
+}
+
+function saveSortMode(mode) {
+  try { localStorage.setItem(SORT_KEY, mode); } catch { /* nur Komfort */ }
+}
+
+/** Neue, sortierte Liste; die uebergebene bleibt unveraendert. */
+function sortEntries(entries, mode) {
+  const chrono = (a, b) =>
+    (a.workDate || '').localeCompare(b.workDate || '') ||
+    a.startTime.localeCompare(b.startTime) ||
+    a.id - b.id;
+  const list = [...entries];
+  switch (mode) {
+    case 'time-desc':
+      return list.sort((a, b) => chrono(b, a));
+    case 'duration-desc':
+      return list.sort((a, b) => b.durationMinutes - a.durationMinutes || chrono(a, b));
+    case 'ticket':
+      // Eintraege ohne Ticket ans Ende, sonst alphabetisch, innerhalb eines Tickets chronologisch.
+      return list.sort((a, b) => {
+        if (!a.jiraKey !== !b.jiraKey) return a.jiraKey ? -1 : 1;
+        return (a.jiraKey || '').localeCompare(b.jiraKey || '', 'de') || chrono(a, b);
+      });
+    default:
+      return list.sort(chrono);
+  }
+}
+
+// --- Dateien speichern ------------------------------------------------------
+
+function downloadFile(filename, text, mime) {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Semikolon-getrennt mit BOM, damit Excel (de-DE) Umlaute und Spalten richtig liest. */
+function toCsv(rows) {
+  const cell = (value) => {
+    let text = value === null || value === undefined ? '' : String(value);
+    // Schutz vor Formel-Einschleusung in Tabellenkalkulationen
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return /[";\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  };
+  return '\ufeff' + rows.map((row) => row.map(cell).join(';')).join('\r\n') + '\r\n';
+}
+
 let toastTimer = null;
 
 /**

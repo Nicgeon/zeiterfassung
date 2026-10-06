@@ -221,6 +221,30 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   nur diesen kopieren, oder über "Tag kopieren" alle Einträge des
   angezeigten Tages inkl. Gesamtsumme auf einmal – beides landet
   formatiert in der Zwischenablage zum Einfügen ins Jira-Ticket.
+- **Sortierung**: Über der Tagesliste (und der Tabelle in der Übersicht)
+  lässt sich die Reihenfolge wählen: älteste/neueste zuerst, längste zuerst
+  oder nach Ticket. Die Wahl merkt sich der Browser. „Tag kopieren"
+  übernimmt die angezeigte Reihenfolge.
+- **Nochmal erfassen**: Der Pfeil (↻) an einem Eintrag füllt das Formular
+  mit dessen Text und Ticket vor, die Zeiten werden wie bei jedem neuen
+  Eintrag gesetzt.
+- **Tastatur**: Strg+Enter (am Mac Cmd+Enter) im Beschreibungsfeld speichert
+  den Eintrag, Enter im Timer-Feld startet den Timer. Die
+  Autovervollständigung gibt es auch beim Timer.
+- **Überschneidungen**: Überlappt ein Zeitraum mit einem anderen Eintrag des
+  Tages, erscheint unter der Dauer eine Warnung (Speichern bleibt möglich).
+- **Nach dem Kopieren abhaken**: Nach „Tag kopieren" bietet die Einblendung
+  an, alle Einträge des Tages als „in Jira eingetragen" zu markieren.
+- **Timer**: Die laufende Zeit steht im Browser-Tab. Läuft der Timer seit
+  über 10 Stunden oder wurde er an einem früheren Tag gestartet, erscheint
+  ein Hinweis.
+- **Farbschema**: Der Knopf oben rechts (◐ / ☀ / ☾) wechselt zwischen Auto
+  (folgt dem Betriebssystem), Hell und Dunkel. Die Wahl merkt sich der Browser.
+- **Datensicherung**: Unter „Konto" lassen sich die eigenen Einträge als
+  JSON-Datei exportieren und wieder importieren (vorhandene Einträge werden
+  übersprungen). Die Datei enthält die Texte **unverschlüsselt**. In der
+  Übersicht gibt es zusätzlich einen CSV-Export der angezeigten Tabelle und
+  den Filter „nur noch nicht in Jira".
 - **Konto**: Passwort ändern, 2FA (Authenticator-App) und Passkeys unter
   "Konto" einrichten.
 - **Wochenbericht** (nur für als Azubi gekennzeichnete Konten): Export der

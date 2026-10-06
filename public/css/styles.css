@@ -71,6 +71,16 @@
   --success-wash: #1c2c22;
 }
 
+/* Native Bedienelemente (Zeitauswahl, Scrollleisten, Checkboxen) folgen dem Schema. */
+:root { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { color-scheme: dark; }
+}
+
+.theme-toggle { min-width: 32px; font-size: 15px; line-height: 1; color: var(--ink); }
+.theme-toggle--floating { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 5; }
+
 * { box-sizing: border-box; }
 
 html {
@@ -209,6 +219,7 @@ a { color: var(--accent); }
   font-size: 13px;
   color: var(--ink-muted);
 }
+.ledger-toolbar .checkbox-label { margin: 0 auto 0 0; }
 .select--inline { width: auto; padding: 5px 9px; font-size: 13px; }
 
 .auth-card {
@@ -445,7 +456,7 @@ button {
   z-index: 100;
   max-width: 90vw;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
 
 .divider { height: 1px; background: var(--border); margin: 18px 0; border: none; }
 

@@ -37,6 +37,8 @@
     user_unlocked: 'Sperre aufgehoben',
     user_apprentice_enabled: 'Azubi-Kennzeichnung gesetzt',
     user_apprentice_disabled: 'Azubi-Kennzeichnung entfernt',
+    data_exported: 'Eigene Daten exportiert',
+    data_imported: 'Daten importiert',
   };
 
   async function init() {

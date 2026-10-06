@@ -62,6 +62,61 @@
     if (e.key === 'Enter') { e.preventDefault(); closeConfirmDialog(els.confirmPassword.value); }
   });
 
+  // --- Datensicherung -----------------------------------------------
+
+  const backupError = $('#backupError');
+  const importFile = $('#importFile');
+  const IMPORT_BATCH = 25;
+
+  $('#exportBtn').addEventListener('click', async () => {
+    setFormError(backupError, '');
+    try {
+      const data = await Api.get('/api/entries/export');
+      downloadFile(`zeiterfassung_export_${todayISO()}.json`, JSON.stringify(data, null, 2), 'application/json');
+      showToast(`${data.entries.length} Einträge exportiert.`);
+    } catch (err) {
+      setFormError(backupError, err.message);
+    }
+  });
+
+  $('#importBtn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files[0];
+    importFile.value = '';
+    if (!file) return;
+    setFormError(backupError, '');
+
+    let entries;
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || data.format !== 'zeiterfassung-export' || !Array.isArray(data.entries)) {
+        throw new Error('format');
+      }
+      entries = data.entries;
+    } catch {
+      return setFormError(backupError, 'Die Datei ist kein gültiger Zeiterfassung-Export.');
+    }
+    if (entries.length === 0) return showToast('Die Datei enthält keine Einträge.');
+    if (!confirm(`${entries.length} Einträge aus „${file.name}" importieren?`)) return;
+
+    let imported = 0;
+    let skipped = 0;
+    try {
+      for (let i = 0; i < entries.length; i += IMPORT_BATCH) {
+        const result = await Api.post('/api/entries/import', { entries: entries.slice(i, i + IMPORT_BATCH) });
+        imported += result.imported;
+        skipped += result.skipped;
+      }
+      showToast(`${imported} importiert, ${skipped} übersprungen (bereits vorhanden).`);
+    } catch (err) {
+      setFormError(
+        backupError,
+        `Import abgebrochen nach ${imported} Einträgen: ${err.message} ` +
+          '(Ein erneuter Import überspringt bereits übernommene Einträge.)'
+      );
+    }
+  });
+
   // --- Init ---------------------------------------------------------
 
   async function init() {

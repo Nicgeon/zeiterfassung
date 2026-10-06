@@ -6,6 +6,7 @@
 <title>Konto – Zeiterfassung</title>
 <link rel="stylesheet" href="/css/fonts.css" />
 <link rel="stylesheet" href="/css/styles.css" />
+<script src="/js/theme.js"></script>
 </head>
 <body>
 
@@ -34,6 +35,25 @@
       <span>Ich bin Azubi (aktiviert den Wochenbericht-Export)</span>
     </label>
     <p class="field-hint">Die Daten liegen verschluesselt nur auf diesem Rechner.</p>
+  </div>
+
+  <!-- Datensicherung (beide Betriebsarten) -->
+  <div class="card">
+    <div class="card__header"><h2>Datensicherung</h2></div>
+    <div id="backupError"></div>
+    <p class="text-muted text-sm">
+      Exportiert alle deine Einträge als Datei (JSON) oder spielt eine solche Datei wieder ein.
+      Beim Import werden bereits vorhandene Einträge übersprungen, nichts wird doppelt angelegt.
+    </p>
+    <p class="field-hint">
+      Achtung: Die Exportdatei enthält die Aufgabentexte <strong>unverschlüsselt</strong>
+      &ndash; bitte entsprechend sicher aufbewahren.
+    </p>
+    <div class="flex gap-sm flex-wrap">
+      <button type="button" class="btn" id="exportBtn">Meine Daten exportieren</button>
+      <button type="button" class="btn btn--secondary" id="importBtn">Daten importieren …</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden" />
+    </div>
   </div>
 
   <!-- Passwort -->

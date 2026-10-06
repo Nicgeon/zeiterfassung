@@ -3,17 +3,6 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
-  // Sortierung der Tagesliste: Auswahl pro Browser merken (kein Server-Zustand noetig).
-  const SORT_KEY = 'zeit.sortMode';
-  const SORT_MODES = ['time-asc', 'time-desc', 'duration-desc', 'ticket'];
-  function loadSortMode() {
-    try {
-      const saved = localStorage.getItem(SORT_KEY);
-      if (SORT_MODES.includes(saved)) return saved;
-    } catch { /* localStorage nicht verfuegbar - Standard verwenden */ }
-    return 'time-asc';
-  }
-
   const state = {
     viewDate: todayISO(),
     entries: [],
@@ -37,6 +26,7 @@
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
+    overlapHint: $('#overlapHint'),
     sortSelect: $('#sortSelect'),
     dateLabel: $('#dateLabel'),
     prevDayBtn: $('#prevDayBtn'),
@@ -48,6 +38,9 @@
     ledgerTotalValue: $('#ledgerTotalValue'),
     suggestList: $('#suggestList'),
     timerError: $('#timerError'),
+    timerWarning: $('#timerWarning'),
+    timerSuggestList: $('#timerSuggestList'),
+    timerRunningSuggestList: $('#timerRunningSuggestList'),
     timerElapsed: $('#timerElapsed'),
     timerIdleView: $('#timerIdleView'),
     timerRunningView: $('#timerRunningView'),
@@ -68,6 +61,7 @@
   }
 
   function updateDurationHint() {
+    updateOverlapHint();
     const s = els.startTime.value;
     const e = els.endTime.value;
     if (!s || !e) { els.durationHint.innerHTML = '&nbsp;'; return; }
@@ -85,22 +79,21 @@
 
   /** Eintraege in der vom Nutzer gewaehlten Reihenfolge (state.entries bleibt chronologisch). */
   function sortedEntries() {
-    const list = [...state.entries];
-    const chrono = (a, b) => a.startTime.localeCompare(b.startTime) || a.id - b.id;
-    switch (state.sortMode) {
-      case 'time-desc':
-        return list.sort((a, b) => chrono(b, a));
-      case 'duration-desc':
-        return list.sort((a, b) => b.durationMinutes - a.durationMinutes || chrono(a, b));
-      case 'ticket':
-        // Eintraege ohne Ticket ans Ende, sonst alphabetisch, innerhalb eines Tickets chronologisch.
-        return list.sort((a, b) => {
-          if (!a.jiraKey !== !b.jiraKey) return a.jiraKey ? -1 : 1;
-          return (a.jiraKey || '').localeCompare(b.jiraKey || '', 'de') || chrono(a, b);
-        });
-      default:
-        return list.sort(chrono);
+    return sortEntries(state.entries, state.sortMode);
+  }
+
+  /** Warnt (ohne zu blockieren), wenn der Zeitraum einen anderen Eintrag des Tages ueberschneidet. */
+  function updateOverlapHint() {
+    const s = els.startTime.value;
+    const e = els.endTime.value;
+    let text = '';
+    if (s && e && e > s) {
+      const hits = state.entries.filter((x) => x.id !== state.editingId && x.startTime < e && s < x.endTime);
+      if (hits.length > 0) {
+        text = `⚠ Überschneidet sich mit ${hits.map((x) => `${x.startTime}–${x.endTime}`).join(', ')}.`;
+      }
     }
+    els.overlapHint.textContent = text;
   }
 
   function defaultStartTime() {
@@ -140,6 +133,16 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  /** Neuen Eintrag mit Text und Ticket eines vorhandenen vorbefuellen (Zeiten wie bei jedem neuen Eintrag). */
+  function startFromEntry(entry) {
+    resetFormForNewEntry();
+    els.description.value = entry.description;
+    els.jiraKey.value = entry.jiraKey || '';
+    els.description.focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('Text und Ticket übernommen – Zeiten prüfen.');
+  }
+
   function renderLedger() {
     els.dateLabel.textContent = formatDateLong(state.viewDate);
     els.nowBtn.classList.toggle('hidden', !isTodayISO(state.viewDate));
@@ -167,6 +170,7 @@
           </div>
         </div>
         <div class="ledger-row__actions">
+          <button type="button" class="btn btn--icon repeat-btn" title="Nochmal erfassen (Text und Ticket übernehmen)">↻</button>
           <button type="button" class="btn btn--icon copy-btn" title="Eintrag kopieren">⧉</button>
           <button type="button" class="btn btn--icon edit-btn" title="Bearbeiten">✎</button>
           <button type="button" class="btn btn--icon delete-btn" title="Loeschen">🗑</button>
@@ -209,71 +213,97 @@
 
   // --- Autovervollstaendigung ---------------------------------------
 
-  let suggestTimer = null;
-  let suggestions = [];
+  /**
+   * Haengt eine Vorschlagsliste an ein Textfeld. onApply(vorschlag) wird beim
+   * Auswaehlen aufgerufen, nachdem der Text ins Feld uebernommen wurde.
+   */
+  function attachSuggest(input, list, onApply) {
+    let timer = null;
+    let suggestions = [];
 
-  function hideSuggestions() {
-    els.suggestList.classList.add('hidden');
-  }
+    const hide = () => list.classList.add('hidden');
 
-  function renderSuggestions() {
-    if (suggestions.length === 0) return hideSuggestions();
-    els.suggestList.innerHTML = suggestions
-      .map(
-        (s, i) => `<li class="suggest-item" data-index="${i}">
-            <span>${escapeHtml(s.description)}</span>
-            ${s.jiraKey ? `<span class="jira-tag">${escapeHtml(s.jiraKey)}</span>` : ''}
-          </li>`
-      )
-      .join('');
-    els.suggestList.classList.remove('hidden');
-  }
-
-  async function fetchSuggestions() {
-    const query = els.description.value.trim();
-    // Mehrzeilige Texte sind meist fertig getippt - dann nicht vorschlagen.
-    if (query.includes('\n')) return hideSuggestions();
-    try {
-      const data = await Api.get(`/api/entries/suggestions?q=${encodeURIComponent(query)}`);
-      suggestions = data.suggestions.filter((s) => s.description !== query);
-      renderSuggestions();
-    } catch {
-      hideSuggestions();
+    function render() {
+      if (suggestions.length === 0) return hide();
+      list.innerHTML = suggestions
+        .map(
+          (s, i) => `<li class="suggest-item" data-index="${i}">
+              <span>${escapeHtml(s.description)}</span>
+              ${s.jiraKey ? `<span class="jira-tag">${escapeHtml(s.jiraKey)}</span>` : ''}
+            </li>`
+        )
+        .join('');
+      list.classList.remove('hidden');
     }
-  }
 
-  function applySuggestion(index) {
-    const suggestion = suggestions[index];
-    if (!suggestion) return;
-    els.description.value = suggestion.description;
-    if (suggestion.jiraKey && !els.jiraKey.value.trim()) els.jiraKey.value = suggestion.jiraKey;
-    hideSuggestions();
-    els.description.focus();
-  }
+    async function fetchSuggestions() {
+      const query = input.value.trim();
+      // Mehrzeilige Texte sind meist fertig getippt - dann nicht vorschlagen.
+      if (query.includes('\n')) return hide();
+      try {
+        const data = await Api.get(`/api/entries/suggestions?q=${encodeURIComponent(query)}`);
+        suggestions = data.suggestions.filter((s) => s.description !== query);
+        render();
+      } catch {
+        hide();
+      }
+    }
 
-  els.description.addEventListener('input', () => {
-    clearTimeout(suggestTimer);
-    suggestTimer = setTimeout(fetchSuggestions, 180);
-  });
-  els.description.addEventListener('focus', () => {
-    clearTimeout(suggestTimer);
-    suggestTimer = setTimeout(fetchSuggestions, 120);
-  });
-  els.description.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideSuggestions();
-  });
-  els.suggestList.addEventListener('mousedown', (e) => {
-    // mousedown statt click: sonst schliesst das blur-Ereignis die Liste zuerst
-    const item = e.target.closest('.suggest-item');
-    if (item) {
+    const schedule = (ms) => {
+      clearTimeout(timer);
+      timer = setTimeout(fetchSuggestions, ms);
+    };
+
+    input.addEventListener('input', () => schedule(180));
+    input.addEventListener('focus', () => schedule(120));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+    });
+    input.addEventListener('blur', () => setTimeout(hide, 120));
+    list.addEventListener('mousedown', (e) => {
+      // mousedown statt click: sonst schliesst das blur-Ereignis die Liste zuerst
+      const item = e.target.closest('.suggest-item');
+      if (!item) return;
       e.preventDefault();
-      applySuggestion(Number(item.dataset.index));
+      const suggestion = suggestions[Number(item.dataset.index)];
+      if (!suggestion) return;
+      input.value = suggestion.description;
+      hide();
+      input.focus();
+      onApply(suggestion);
+    });
+  }
+
+  attachSuggest(els.description, els.suggestList, (s) => {
+    if (s.jiraKey && !els.jiraKey.value.trim()) els.jiraKey.value = s.jiraKey;
+  });
+
+  // Beim Timer-Start gibt es kein Ticketfeld - ein ausgewaehltes Ticket wird mitgeschickt.
+  let timerPendingJira = null;
+  els.timerDescription.addEventListener('input', () => { timerPendingJira = null; });
+  attachSuggest(els.timerDescription, els.timerSuggestList, (s) => { timerPendingJira = s.jiraKey || null; });
+  attachSuggest(els.timerRunningDescription, els.timerRunningSuggestList, (s) => {
+    if (s.jiraKey && !els.timerRunningJira.value.trim()) els.timerRunningJira.value = s.jiraKey;
+    saveTimerFields();
+  });
+
+  // Strg+Enter (bzw. Cmd+Enter) speichert aus dem Textfeld; Enter im Timerfeld startet den Timer.
+  els.description.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      els.form.requestSubmit();
     }
   });
-  els.description.addEventListener('blur', () => setTimeout(hideSuggestions, 120));
+  els.timerDescription.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      els.timerStartBtn.click();
+    }
+  });
 
   // --- Timer ---------------------------------------------------------
 
+  const BASE_TITLE = document.title;
   let elapsedInterval = null;
 
   function renderTimer(timer) {
@@ -282,10 +312,15 @@
     els.timerRunningView.classList.toggle('hidden', !timer);
     clearInterval(elapsedInterval);
 
+    document.title = BASE_TITLE;
+    setFormError(els.timerWarning, '');
     if (!timer) {
       els.timerElapsed.textContent = '';
       return;
     }
+
+    // Typische Fallen: Timer vergessen bzw. ueber Mitternacht gelaufen.
+    const startedYesterdayOrEarlier = timer.workDate !== todayISO();
     els.timerStartLabel.textContent = timer.startTime;
     if (document.activeElement !== els.timerRunningDescription) {
       els.timerRunningDescription.value = timer.description || '';
@@ -300,6 +335,15 @@
       const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
       const s2 = String(seconds % 60).padStart(2, '0');
       els.timerElapsed.textContent = `${h}:${m}:${s2}`;
+      document.title = `${h}:${m}:${s2} · ${BASE_TITLE}`;
+      if (startedYesterdayOrEarlier) {
+        els.timerWarning.innerHTML =
+          '<div class="alert alert--error">Der Timer wurde an einem früheren Tag gestartet. ' +
+          'Einträge über Mitternacht werden nicht unterstützt – bitte verwerfen und von Hand erfassen.</div>';
+      } else if (seconds >= 10 * 3600) {
+        els.timerWarning.innerHTML =
+          '<div class="alert alert--error">Der Timer läuft seit über 10 Stunden – vergessen zu stoppen?</div>';
+      }
     };
     tick();
     elapsedInterval = setInterval(tick, 1000);
@@ -319,8 +363,10 @@
         work_date: todayISO(),
         start_time: nowHHMM(),
         description: els.timerDescription.value.trim(),
+        jira_key: timerPendingJira,
       });
       els.timerDescription.value = '';
+      timerPendingJira = null;
       renderTimer(data.timer);
     } catch (err) {
       setFormError(els.timerError, err.message);
@@ -420,6 +466,8 @@
     if (e.target.closest('.copy-btn')) {
       const ok = await copyToClipboard(entryLine(entry));
       showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');
+    } else if (e.target.closest('.repeat-btn')) {
+      startFromEntry(entry);
     } else if (e.target.closest('.edit-btn')) {
       fillFormForEdit(entry);
     } else if (e.target.closest('.transfer-box')) {
@@ -468,13 +516,30 @@
       `Gesamt: ${formatDurationLong(total)} (${total} Min)`,
     ].join('\n');
     const ok = await copyToClipboard(text);
-    showToast(ok ? 'Tag kopiert.' : 'Kopieren fehlgeschlagen.');
+    if (!ok) return showToast('Kopieren fehlgeschlagen.');
+
+    const openIds = state.entries.filter((e) => !e.transferred).map((e) => e.id);
+    if (openIds.length === 0) return showToast('Tag kopiert.');
+    showToast('Tag kopiert.', {
+      label: 'Alle als „in Jira" markieren',
+      durationMs: 15000,
+      onClick: async () => {
+        try {
+          await Api.patch('/api/entries/transferred', { ids: openIds, transferred: true });
+          state.entries.forEach((e) => { if (openIds.includes(e.id)) e.transferred = true; });
+          renderLedger();
+          showToast(`${openIds.length} Einträge als „in Jira eingetragen" markiert.`);
+        } catch (err) {
+          showToast(err.message);
+        }
+      },
+    });
   });
 
   els.sortSelect.value = state.sortMode;
   els.sortSelect.addEventListener('change', () => {
     state.sortMode = els.sortSelect.value;
-    try { localStorage.setItem(SORT_KEY, state.sortMode); } catch { /* nur Komfort */ }
+    saveSortMode(state.sortMode);
     renderLedger();
   });
 

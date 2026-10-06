@@ -6,6 +6,7 @@
 <title>Übersicht – Zeiterfassung</title>
 <link rel="stylesheet" href="/css/fonts.css" />
 <link rel="stylesheet" href="/css/styles.css" />
+<script src="/js/theme.js"></script>
 </head>
 <body>
 
@@ -76,7 +77,20 @@
   </div>
 
   <div class="card">
-    <div class="card__header"><h2>Alle Einträge</h2></div>
+    <div class="card__header">
+      <h2>Alle Einträge</h2>
+      <button type="button" class="btn btn--secondary btn--sm" id="csvBtn">Als CSV speichern</button>
+    </div>
+    <div class="ledger-toolbar">
+      <label class="checkbox-label"><input type="checkbox" id="onlyOpenToggle" /><span>nur noch nicht in Jira</span></label>
+      <label for="sortSelect">Sortierung</label>
+      <select id="sortSelect" class="select--inline">
+        <option value="time-asc">Älteste zuerst</option>
+        <option value="time-desc">Neueste zuerst</option>
+        <option value="duration-desc">Längste zuerst</option>
+        <option value="ticket">Nach Ticket</option>
+      </select>
+    </div>
     <div class="table-wrap">
       <table class="data-table">
         <thead>

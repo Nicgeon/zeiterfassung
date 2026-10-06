@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { db } = require('../db');
+const { db, audit } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
 
 const router = express.Router();
@@ -48,6 +48,14 @@ const suggestionStmt = db.prepare(
    WHERE user_id = ? AND deleted_at IS NULL
    ORDER BY id DESC LIMIT 400`
 );
+
+const allOwnStmt = db.prepare(
+  `SELECT * FROM entries WHERE user_id = ? AND deleted_at IS NULL
+   ORDER BY work_date ASC, start_time ASC, id ASC`
+);
+
+const MAX_BULK_IDS = 500;
+const MAX_IMPORT_BATCH = 50;
 
 function toMinutes(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
@@ -261,6 +269,96 @@ router.patch('/:id/transferred', (req, res) => {
   const info = setTransferredStmt.run(value, req.params.id, req.user.id);
   if (info.changes === 0) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
   res.json({ entry: serialize(getOwnStmt.get(req.params.id, req.user.id)) });
+});
+
+/** Mehrere Eintraege auf einmal als "nach Jira uebertragen" markieren (oder zuruecksetzen). */
+router.patch('/transferred', (req, res) => {
+  const { ids, transferred } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_BULK_IDS) {
+    return res.status(400).json({ error: 'Ungueltige Auswahl.' });
+  }
+  const value = transferred ? 1 : 0;
+  const apply = db.transaction(() => {
+    let changed = 0;
+    for (const id of ids) {
+      if (!Number.isInteger(id)) continue;
+      changed += setTransferredStmt.run(value, id, req.user.id).changes;
+    }
+    return changed;
+  });
+  res.json({ status: 'ok', updated: apply() });
+});
+
+// --- Datensicherung: eigene Eintraege exportieren / importieren -----------
+// Der Export enthaelt die entschluesselten Texte (Klartext!). Importiert wird
+// in kleinen Paketen, damit das globale Anfragelimit nicht greift.
+router.get('/export', (req, res) => {
+  const entries = allOwnStmt.all(req.user.id).map((row) => ({
+    workDate: row.work_date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    description: decryptField(row.description_enc),
+    jiraKey: row.jira_key,
+    transferred: !!row.transferred_to_jira,
+  }));
+  audit(req.user.id, 'data_exported', `${entries.length} Eintraege`, req.ip);
+  res.json({ format: 'zeiterfassung-export', version: 1, exportedAt: new Date().toISOString(), entries });
+});
+
+router.post('/import', (req, res) => {
+  const list = req.body && req.body.entries;
+  if (!Array.isArray(list) || list.length === 0 || list.length > MAX_IMPORT_BATCH) {
+    return res.status(400).json({ error: `Pro Anfrage sind 1 bis ${MAX_IMPORT_BATCH} Eintraege erlaubt.` });
+  }
+
+  const prepared = [];
+  for (const [index, raw] of list.entries()) {
+    const item = raw || {};
+    const result = validateAndCompute({
+      work_date: item.workDate,
+      start_time: item.startTime,
+      end_time: item.endTime,
+      description: item.description,
+      jira_key: item.jiraKey,
+    });
+    if (result.error) {
+      return res.status(400).json({ error: `Eintrag ${index + 1}: ${result.error}` });
+    }
+    prepared.push({ ...result, transferred: item.transferred ? 1 : 0 });
+  }
+
+  // Bereits vorhandene Eintraege (gleiches Datum, gleiche Zeit, gleicher Text) ueberspringen,
+  // damit ein erneuter Import nichts doppelt anlegt.
+  const dates = prepared.map((p) => p.work_date).sort();
+  const known = new Set(
+    rangeStmt.all(req.user.id, dates[0], dates[dates.length - 1]).map((row) =>
+      [row.work_date, row.start_time, row.end_time, decryptField(row.description_enc), row.jira_key || ''].join('|')
+    )
+  );
+
+  const run = db.transaction(() => {
+    let imported = 0;
+    for (const p of prepared) {
+      const key = [p.work_date, p.start_time, p.end_time, p.description, p.jira_key || ''].join('|');
+      if (known.has(key)) continue;
+      known.add(key);
+      const info = insertStmt.run({
+        user_id: req.user.id,
+        work_date: p.work_date,
+        start_time: p.start_time,
+        end_time: p.end_time,
+        duration_minutes: p.duration_minutes,
+        description_enc: encryptField(p.description),
+        jira_key: p.jira_key,
+      });
+      if (p.transferred) setTransferredStmt.run(1, info.lastInsertRowid, req.user.id);
+      imported += 1;
+    }
+    return imported;
+  });
+  const imported = run();
+  if (imported > 0) audit(req.user.id, 'data_imported', `${imported} Eintraege`, req.ip);
+  res.json({ imported, skipped: prepared.length - imported });
 });
 
 /** Loeschen legt zunaechst nur in den Papierkorb (fuer "Rueckgaengig"). */

@@ -6,6 +6,7 @@
 <title>Zeiterfassung</title>
 <link rel="stylesheet" href="/css/fonts.css" />
 <link rel="stylesheet" href="/css/styles.css" />
+<script src="/js/theme.js"></script>
 </head>
 <body>
 
@@ -40,16 +41,23 @@
       </p>
       <div class="field">
         <label for="timerDescription">Woran arbeitest du? <span class="optional-label">(optional)</span></label>
-        <input type="text" id="timerDescription" maxlength="2000" placeholder="z.B. Rechnungen prüfen" />
+        <div class="suggest-wrap">
+          <input type="text" id="timerDescription" maxlength="2000" autocomplete="off" placeholder="z.B. Rechnungen prüfen" />
+          <ul class="suggest-list hidden" id="timerSuggestList"></ul>
+        </div>
       </div>
       <button type="button" class="btn" id="timerStartBtn">Timer starten</button>
     </div>
 
     <div id="timerRunningView" class="hidden">
       <p class="field-hint mb-md">Gestartet um <strong class="mono" id="timerStartLabel"></strong>.</p>
+      <div id="timerWarning"></div>
       <div class="field">
         <label for="timerRunningDescription">Beschreibung</label>
-        <input type="text" id="timerRunningDescription" maxlength="2000" placeholder="Wird beim Stoppen übernommen" />
+        <div class="suggest-wrap">
+          <input type="text" id="timerRunningDescription" maxlength="2000" autocomplete="off" placeholder="Wird beim Stoppen übernommen" />
+          <ul class="suggest-list hidden" id="timerRunningSuggestList"></ul>
+        </div>
       </div>
       <div class="field">
         <label for="timerRunningJira">Jira-Ticket <span class="optional-label">(optional)</span></label>
@@ -85,6 +93,7 @@
         </div>
       </div>
       <div class="field-hint" id="durationHint">&nbsp;</div>
+      <div class="field-hint duration-hint--error" id="overlapHint"></div>
 
       <div class="field">
         <label for="description">Aufgabe / Beschreibung</label>
@@ -101,6 +110,7 @@
       </div>
 
       <button type="submit" class="btn btn--block" id="saveBtn">Eintrag speichern</button>
+      <p class="field-hint text-center">Tipp: Strg+Enter im Textfeld speichert.</p>
     </form>
   </div>
 
