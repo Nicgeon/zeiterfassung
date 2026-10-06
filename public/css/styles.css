@@ -200,6 +200,17 @@ a { color: var(--accent); }
   gap: 12px;
 }
 
+.ledger-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.select--inline { width: auto; padding: 5px 9px; font-size: 13px; }
+
 .auth-card {
   width: 100%;
   max-width: 380px;

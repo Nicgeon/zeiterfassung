@@ -115,6 +115,16 @@
       <button type="button" class="btn btn--secondary btn--sm" id="copyAllBtn">Tag kopieren</button>
     </div>
 
+    <div class="ledger-toolbar">
+      <label for="sortSelect">Sortierung</label>
+      <select id="sortSelect" class="select--inline">
+        <option value="time-asc">Älteste zuerst</option>
+        <option value="time-desc">Neueste zuerst</option>
+        <option value="duration-desc">Längste zuerst</option>
+        <option value="ticket">Nach Ticket</option>
+      </select>
+    </div>
+
     <div id="ledger" class="ledger"></div>
     <div class="ledger-total hidden" id="ledgerTotal">
       <span>Gesamt</span>

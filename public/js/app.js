@@ -3,11 +3,23 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
+  // Sortierung der Tagesliste: Auswahl pro Browser merken (kein Server-Zustand noetig).
+  const SORT_KEY = 'zeit.sortMode';
+  const SORT_MODES = ['time-asc', 'time-desc', 'duration-desc', 'ticket'];
+  function loadSortMode() {
+    try {
+      const saved = localStorage.getItem(SORT_KEY);
+      if (SORT_MODES.includes(saved)) return saved;
+    } catch { /* localStorage nicht verfuegbar - Standard verwenden */ }
+    return 'time-asc';
+  }
+
   const state = {
     viewDate: todayISO(),
     entries: [],
     editingId: null, // wenn gesetzt: Formular ist im Bearbeiten-Modus
     timer: null,
+    sortMode: loadSortMode(),
   };
 
   const els = {
@@ -25,6 +37,7 @@
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
+    sortSelect: $('#sortSelect'),
     dateLabel: $('#dateLabel'),
     prevDayBtn: $('#prevDayBtn'),
     nextDayBtn: $('#nextDayBtn'),
@@ -70,13 +83,33 @@
     }
   }
 
+  /** Eintraege in der vom Nutzer gewaehlten Reihenfolge (state.entries bleibt chronologisch). */
+  function sortedEntries() {
+    const list = [...state.entries];
+    const chrono = (a, b) => a.startTime.localeCompare(b.startTime) || a.id - b.id;
+    switch (state.sortMode) {
+      case 'time-desc':
+        return list.sort((a, b) => chrono(b, a));
+      case 'duration-desc':
+        return list.sort((a, b) => b.durationMinutes - a.durationMinutes || chrono(a, b));
+      case 'ticket':
+        // Eintraege ohne Ticket ans Ende, sonst alphabetisch, innerhalb eines Tickets chronologisch.
+        return list.sort((a, b) => {
+          if (!a.jiraKey !== !b.jiraKey) return a.jiraKey ? -1 : 1;
+          return (a.jiraKey || '').localeCompare(b.jiraKey || '', 'de') || chrono(a, b);
+        });
+      default:
+        return list.sort(chrono);
+    }
+  }
+
   function defaultStartTime() {
     if (state.entries.length === 0) {
       return isTodayISO(state.viewDate) ? nowHHMM() : '';
     }
-    // Kette an das Ende des letzten (spaetesten) Eintrags des Tages an.
-    const last = state.entries[state.entries.length - 1];
-    return last.endTime;
+    // Kette an das Ende des letzten (spaetesten) Eintrags des Tages an -
+    // unabhaengig von der gewaehlten Anzeigereihenfolge.
+    return state.entries.reduce((latest, e) => (e.endTime > latest ? e.endTime : latest), '');
   }
 
   function resetFormForNewEntry() {
@@ -119,7 +152,7 @@
     }
 
     els.copyAllBtn.disabled = false;
-    els.ledger.innerHTML = state.entries.map((e) => `
+    els.ledger.innerHTML = sortedEntries().map((e) => `
       <div class="ledger-row${e.transferred ? ' ledger-row--transferred' : ''}" data-id="${e.id}">
         <div class="ledger-row__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}<br>${formatDurationLong(e.durationMinutes)}</div>
         <div class="ledger-row__body">
@@ -430,12 +463,19 @@
     if (state.entries.length === 0) return;
     const total = state.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
     const text = [
-      ...state.entries.map(entryLine),
+      ...sortedEntries().map(entryLine),
       '',
       `Gesamt: ${formatDurationLong(total)} (${total} Min)`,
     ].join('\n');
     const ok = await copyToClipboard(text);
     showToast(ok ? 'Tag kopiert.' : 'Kopieren fehlgeschlagen.');
+  });
+
+  els.sortSelect.value = state.sortMode;
+  els.sortSelect.addEventListener('change', () => {
+    state.sortMode = els.sortSelect.value;
+    try { localStorage.setItem(SORT_KEY, state.sortMode); } catch { /* nur Komfort */ }
+    renderLedger();
   });
 
   els.prevDayBtn.addEventListener('click', () => { state.viewDate = shiftDate(state.viewDate, -1); loadEntries(); });
