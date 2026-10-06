@@ -7,6 +7,7 @@
 const express = require('express');
 const { db } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
+const { convertTicketLinks } = require('../../public/js/tickets');
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ function toMinutes(hhmm) {
 }
 
 function cleanJira(value) {
-  const key = value ? String(value).trim().slice(0, 40) : '';
+  const key = value ? convertTicketLinks(String(value).trim()).slice(0, 40) : '';
   return key === '' ? null : key;
 }
 

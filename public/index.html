@@ -61,7 +61,7 @@
       </div>
       <div class="field">
         <label for="timerRunningJira">Jira-Ticket <span class="optional-label">(optional)</span></label>
-        <input type="text" id="timerRunningJira" class="mono" maxlength="40" placeholder="z.B. PROJ-123" />
+        <input type="text" id="timerRunningJira" class="mono" maxlength="500" placeholder="z.B. PROJ-123" />
       </div>
       <div class="flex gap-md flex-wrap">
         <button type="button" class="btn" id="timerStopBtn">Stoppen &amp; eintragen</button>
@@ -106,7 +106,7 @@
 
       <div class="field">
         <label for="jiraKey">Jira-Ticket <span class="optional-label">(optional)</span></label>
-        <input type="text" id="jiraKey" class="mono" placeholder="z.B. PROJ-123" maxlength="40" />
+        <input type="text" id="jiraKey" class="mono" placeholder="z.B. PROJ-123" maxlength="500" />
       </div>
 
       <button type="submit" class="btn btn--block" id="saveBtn">Eintrag speichern</button>
@@ -146,6 +146,7 @@
 
 <script src="/js/util.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/tickets.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

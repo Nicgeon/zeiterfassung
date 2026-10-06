@@ -3,6 +3,7 @@
 const express = require('express');
 const { db, audit } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
+const { convertTicketLinks } = require('../../public/js/tickets');
 
 const router = express.Router();
 
@@ -78,7 +79,8 @@ function validateAndCompute(body) {
     return { error: 'Dauer wirkt unrealistisch hoch. Bitte pruefen.' };
   }
 
-  let jiraKey = body.jira_key ? String(body.jira_key).trim().slice(0, 40) : null;
+  // Eingefuegte Jira-Links werden zur Ticketnummer, damit nie ein halber Link gespeichert wird.
+  let jiraKey = body.jira_key ? convertTicketLinks(String(body.jira_key).trim()).slice(0, 40) : null;
   if (jiraKey === '') jiraKey = null;
 
   return {

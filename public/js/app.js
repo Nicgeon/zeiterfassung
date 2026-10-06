@@ -287,6 +287,52 @@
     saveTimerFields();
   });
 
+  // --- Jira-Links -> Ticketnummern ----------------------------------
+
+  /** Ticketfeld: ein eingefuegter Jira-Link wird sofort zur Ticketnummer. */
+  function convertLinksInTicketField(input, onChange) {
+    input.addEventListener('input', () => {
+      const converted = convertTicketLinks(input.value);
+      if (converted === input.value) return;
+      input.value = converted.trim();
+      if (onChange) onChange();
+    });
+  }
+
+  /**
+   * Textfeld: Jira-Links im eingefuegten Text werden zu Ticketnummern. Ist das
+   * Ticketfeld noch leer, wird die erste gefundene Nummer dort eingetragen.
+   */
+  function convertLinksOnPaste(input, onTicketKey) {
+    input.addEventListener('paste', (e) => {
+      const text = e.clipboardData && e.clipboardData.getData('text');
+      if (!text) return;
+      const converted = convertTicketLinks(text);
+      if (converted === text) return;
+      e.preventDefault();
+      // insertText erhaelt den Rueckgaengig-Verlauf des Browsers
+      if (!document.execCommand('insertText', false, converted)) {
+        input.setRangeText(converted, input.selectionStart, input.selectionEnd, 'end');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const key = firstLinkedKey(text);
+      if (key) onTicketKey(key);
+    });
+  }
+
+  convertLinksInTicketField(els.jiraKey);
+  convertLinksInTicketField(els.timerRunningJira, saveTimerFields);
+  convertLinksOnPaste(els.description, (key) => {
+    if (!els.jiraKey.value.trim()) els.jiraKey.value = key;
+  });
+  convertLinksOnPaste(els.timerDescription, (key) => { if (!timerPendingJira) timerPendingJira = key; });
+  convertLinksOnPaste(els.timerRunningDescription, (key) => {
+    if (!els.timerRunningJira.value.trim()) {
+      els.timerRunningJira.value = key;
+      saveTimerFields();
+    }
+  });
+
   // Strg+Enter (bzw. Cmd+Enter) speichert aus dem Textfeld; Enter im Timerfeld startet den Timer.
   els.description.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -432,8 +478,8 @@
       work_date: state.viewDate,
       start_time: els.startTime.value,
       end_time: els.endTime.value,
-      description: els.description.value,
-      jira_key: els.jiraKey.value.trim() || null,
+      description: convertTicketLinks(els.description.value),
+      jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null,
     };
     els.saveBtn.disabled = true;
     try {

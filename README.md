@@ -245,6 +245,14 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   übersprungen). Die Datei enthält die Texte **unverschlüsselt**. In der
   Übersicht gibt es zusätzlich einen CSV-Export der angezeigten Tabelle und
   den Filter „nur noch nicht in Jira".
+- **Jira-Links werden zu Ticketnummern**: Ein eingefügter Link wie
+  `https://firma.atlassian.net/browse/ITPKK-1234` oder ein Service-Desk-Link
+  (`…/jira/servicedesk/projects/ITPKB/queues/custom/33/ITPKB-1234`) wird im
+  Ticketfeld sofort zu `ITPKK-1234`. Im Beschreibungstext werden eingefügte
+  Links ebenfalls ersetzt, und ein noch leeres Ticketfeld wird dabei mit der
+  Nummer gefüllt. Erkannt werden `*.atlassian.net`-Adressen sowie Adressen mit
+  `/browse/`, `/jira/` oder `/servicedesk/` im Pfad; andere Links bleiben
+  unverändert. Die Logik liegt in `public/js/tickets.js` (Browser und Server).
 - **Konto**: Passwort ändern, 2FA (Authenticator-App) und Passkeys unter
   "Konto" einrichten.
 - **Wochenbericht** (nur für als Azubi gekennzeichnete Konten): Export der
