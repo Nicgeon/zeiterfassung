@@ -1,0 +1,3 @@
+# Windows-Stapeldateien brauchen CRLF (Sprungmarken), Skripte fuer Linux/macOS LF.
+*.bat text eol=crlf
+*.sh text eol=lf

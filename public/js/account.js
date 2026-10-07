@@ -71,6 +71,67 @@
     showToast(copyTimesToggle.checked ? 'Uhrzeiten werden mitkopiert.' : 'Es wird ohne Uhrzeiten kopiert.');
   });
 
+  // --- Updates (nur lokaler Betrieb) --------------------------------
+
+  const updateEls = {
+    badge: $('#updateBadge'),
+    info: $('#updateInfo'),
+    meta: $('#updateMeta'),
+    checkBtn: $('#updateCheckBtn'),
+    installBtn: $('#updateInstallBtn'),
+  };
+
+  function renderUpdateStatus(s) {
+    const fmt = (iso) => new Date(iso).toLocaleString('de-DE');
+    updateEls.installBtn.classList.toggle('hidden', !s.available);
+    updateEls.badge.className = 'badge';
+    if (s.error) {
+      updateEls.badge.textContent = 'Fehler';
+      updateEls.badge.classList.add('badge--danger');
+      updateEls.info.textContent = `Die Prüfung ist fehlgeschlagen: ${s.error}`;
+    } else if (!s.checked) {
+      updateEls.badge.textContent = '–';
+      updateEls.info.textContent = 'Noch nicht geprüft.';
+    } else if (s.available) {
+      updateEls.badge.textContent = 'Update verfügbar';
+      updateEls.badge.classList.add('badge--accent');
+      updateEls.info.textContent = ZeitUpdate.describe(s);
+    } else {
+      updateEls.badge.textContent = 'Aktuell';
+      updateEls.badge.classList.add('badge--success');
+      updateEls.info.textContent = `Diese Installation entspricht dem Stand des Branches „${s.branch}".`;
+    }
+    const commit = s.currentCommit ? `Installierter Stand: ${s.currentCommit.slice(0, 7)} · ` : '';
+    updateEls.meta.textContent = `${commit}Quelle: ${s.repo}, Branch ${s.branch}${s.checkedAt ? ` · zuletzt geprüft: ${fmt(s.checkedAt)}` : ''}`;
+  }
+
+  async function loadUpdateStatus(force) {
+    try {
+      renderUpdateStatus(force ? await ZeitUpdate.check() : await ZeitUpdate.status());
+    } catch (err) {
+      updateEls.info.textContent = err.message;
+    }
+  }
+
+  updateEls.checkBtn.addEventListener('click', async () => {
+    updateEls.checkBtn.disabled = true;
+    updateEls.info.textContent = 'Wird geprüft …';
+    await loadUpdateStatus(true);
+    updateEls.checkBtn.disabled = false;
+  });
+  updateEls.installBtn.addEventListener('click', async () => {
+    updateEls.installBtn.disabled = true;
+    updateEls.checkBtn.disabled = true;
+    try {
+      await ZeitUpdate.install((message) => { updateEls.info.textContent = message; });
+    } catch (err) {
+      updateEls.info.textContent = `Update fehlgeschlagen: ${err.message}`;
+    } finally {
+      updateEls.installBtn.disabled = false;
+      updateEls.checkBtn.disabled = false;
+    }
+  });
+
   // --- Datensicherung -----------------------------------------------
 
   const backupError = $('#backupError');
@@ -140,6 +201,7 @@
     if (me.user.isApprentice) document.getElementById('weeklyNavLink').classList.remove('hidden');
     await Api.primeCsrf();
     if (me.localMode) {
+      loadUpdateStatus(false);
       const toggle = document.getElementById('localApprenticeToggle');
       toggle.checked = !!me.user.isApprentice;
       toggle.addEventListener('change', async () => {

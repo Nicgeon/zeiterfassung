@@ -26,6 +26,7 @@ const EVENT_LABELS = {
   user_apprentice_disabled: 'Azubi-Kennzeichnung entfernt',
   data_exported: 'Eigene Daten exportiert',
   data_imported: 'Daten importiert',
+  update_installed: 'Update installiert',
 };
 
 function labelFor(event) {

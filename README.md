@@ -523,6 +523,35 @@ Die Datenbank (Docker-Volume) bleibt dabei erhalten.
   lokale Zeitzone stimmt, heißt aber auch: Eine falsch gestellte Uhr am
   Arbeitsplatz führt zu falschen Zeiten.
 
+## Automatische Updates (lokaler Betrieb)
+
+Im lokalen Betrieb prüft die Anwendung beim Start und danach alle 4 Stunden, ob
+der Stand auf GitHub von der installierten Version abweicht. Gibt es Änderungen,
+erscheint oben ein Hinweis **„Update verfügbar – Jetzt aktualisieren?"** mit den
+Knöpfen *Jetzt aktualisieren* und *Später*. Unter *Konto → Updates* lässt sich
+jederzeit manuell prüfen.
+
+- **Vergleich:** Für jede Programmdatei wird der Git-Hash berechnet und mit dem
+  Dateibaum des Branches verglichen, es braucht keine Versionsnummer.
+- **Installieren:** Alle geänderten Dateien werden zuerst heruntergeladen und
+  gegen ihren Hash geprüft. Erst wenn alles stimmt, werden sie ersetzt;
+  bei einem Fehler bleibt die Installation unverändert. Die bisherigen Dateien
+  liegen als Sicherung im Datenordner (`update-backup/`, die letzten 3 Stände).
+  Danach startet sich die Anwendung über `start-local` selbst neu; ändern sich
+  Abhängigkeiten (`package.json`), werden sie vor dem Neustart installiert.
+- **Was nie angefasst wird:** `.env`, die Datenbank, `keys.json` und
+  `node_modules`. Eigene Änderungen an Programmdateien werden beim Update
+  überschrieben (die Sicherung enthält sie).
+- **Branch wählen:** `UPDATE_BRANCH=main` (Standard) folgt dem freigegebenen
+  Stand, `UPDATE_BRANCH=testing` der Vorabversion zum Ausprobieren. In der
+  `.env` bzw. als Umgebungsvariable setzen.
+- **Ausschalten:** `UPDATE_CHECK=false`.
+- **Servermodus:** Dort gibt es keine Selbstaktualisierung; dort bleibt es bei
+  `git pull` und `docker compose up -d --build`.
+- **Voraussetzung:** Internetzugang zu `api.github.com` und
+  `raw.githubusercontent.com`. Hinter einem Firmen-Proxy kann die Prüfung
+  fehlschlagen; die Fehlermeldung steht dann unter *Konto → Updates*.
+
 ## Aufbau für die Weiterentwicklung
 
 Server- und Lokalbetrieb sind **dieselbe Codebasis**; umgeschaltet wird nur

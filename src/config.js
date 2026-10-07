@@ -147,4 +147,11 @@ module.exports = {
   // Wenn true: Anfragen mit einem nicht konfigurierten Hostnamen werden
   // abgewiesen, statt die Anwendung unter beliebigen Namen auszuliefern.
   strictHost: localMode ? true : optionalBool('STRICT_HOST', false),
+  // Update-Pruefung (nur lokaler Betrieb): vergleicht die installierten Dateien mit
+  // dem Stand eines GitHub-Branches und fragt, ob aktualisiert werden soll.
+  updateEnabled: localMode && optionalBool('UPDATE_CHECK', true),
+  updateRepo: optional('UPDATE_REPO', 'Nicgeon/zeiterfassung'),
+  updateBranch: optional('UPDATE_BRANCH', 'main'),
+  updateToken: optional('UPDATE_TOKEN', null), // nur fuer private Repositories noetig
+  updateCheckHours: Math.max(0.25, parseFloat(optional('UPDATE_CHECK_HOURS', '4')) || 4),
 };

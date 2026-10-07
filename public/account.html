@@ -47,6 +47,20 @@
     </div>
   </div>
 
+  <!-- Updates (nur lokaler Betrieb) -->
+  <div class="card local-only" id="updateCard">
+    <div class="card__header">
+      <h2>Updates</h2>
+      <span class="badge" id="updateBadge">–</span>
+    </div>
+    <p class="text-muted text-sm" id="updateInfo">Wird geprüft …</p>
+    <div class="flex gap-sm flex-wrap">
+      <button type="button" class="btn btn--secondary" id="updateCheckBtn">Nach Updates suchen</button>
+      <button type="button" class="btn hidden" id="updateInstallBtn">Jetzt aktualisieren</button>
+    </div>
+    <p class="field-hint" id="updateMeta"></p>
+  </div>
+
   <!-- Datensicherung (beide Betriebsarten) -->
   <div class="card">
     <div class="card__header"><h2>Datensicherung</h2></div>
@@ -171,6 +185,7 @@
 <script src="/vendor/simplewebauthn-browser.umd.min.js"></script>
 <script src="/js/util.js"></script>
 <script src="/js/api.js"></script>
+<script src="/js/update.js"></script>
 <script src="/js/account.js"></script>
 </body>
 </html>

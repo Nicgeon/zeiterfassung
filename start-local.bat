@@ -23,11 +23,31 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set LOCAL_MODE=true
+set ZEIT_SUPERVISED=1
+set OPEN_BROWSER=1
+
+:run
 if not exist node_modules (
   echo Erster Start: Abhaengigkeiten werden installiert ...
   call npm install --omit=dev
-  if errorlevel 1 ( pause & exit /b 1 )
+  if errorlevel 1 (
+    pause
+    exit /b 1
+  )
 )
+
+rem Ein Update hat Abhaengigkeiten geaendert: vor dem Start installieren.
+if exist .update-install-pending (
+  echo Update: Abhaengigkeiten werden installiert ...
+  call npm install --omit=dev
+  if errorlevel 1 (
+    pause
+    exit /b 1
+  )
+  del .update-install-pending
+)
+
 rem Native Module (better-sqlite3) gelten nur fuer die Node-Version, mit der sie installiert wurden.
 rem Wechselt die Version, wird das Modul automatisch neu gebaut.
 node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
@@ -41,7 +61,11 @@ if errorlevel 1 (
     exit /b 1
   )
 )
-set LOCAL_MODE=true
-set OPEN_BROWSER=1
+
 node src\server.js
+if "%errorlevel%"=="75" (
+  echo Neustart nach Update ...
+  set OPEN_BROWSER=0
+  goto run
+)
 pause

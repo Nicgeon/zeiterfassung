@@ -19,6 +19,8 @@ const accountRoutes = require('./routes/account');
 const entriesRoutes = require('./routes/entries');
 const timerRoutes = require('./routes/timer');
 const adminRoutes = require('./routes/admin');
+const updateRoutes = require('./routes/update');
+const updater = require('./lib/updater');
 
 const app = express();
 
@@ -194,6 +196,7 @@ app.use('/api/entries', requireAuth, entriesRoutes);
 app.use('/api/timer', requireAuth, timerRoutes);
 app.use('/api/account', requireAuth, accountRoutes);
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
+app.use('/api/update', requireAuth, updateRoutes);
 
 app.use((err, req, res, next) => {
   if (err && err.code === 'EBADCSRFTOKEN') {
@@ -253,6 +256,7 @@ app.use((req, res) => res.status(404).sendFile(path.join(__dirname, '..', 'publi
 // Aufbewahrungsfrist des Protokolls durchsetzen und Papierkorb leeren:
 // einmal beim Start, danach taeglich.
 runRetentionCleanup();
+updater.startSchedule();
 setInterval(runRetentionCleanup, 24 * 60 * 60 * 1000).unref();
 
 const listenArgs = config.host ? [config.port, config.host] : [config.port];

@@ -847,3 +847,19 @@ table.data-table {
   .entry__time { flex-basis: 100%; }
   .entry__dur { flex: 1 1 auto; text-align: left; }
 }
+
+/* --- Update-Hinweis (lokaler Betrieb) ----------------------------------------- */
+
+.update-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px max(24px, calc((100% - 1120px) / 2 + 24px));
+  background: var(--accent-wash);
+  border-bottom: 1px solid var(--accent-line);
+  font-size: 14px;
+}
+.update-banner__text { flex: 1 1 320px; min-width: 0; }
+.update-banner__actions { display: flex; gap: 8px; }
