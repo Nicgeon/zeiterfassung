@@ -550,7 +550,17 @@ jederzeit manuell prüfen.
   `git pull` und `docker compose up -d --build`.
 - **Voraussetzung:** Internetzugang zu `api.github.com` und
   `raw.githubusercontent.com`. Hinter einem Firmen-Proxy kann die Prüfung
-  fehlschlagen; die Fehlermeldung steht dann unter *Konto → Updates*.
+  fehlschlagen (die Fehlermeldung steht unter *Konto → Updates*). Dann Node
+  mitteilen, den Proxy zu nutzen: `NODE_USE_ENV_PROXY=1` und `HTTPS_PROXY=...`
+  setzen (Node 22.21 oder neuer), bei eigener Firmen-CA zusätzlich
+  `NODE_EXTRA_CA_CERTS=<Zertifikatsdatei>`.
+- **Ratenlimit:** GitHub begrenzt anonyme Anfragen pro Adresse. Die Prüfung
+  nutzt bedingte Anfragen, die nicht mitzählen, solange sich nichts ändert.
+  Sitzen sehr viele Rechner hinter einer Adresse, hilft `UPDATE_TOKEN` (ein
+  GitHub-Token mit Leserecht).
+- **Erstmalig einführen:** Installationen, die noch aus einer Version ohne
+  diese Funktion stammen, müssen einmal von Hand aktualisiert werden (neue
+  Dateien darüberkopieren). Danach läuft es automatisch.
 
 ## Aufbau für die Weiterentwicklung
 

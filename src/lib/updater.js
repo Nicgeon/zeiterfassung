@@ -105,7 +105,7 @@ async function getJson(url) {
         'Bitte später erneut versuchen oder UPDATE_TOKEN setzen.'
     );
   }
-  if (res.status === 404) throw new Error(`Repository oder Branch nicht gefunden (${config.updateRepo}, ${config.updateBranch}).`);
+  if (res.status === 404 || res.status === 422) throw new Error(`Repository oder Branch nicht gefunden (${config.updateRepo}, ${config.updateBranch}).`);
   if (!res.ok) throw new Error(`GitHub antwortete mit Status ${res.status}.`);
   const body = await res.json();
   const etag = res.headers.get('etag');
