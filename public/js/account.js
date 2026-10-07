@@ -82,6 +82,9 @@
   };
 
   function renderUpdateStatus(s) {
+    // Update-Pruefung abgeschaltet (UPDATE_CHECK=false): Karte ausblenden
+    $('#updateCard').classList.toggle('hidden', !s.enabled);
+    if (!s.enabled) return;
     const fmt = (iso) => new Date(iso).toLocaleString('de-DE');
     updateEls.installBtn.classList.toggle('hidden', !s.available);
     updateEls.badge.className = 'badge';

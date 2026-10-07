@@ -30,6 +30,10 @@
   --radius-sm: 8px;
   --radius-md: 12px;
 
+  /* Breite der Inhalte und Skalierung der ganzen Oberflaeche (siehe "Grosse Bildschirme") */
+  --page-max: 1400px;
+  --ui-zoom: 1;
+
   --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -131,7 +135,7 @@ a { color: var(--accent); }
   justify-content: space-between;
   gap: 4px 24px;
   min-height: 60px;
-  padding: env(safe-area-inset-top, 0px) max(24px, calc((100% - 1120px) / 2 + 24px)) 0;
+  padding: env(safe-area-inset-top, 0px) max(24px, calc((100% - var(--page-max)) / 2 + 24px)) 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
@@ -184,17 +188,17 @@ a { color: var(--accent); }
 }
 
 .shell {
-  max-width: 720px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 32px 24px 64px;
 }
 
 .shell--wide,
-.shell--page { max-width: 1120px; }
+.shell--page { max-width: var(--page-max); }
 
 .auth-shell {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: calc(100vh / var(--ui-zoom));
+  min-height: calc(100dvh / var(--ui-zoom));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -683,7 +687,7 @@ table.data-table {
 
 .page-grid { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
 .page-main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.page-side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.page-side { flex: 1 1 300px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .page-main > .card + .card,
 .page-side > .card + .card { margin-top: 0; }
 
@@ -856,10 +860,28 @@ table.data-table {
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
-  padding: 10px max(24px, calc((100% - 1120px) / 2 + 24px));
+  padding: 10px max(24px, calc((100% - var(--page-max)) / 2 + 24px));
   background: var(--accent-wash);
   border-bottom: 1px solid var(--accent-line);
   font-size: 14px;
 }
 .update-banner__text { flex: 1 1 320px; min-width: 0; }
 .update-banner__actions { display: flex; gap: 8px; }
+
+
+/* --- Grosse Bildschirme ---------------------------------------------------------
+   Die Inhalte nutzen die volle Breite (bis --page-max). Auf grossen Monitoren wuerde
+   dadurch alles winzig wirken, deshalb wird die ganze Oberflaeche in Stufen
+   vergroessert (zoom skaliert Schrift, Abstaende und Symbole gemeinsam). So bleibt
+   die Zeilenlaenge gleich und der Text auch aus Entfernung gut lesbar. Die Stufen
+   sind so gewaehlt, dass die Layoutbreite immer bei etwa 1450-1560 px liegt.
+   Browser-Zoom (Strg +/-) funktioniert zusaetzlich wie gewohnt. */
+
+html { zoom: var(--ui-zoom); }
+
+@media (min-width: 1600px) { :root { --ui-zoom: 1.1; } }
+@media (min-width: 1800px) { :root { --ui-zoom: 1.2; } }
+@media (min-width: 2000px) { :root { --ui-zoom: 1.35; } }
+@media (min-width: 2400px) { :root { --ui-zoom: 1.55; } }
+@media (min-width: 2900px) { :root { --ui-zoom: 1.9; } }
+@media (min-width: 3600px) { :root { --ui-zoom: 2.3; } }
