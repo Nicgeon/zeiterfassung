@@ -174,6 +174,7 @@ function status() {
     branch: config.updateBranch,
     supervised: process.env.ZEIT_SUPERVISED === '1',
     currentCommit: state.appliedCommit || null,
+    appliedAt: state.appliedAt || null,
     busy,
   };
   if (!lastCheck) return { ...base, checked: false, available: false };

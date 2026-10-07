@@ -102,7 +102,8 @@
       updateEls.info.textContent = `Diese Installation entspricht dem Stand des Branches „${s.branch}".`;
     }
     const commit = s.currentCommit ? `Installierter Stand: ${s.currentCommit.slice(0, 7)} · ` : '';
-    updateEls.meta.textContent = `${commit}Quelle: ${s.repo}, Branch ${s.branch}${s.checkedAt ? ` · zuletzt geprüft: ${fmt(s.checkedAt)}` : ''}`;
+    const applied = s.appliedAt ? `Zuletzt aktualisiert: ${fmt(s.appliedAt)} · ` : '';
+    updateEls.meta.textContent = `${commit}${applied}Quelle: ${s.repo}, Branch ${s.branch}${s.checkedAt ? ` · zuletzt geprüft: ${fmt(s.checkedAt)}` : ''}`;
   }
 
   async function loadUpdateStatus(force) {
