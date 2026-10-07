@@ -111,11 +111,21 @@ app.use(cookieParser());
 // ein Session-Cookie in so einer Antwort wuerde an ALLE Besucher verteilt
 // und alle waeren als dieselbe Person angemeldet.
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
-for (const dir of ['css', 'js', 'fonts', 'vendor']) {
+// CSS/JS aendern sich mit jedem Update: "no-cache" heisst, der Browser darf sie speichern,
+// fragt aber bei jedem Aufruf per ETag nach (meist nur eine kurze 304-Antwort). Mit einer
+// festen Gueltigkeitsdauer liefe nach einem Update bis zu eine Stunde lang alter Code im
+// Browser weiter. Schriften aendern sich praktisch nie und duerfen laenger gecacht werden.
+const CACHE_CONTROL = {
+  css: 'public, no-cache',
+  js: 'public, no-cache',
+  vendor: 'public, no-cache',
+  fonts: 'public, max-age=86400',
+};
+for (const dir of Object.keys(CACHE_CONTROL)) {
   app.use(
     `/${dir}`,
     express.static(path.join(PUBLIC_DIR, dir), {
-      setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=3600'),
+      setHeaders: (res) => res.setHeader('Cache-Control', CACHE_CONTROL[dir]),
     })
   );
 }
