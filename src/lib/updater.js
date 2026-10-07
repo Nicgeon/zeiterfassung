@@ -89,12 +89,28 @@ function headers() {
   return h;
 }
 
+// Bedingte Anfragen (ETag): Aendert sich nichts, antwortet GitHub mit 304 - das zaehlt
+// nicht gegen das Ratenlimit (wichtig, wenn viele Rechner hinter einer IP sitzen).
+const etagCache = new Map();
+
 async function getJson(url) {
-  const res = await fetch(url, { headers: headers(), signal: AbortSignal.timeout(15000) });
-  if (res.status === 403 || res.status === 429) throw new Error('GitHub hat die Anfrage begrenzt (Ratenlimit). Bitte spaeter erneut versuchen.');
+  const h = headers();
+  const cached = etagCache.get(url);
+  if (cached) h['If-None-Match'] = cached.etag;
+  const res = await fetch(url, { headers: h, signal: AbortSignal.timeout(15000) });
+  if (res.status === 304 && cached) return cached.body;
+  if (res.status === 403 || res.status === 429) {
+    throw new Error(
+      'GitHub hat die Anfragen begrenzt (Ratenlimit, z. B. weil viele Rechner dieselbe Adresse nutzen). ' +
+        'Bitte später erneut versuchen oder UPDATE_TOKEN setzen.'
+    );
+  }
   if (res.status === 404) throw new Error(`Repository oder Branch nicht gefunden (${config.updateRepo}, ${config.updateBranch}).`);
   if (!res.ok) throw new Error(`GitHub antwortete mit Status ${res.status}.`);
-  return res.json();
+  const body = await res.json();
+  const etag = res.headers.get('etag');
+  if (etag) etagCache.set(url, { etag, body });
+  return body;
 }
 
 async function fetchRemote() {
