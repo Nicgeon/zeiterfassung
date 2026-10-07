@@ -27,14 +27,24 @@
 
 <div class="shell">
 
-  <!-- Einstellungen (nur lokaler Modus) -->
-  <div class="card local-only" id="localSettingsCard">
+  <!-- Einstellungen -->
+  <div class="card" id="settingsCard">
     <div class="card__header"><h2>Einstellungen</h2></div>
     <label class="checkbox-label">
-      <input type="checkbox" id="localApprenticeToggle" />
-      <span>Ich bin Azubi (aktiviert den Wochenbericht-Export)</span>
+      <input type="checkbox" id="copyTimesToggle" />
+      <span>Uhrzeiten beim Kopieren mitnehmen</span>
     </label>
-    <p class="field-hint">Die Daten liegen verschluesselt nur auf diesem Rechner.</p>
+    <p class="field-hint">
+      Standard: Es wird ohne Uhrzeiten kopiert, z. B. „60 Min – Tagesabschluss [ITPKK-1182]".
+      Mit dieser Option steht davor zusätzlich die Zeit („08:00–09:00 (60 Min) – …"). Gilt für diesen Browser.
+    </p>
+    <div class="local-only" id="localSettings">
+      <label class="checkbox-label mt-lg">
+        <input type="checkbox" id="localApprenticeToggle" />
+        <span>Ich bin Azubi (aktiviert den Wochenbericht-Export)</span>
+      </label>
+      <p class="field-hint">Die Daten liegen verschlüsselt nur auf diesem Rechner.</p>
+    </div>
   </div>
 
   <!-- Datensicherung (beide Betriebsarten) -->

@@ -29,14 +29,22 @@
     overlapHint: $('#overlapHint'),
     sortSelect: $('#sortSelect'),
     dateLabel: $('#dateLabel'),
+    weekdayLabel: $('#weekdayLabel'),
+    entryCount: $('#entryCount'),
+    summaryLabel: $('#summaryLabel'),
+    sumTotal: $('#sumTotal'),
+    sumBarDone: $('#sumBarDone'),
+    sumBarOpen: $('#sumBarOpen'),
+    sumDone: $('#sumDone'),
+    sumOpen: $('#sumOpen'),
+    ticketList: $('#ticketList'),
+    timerCard: $('#timerCard'),
     prevDayBtn: $('#prevDayBtn'),
     nextDayBtn: $('#nextDayBtn'),
     todayBtn: $('#todayBtn'),
     copyAllBtn: $('#copyAllBtn'),
     copyOpenBtn: $('#copyOpenBtn'),
     ledger: $('#ledger'),
-    ledgerTotal: $('#ledgerTotal'),
-    ledgerTotalValue: $('#ledgerTotalValue'),
     suggestList: $('#suggestList'),
     timerError: $('#timerError'),
     timerWarning: $('#timerWarning'),
@@ -144,15 +152,70 @@
     showToast('Text und Ticket übernommen – Zeiten prüfen.');
   }
 
+  function entryRow(e) {
+    const label = e.transferred ? 'In Jira eingetragen – Markierung entfernen' : 'Als in Jira eingetragen markieren';
+    return `
+      <div class="entry${e.transferred ? ' entry--done' : ''}" data-id="${e.id}">
+        <div class="entry__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}</div>
+        <div class="entry__body">
+          <div class="entry__desc">${escapeHtml(e.description)}</div>
+          ${e.jiraKey ? `<div class="entry__meta"><span class="jira-tag">${escapeHtml(e.jiraKey)}</span></div>` : ''}
+        </div>
+        <div class="entry__dur mono">${formatDurationLong(e.durationMinutes)}</div>
+        <div class="entry__actions">
+          <button type="button" class="icon-btn transfer-btn" aria-pressed="${e.transferred}" title="${label}" aria-label="${label}">
+            <span class="transfer-dot">${ICONS.check}</span>
+          </button>
+          <button type="button" class="icon-btn repeat-btn" title="Nochmal erfassen (Text und Ticket übernehmen)" aria-label="Nochmal erfassen">${ICONS.repeat}</button>
+          <button type="button" class="icon-btn copy-btn" title="Eintrag kopieren" aria-label="Eintrag kopieren">${ICONS.copy}</button>
+          <button type="button" class="icon-btn edit-btn" title="Bearbeiten" aria-label="Eintrag bearbeiten">${ICONS.edit}</button>
+          <button type="button" class="icon-btn delete-btn" title="Löschen" aria-label="Eintrag löschen">${ICONS.trash}</button>
+        </div>
+      </div>`;
+  }
+
+  function renderSummary() {
+    const total = state.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+    const done = state.entries.filter((e) => e.transferred).reduce((sum, e) => sum + e.durationMinutes, 0);
+    const open = total - done;
+
+    els.summaryLabel.textContent = isTodayISO(state.viewDate) ? 'Heute erfasst' : 'An diesem Tag erfasst';
+    els.sumTotal.textContent = formatHM(total);
+    els.sumDone.textContent = formatHM(done);
+    els.sumOpen.textContent = formatHM(open);
+    // Breite per CSSOM setzen (ein style-Attribut im HTML erlaubt die strikte CSP nicht)
+    els.sumBarDone.style.width = total ? `${(done / total) * 100}%` : '0%';
+    els.sumBarOpen.style.width = total ? `${(open / total) * 100}%` : '0%';
+
+    // Summen je Ticket, laengste zuerst, "Ohne Ticket" ganz unten
+    const byKey = new Map();
+    for (const e of state.entries) {
+      const key = e.jiraKey || '';
+      byKey.set(key, (byKey.get(key) || 0) + e.durationMinutes);
+    }
+    const rows = [...byKey.entries()].sort((a, b) => (!a[0] - !b[0]) || b[1] - a[1]);
+    els.ticketList.innerHTML = rows.length
+      ? rows.map(([key, minutes]) => `
+          <div class="ticket-row">
+            ${key ? `<span class="mono ticket-row__key">${escapeHtml(key)}</span>` : '<span class="ticket-row__none">Ohne Ticket</span>'}
+            <span class="mono">${formatHM(minutes)}</span>
+          </div>`).join('')
+      : '<div class="ticket-list--empty">Noch keine Einträge.</div>';
+  }
+
   function renderLedger() {
-    els.dateLabel.textContent = formatDateLong(state.viewDate);
+    const parts = formatDateParts(state.viewDate);
+    els.weekdayLabel.textContent = parts.weekday;
+    els.dateLabel.textContent = parts.date;
     els.nowBtn.classList.toggle('hidden', !isTodayISO(state.viewDate));
+    els.entryCount.textContent = state.entries.length ? `· ${state.entries.length}` : '';
+    renderSummary();
 
     if (state.entries.length === 0) {
-      els.ledger.innerHTML = '<div class="ledger-empty">Noch keine Eintraege fuer diesen Tag.</div>';
-      els.ledgerTotal.classList.add('hidden');
+      els.ledger.innerHTML = '<div class="list-empty">Noch keine Einträge für diesen Tag.</div>';
       els.copyAllBtn.disabled = true;
       els.copyOpenBtn.disabled = true;
+      els.copyOpenBtn.textContent = 'Offene kopieren';
       return;
     }
 
@@ -160,39 +223,7 @@
     const openCount = state.entries.filter((e) => !e.transferred).length;
     els.copyOpenBtn.disabled = openCount === 0;
     els.copyOpenBtn.textContent = openCount > 0 ? `Offene kopieren (${openCount})` : 'Offene kopieren';
-    els.ledger.innerHTML = sortedEntries().map((e) => `
-      <div class="ledger-row${e.transferred ? ' ledger-row--transferred' : ''}" data-id="${e.id}">
-        <div class="ledger-row__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}<br>${formatDurationLong(e.durationMinutes)}</div>
-        <div class="ledger-row__body">
-          <div class="ledger-row__desc">${escapeHtml(e.description)}</div>
-          <div class="ledger-row__meta">
-            ${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}
-            <span>${formatDurationJira(e.durationMinutes)}</span>
-            <label class="transfer-check">
-              <input type="checkbox" class="transfer-box" ${e.transferred ? 'checked' : ''} />
-              in Jira eingetragen
-            </label>
-          </div>
-        </div>
-        <div class="ledger-row__actions">
-          <button type="button" class="btn btn--icon repeat-btn" title="Nochmal erfassen (Text und Ticket übernehmen)">↻</button>
-          <button type="button" class="btn btn--icon copy-btn" title="Eintrag kopieren">⧉</button>
-          <button type="button" class="btn btn--icon edit-btn" title="Bearbeiten">✎</button>
-          <button type="button" class="btn btn--icon delete-btn" title="Loeschen">🗑</button>
-        </div>
-      </div>
-    `).join('');
-
-    const total = state.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
-    const open = state.entries.filter((e) => !e.transferred).reduce((s2, e) => s2 + e.durationMinutes, 0);
-    els.ledgerTotal.classList.remove('hidden');
-    els.ledgerTotalValue.textContent =
-      `${formatDurationLong(total)} (${total} Min)` +
-      (open !== total ? ` · noch nicht in Jira: ${formatDurationLong(open)}` : '');
-  }
-
-  function entryLine(e) {
-    return `${e.startTime}–${e.endTime} (${e.durationMinutes} Min) – ${e.description}${e.jiraKey ? ` [${e.jiraKey}]` : ''}`;
+    els.ledger.innerHTML = sortedEntries().map(entryRow).join('');
   }
 
   async function loadEntries() {
@@ -359,6 +390,7 @@
 
   function renderTimer(timer) {
     state.timer = timer;
+    els.timerCard.classList.toggle('timer-card--running', !!timer);
     els.timerIdleView.classList.toggle('hidden', !!timer);
     els.timerRunningView.classList.toggle('hidden', !timer);
     clearInterval(elapsedInterval);
@@ -508,28 +540,26 @@
   });
 
   els.ledger.addEventListener('click', async (e) => {
-    const row = e.target.closest('.ledger-row');
+    const row = e.target.closest('.entry');
     if (!row) return;
     const id = Number(row.dataset.id);
     const entry = state.entries.find((x) => x.id === id);
     if (!entry) return;
 
     if (e.target.closest('.copy-btn')) {
-      const ok = await copyToClipboard(entryLine(entry));
+      const ok = await copyToClipboard(entryLine(entry, loadCopyTimes()));
       showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');
     } else if (e.target.closest('.repeat-btn')) {
       startFromEntry(entry);
     } else if (e.target.closest('.edit-btn')) {
       fillFormForEdit(entry);
-    } else if (e.target.closest('.transfer-box')) {
-      const box = e.target.closest('.transfer-box');
-      const checked = box.checked;
+    } else if (e.target.closest('.transfer-btn')) {
+      const next = !entry.transferred;
       try {
-        await Api.patch(`/api/entries/${id}/transferred`, { transferred: checked });
-        entry.transferred = checked;
+        await Api.patch(`/api/entries/${id}/transferred`, { transferred: next });
+        entry.transferred = next;
         renderLedger();
       } catch (err) {
-        box.checked = !checked;
         showToast(err.message);
       }
     } else if (e.target.closest('.delete-btn')) {
@@ -564,9 +594,10 @@
    */
   async function copyEntries(list, doneMessage) {
     if (list.length === 0) return;
+    const withTimes = loadCopyTimes();
     const total = list.reduce((sum, e) => sum + e.durationMinutes, 0);
     const text = [
-      ...list.map(entryLine),
+      ...list.map((e) => entryLine(e, withTimes)),
       '',
       `Gesamt: ${formatDurationLong(total)} (${total} Min)`,
     ].join('\n');

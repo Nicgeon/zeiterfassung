@@ -36,6 +36,21 @@ function formatDurationJira(minutes) {
   return `${h}h ${m}m`;
 }
 
+/** 285 -> "4:45" (Stunden:Minuten, fuer Summen und Balken) */
+function formatHM(minutes) {
+  return `${Math.floor(minutes / 60)}:${pad2(minutes % 60)}`;
+}
+
+/** "2026-10-06" -> { weekday: "Dienstag", date: "6. Oktober 2026" } */
+function formatDateParts(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return {
+    weekday: date.toLocaleDateString('de-DE', { weekday: 'long' }),
+    date: date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' }),
+  };
+}
+
 function formatDateLong(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -91,6 +106,42 @@ function sortEntries(entries, mode) {
       return list.sort(chrono);
   }
 }
+
+// --- Kopierformat -----------------------------------------------------------
+// Standard: ohne Uhrzeiten ("60 Min – Text [TICKET]"). Wer die Uhrzeiten mit
+// kopieren moechte, schaltet das unter Konto -> Einstellungen ein (pro Browser).
+
+const COPY_TIMES_KEY = 'zeit.copyTimes';
+
+function loadCopyTimes() {
+  try {
+    return localStorage.getItem(COPY_TIMES_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveCopyTimes(enabled) {
+  try { localStorage.setItem(COPY_TIMES_KEY, enabled ? '1' : '0'); } catch { /* nur Komfort */ }
+}
+
+/** Eine Zeile fuer die Zwischenablage; withTimes haengt Start-/Endzeit davor. */
+function entryLine(entry, withTimes) {
+  const text = `${entry.description}${entry.jiraKey ? ` [${entry.jiraKey}]` : ''}`;
+  return withTimes
+    ? `${entry.startTime}–${entry.endTime} (${entry.durationMinutes} Min) – ${text}`
+    : `${entry.durationMinutes} Min – ${text}`;
+}
+
+// --- Symbole (Linien-Icons, erben die Textfarbe) ---------------------------
+
+const ICONS = {
+  repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+};
 
 // --- Dateien speichern ------------------------------------------------------
 

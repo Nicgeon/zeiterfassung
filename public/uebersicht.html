@@ -26,18 +26,21 @@
 </div>
 
 <div class="shell shell--wide">
+  <div class="stack">
 
-  <div class="card">
-    <div class="card__header">
-      <div class="flex items-center gap-sm">
-        <button type="button" class="btn btn--icon" id="prevBtn" title="Zurück">&larr;</button>
-        <h2 id="rangeLabel" class="range-label"></h2>
-        <button type="button" class="btn btn--icon" id="nextBtn" title="Vor">&rarr;</button>
-        <button type="button" class="btn btn--ghost btn--sm" id="todayBtn">Heute</button>
+    <div class="page-head">
+      <div>
+        <div class="eyebrow" id="rangeEyebrow"></div>
+        <h1 class="page-title" id="rangeLabel"></h1>
       </div>
-      <div class="flex gap-sm">
-        <button type="button" class="btn btn--secondary btn--sm" id="weekModeBtn">Woche</button>
-        <button type="button" class="btn btn--secondary btn--sm" id="monthModeBtn">Monat</button>
+      <div class="page-head__actions">
+        <div class="seg" role="group" aria-label="Zeitraum">
+          <button type="button" class="seg__btn is-active" id="weekModeBtn">Woche</button>
+          <button type="button" class="seg__btn" id="monthModeBtn">Monat</button>
+        </div>
+        <button type="button" class="btn btn--secondary btn--nav" id="prevBtn" title="Zurück" aria-label="Zurück">&larr;</button>
+        <button type="button" class="btn btn--secondary" id="todayBtn">Heute</button>
+        <button type="button" class="btn btn--secondary btn--nav" id="nextBtn" title="Vor" aria-label="Vor">&rarr;</button>
       </div>
     </div>
 
@@ -61,46 +64,50 @@
         <strong class="stat__value mono" id="statAvg">–</strong>
       </div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="card__header"><h2>Tage</h2></div>
-    <div id="dayBars"></div>
-  </div>
+    <div class="page-grid">
+      <section class="card page-main" aria-label="Tage">
+        <h2>Tage</h2>
+        <div id="dayBars"></div>
+      </section>
 
-  <div class="card">
-    <div class="card__header">
-      <h2>Nach Ticket</h2>
-      <button type="button" class="btn btn--secondary btn--sm" id="copyJiraBtn">Zusammenfassung kopieren</button>
+      <section class="card page-side" aria-label="Nach Ticket">
+        <div class="card__header">
+          <h2>Nach Ticket</h2>
+          <button type="button" class="btn btn--secondary btn--sm" id="copyJiraBtn">Zusammenfassung kopieren</button>
+        </div>
+        <div id="jiraList"></div>
+      </section>
     </div>
-    <div id="jiraList"></div>
-  </div>
 
-  <div class="card">
-    <div class="card__header">
-      <h2>Alle Einträge</h2>
-      <button type="button" class="btn btn--secondary btn--sm" id="csvBtn">Als CSV speichern</button>
-    </div>
-    <div class="ledger-toolbar">
-      <label class="checkbox-label"><input type="checkbox" id="onlyOpenToggle" /><span>nur noch nicht in Jira</span></label>
-      <label for="sortSelect">Sortierung</label>
-      <select id="sortSelect" class="select--inline">
-        <option value="time-asc">Älteste zuerst</option>
-        <option value="time-desc">Neueste zuerst</option>
-        <option value="duration-desc">Längste zuerst</option>
-        <option value="ticket">Nach Ticket</option>
-      </select>
-    </div>
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead>
-          <tr><th>Datum</th><th>Zeit</th><th>Dauer</th><th>Aufgabe</th><th>Ticket</th><th>Jira</th></tr>
-        </thead>
-        <tbody id="entriesTableBody"></tbody>
-      </table>
-    </div>
-  </div>
+    <section class="card card--flush" aria-label="Alle Einträge">
+      <div class="list-head">
+        <h2>Alle Einträge <span class="list-head__count" id="entriesCount"></span></h2>
+        <div class="list-head__tools">
+          <label class="check-inline"><input type="checkbox" id="onlyOpenToggle" /><span>Nur noch nicht in Jira</span></label>
+          <div class="sort-control">
+            <label for="sortSelect">Sortierung</label>
+            <select id="sortSelect">
+              <option value="time-asc">Älteste zuerst</option>
+              <option value="time-desc">Neueste zuerst</option>
+              <option value="duration-desc">Längste zuerst</option>
+              <option value="ticket">Nach Ticket</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn--secondary btn--sm" id="csvBtn">Als CSV speichern</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Datum</th><th>Zeit</th><th>Dauer</th><th>Aufgabe</th><th>Ticket</th><th>Jira</th></tr>
+          </thead>
+          <tbody id="entriesTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
+  </div>
 </div>
 
 <script src="/js/util.js"></script>

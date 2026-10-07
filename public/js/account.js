@@ -62,6 +62,15 @@
     if (e.key === 'Enter') { e.preventDefault(); closeConfirmDialog(els.confirmPassword.value); }
   });
 
+  // --- Einstellungen ------------------------------------------------
+
+  const copyTimesToggle = $('#copyTimesToggle');
+  copyTimesToggle.checked = loadCopyTimes();
+  copyTimesToggle.addEventListener('change', () => {
+    saveCopyTimes(copyTimesToggle.checked);
+    showToast(copyTimesToggle.checked ? 'Uhrzeiten werden mitkopiert.' : 'Es wird ohne Uhrzeiten kopiert.');
+  });
+
   // --- Datensicherung -----------------------------------------------
 
   const backupError = $('#backupError');
@@ -263,8 +272,8 @@
         return;
       }
       els.passkeyList.innerHTML = data.passkeys.map((p) => `
-        <div class="ledger-row items-center" data-id="${p.id}">
-          <div class="ledger-row__body">
+        <div class="list-row" data-id="${p.id}">
+          <div class="list-row__body">
             <div class="passkey-name">${escapeHtml(p.name)}</div>
             <div class="field-hint">
               ${p.rp_id ? `Gilt für: ${escapeHtml(p.rp_id)} · ` : ''}Erstellt: ${fmtDateTime(p.created_at)} · Zuletzt genutzt: ${fmtDateTime(p.last_used_at)}
@@ -281,7 +290,7 @@
   els.passkeyList.addEventListener('click', async (e) => {
     const btn = e.target.closest('.delete-passkey-btn');
     if (!btn) return;
-    const row = e.target.closest('.ledger-row');
+    const row = e.target.closest('.list-row');
     const id = row.dataset.id;
     if (!confirm('Diesen Passkey wirklich entfernen?')) return;
     try {

@@ -221,6 +221,11 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   nur diesen kopieren, oder über "Tag kopieren" alle Einträge des
   angezeigten Tages inkl. Gesamtsumme auf einmal – beides landet
   formatiert in der Zwischenablage zum Einfügen ins Jira-Ticket.
+  **Standardmäßig ohne Uhrzeiten**: `60 Min – Tagesabschluss gebucht [ITPKK-1182]`.
+  Wer die Zeiten mitkopieren möchte, schaltet unter „Konto → Einstellungen"
+  die Option „Uhrzeiten beim Kopieren mitnehmen" ein
+  (`08:00–09:00 (60 Min) – Tagesabschluss gebucht [ITPKK-1182]`). Die Einstellung
+  gilt pro Browser.
 - **Sortierung**: Über der Tagesliste (und der Tabelle in der Übersicht)
   lässt sich die Reihenfolge wählen: älteste/neueste zuerst, längste zuerst
   oder nach Ticket. Die Wahl merkt sich der Browser. „Tag kopieren"
@@ -257,6 +262,10 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Nummer gefüllt. Erkannt werden `*.atlassian.net`-Adressen sowie Adressen mit
   `/browse/`, `/jira/` oder `/servicedesk/` im Pfad; andere Links bleiben
   unverändert. Die Logik liegt in `public/js/tickets.js` (Browser und Server).
+- **Oberfläche**: Die Erfassungsseite zeigt links Timer, Eingabeformular und
+  Tagesliste, rechts eine Zusammenfassung (Gesamtzeit, Anteil in Jira/offen,
+  Summen je Ticket) mit den Kopierknöpfen. Der Haken-Kreis an einem Eintrag
+  markiert ihn als „in Jira eingetragen".
 - **Konto**: Passwort ändern, 2FA (Authenticator-App) und Passkeys unter
   "Konto" einrichten.
 - **Wochenbericht** (nur für als Azubi gekennzeichnete Konten): Export der

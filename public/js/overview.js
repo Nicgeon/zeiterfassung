@@ -11,6 +11,8 @@
     weeklyNavLink: $('#weeklyNavLink'),
     logoutBtn: $('#logoutBtn'),
     rangeLabel: $('#rangeLabel'),
+    rangeEyebrow: $('#rangeEyebrow'),
+    entriesCount: $('#entriesCount'),
     rangeError: $('#rangeError'),
     prevBtn: $('#prevBtn'),
     nextBtn: $('#nextBtn'),
@@ -66,19 +68,35 @@
 
   function setMode(mode) {
     state.mode = mode;
-    els.weekModeBtn.classList.toggle('btn--secondary', mode !== 'week');
-    els.monthModeBtn.classList.toggle('btn--secondary', mode !== 'month');
+    els.weekModeBtn.classList.toggle('is-active', mode === 'week');
+    els.monthModeBtn.classList.toggle('is-active', mode === 'month');
     load();
   }
 
+  function isoWeek(dateStr) {
+    const { y, m, d } = parts(dateStr);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = Date.UTC(date.getUTCFullYear(), 0, 1);
+    return Math.ceil(((date - yearStart) / 86400000 + 1) / 7);
+  }
+
   function renderLabel(from, to) {
+    const monthName = (dateStr) => {
+      const { y, m } = parts(dateStr);
+      return new Date(y, m - 1, 1).toLocaleDateString('de-DE', { month: 'long' });
+    };
     if (state.mode === 'week') {
-      els.rangeLabel.textContent = `${shortDate(from)} – ${shortDate(to)}`;
+      const a = parts(from);
+      const b = parts(to);
+      els.rangeEyebrow.textContent = `Kalenderwoche ${isoWeek(from)}`;
+      els.rangeLabel.textContent = a.m === b.m
+        ? `${a.d}. – ${b.d}. ${monthName(to)} ${b.y}`
+        : `${a.d}. ${monthName(from)} – ${b.d}. ${monthName(to)} ${b.y}`;
     } else {
-      const { y, m } = parts(from);
-      els.rangeLabel.textContent = new Date(y, m - 1, 1).toLocaleDateString('de-DE', {
-        month: 'long', year: 'numeric',
-      });
+      const { y } = parts(from);
+      els.rangeEyebrow.textContent = 'Monat';
+      els.rangeLabel.textContent = `${monthName(from)} ${y}`;
     }
   }
 
@@ -94,11 +112,11 @@
 
     const dayMap = new Map(data.days.map((d) => [d.date, d.minutes]));
     const recordedDays = data.days.length;
-    els.statTotal.textContent = formatDurationLong(data.totalMinutes);
-    els.statOpen.textContent = formatDurationLong(data.openMinutes);
+    els.statTotal.textContent = formatHM(data.totalMinutes);
+    els.statOpen.textContent = formatHM(data.openMinutes);
     els.statDays.textContent = String(recordedDays);
     els.statAvg.textContent = recordedDays
-      ? formatDurationLong(Math.round(data.totalMinutes / recordedDays))
+      ? formatHM(Math.round(data.totalMinutes / recordedDays))
       : '–';
 
     // Balken pro Tag, inkl. Tage ohne Eintraege
@@ -111,7 +129,7 @@
         <div class="day-bar${minutes === 0 ? ' day-bar--empty' : ''}">
           <span class="day-bar__label mono">${weekdayShort(date)} ${shortDate(date).slice(0, 6)}</span>
           <span class="day-bar__track"><span class="day-bar__fill" data-width="${width}"></span></span>
-          <span class="day-bar__value mono">${minutes ? formatDurationLong(minutes) : '–'}</span>
+          <span class="day-bar__value mono">${minutes ? formatHM(minutes) : '–'}</span>
         </div>`);
     }
     els.dayBars.innerHTML = rows.join('');
@@ -124,21 +142,20 @@
     els.jiraList.innerHTML = data.jira.length
       ? data.jira
           .map(
-            (j) => `<div class="ledger-row items-center">
-              <div class="ledger-row__body">
-                ${j.key === '(ohne Ticket)'
-                  ? '<span class="text-faint">ohne Ticket</span>'
-                  : `<span class="jira-tag">${escapeHtml(j.key)}</span>`}
-              </div>
-              <span class="mono">${formatDurationLong(j.minutes)} (${formatDurationJira(j.minutes)})</span>
+            (j) => `<div class="ticket-row">
+              ${j.key === '(ohne Ticket)'
+                ? '<span class="ticket-row__none">Ohne Ticket</span>'
+                : `<span class="mono ticket-row__key">${escapeHtml(j.key)}</span>`}
+              <span class="mono">${formatHM(j.minutes)}</span>
             </div>`
           )
           .join('')
-      : '<p class="text-sm text-faint">Keine Einträge in diesem Zeitraum.</p>';
+      : '<div class="ticket-list--empty">Keine Einträge in diesem Zeitraum.</div>';
     els.copyJiraBtn.disabled = data.jira.length === 0;
 
     const rowsToShow = visibleEntries();
     els.csvBtn.disabled = rowsToShow.length === 0;
+    els.entriesCount.textContent = data.entries.length ? `· ${rowsToShow.length}` : '';
     els.entriesTableBody.innerHTML = rowsToShow.length
       ? rowsToShow
           .map(
@@ -148,7 +165,7 @@
               <td class="mono">${formatDurationLong(e.durationMinutes)}</td>
               <td>${escapeHtml(e.description)}</td>
               <td>${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}</td>
-              <td>${e.transferred ? '<span class="badge badge--success">ja</span>' : '<span class="badge">offen</span>'}</td>
+              <td>${e.transferred ? '<span class="badge badge--success">in Jira</span>' : '<span class="badge">offen</span>'}</td>
             </tr>`
           )
           .join('')
