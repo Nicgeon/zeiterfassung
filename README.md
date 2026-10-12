@@ -197,7 +197,11 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 ## Nutzung
 
 - **Timer**: Im Eintragsformular Aufgabe und Ticket eintragen (oder leer lassen)
-  und „Timer starten“ drücken, dann einfach arbeiten. Der Timer läuft
+  und „Timer starten“ drücken, dann einfach arbeiten. Dieselbe Karte wird zum
+  Timer: Aufgabe und Ticket bleiben in denselben Feldern (Änderungen werden am
+  Timer gespeichert), die Zeitangaben entfallen, und „Stoppen & eintragen“
+  (oder Strg+Enter) legt den Eintrag an. Solange ein Timer läuft, lassen sich
+  keine Einträge bearbeiten oder per ↻ übernehmen. Der Timer läuft
   serverseitig, also auch weiter, wenn der Tab geschlossen oder das Gerät
   gewechselt wird. Beim Stoppen entsteht automatisch ein Eintrag, der sich
   danach ganz normal bearbeiten lässt, um Zeiten nachzujustieren. Über
@@ -244,8 +248,7 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   mit dessen Text und Ticket vor, die Zeiten werden wie bei jedem neuen
   Eintrag gesetzt.
 - **Tastatur**: Strg+Enter (am Mac Cmd+Enter) im Beschreibungsfeld speichert
-  den Eintrag. Die Autovervollständigung gibt es auch im Feld des laufenden
-  Timers.
+  den Eintrag (beim laufenden Timer: stoppt ihn und trägt ein).
 - **Überschneidungen**: Überlappt ein Zeitraum mit einem anderen Eintrag des
   Tages, erscheint unter der Dauer eine Warnung (Speichern bleibt möglich).
 - **Offene kopieren**: Der Knopf „Offene kopieren" neben „Tag kopieren"
@@ -276,7 +279,7 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   großes Aufgabenfeld, darunter eine Zeile für Zeit und Ticket; der Umschalter
   „Zeitraum / Dauer" bestimmt, ob Start und Ende oder die Dauer eingegeben
   wird, die jeweils andere Angabe erscheint nur als Zusammenfassung; der Timer
-  wird über den Knopf im Formular gestartet und läuft als Leiste darüber),
+  wird über den Knopf im Formular gestartet und nutzt dieselben Felder),
   darunter die Tagesliste, rechts eine Zusammenfassung (Gesamtzeit, Anteil in Jira/offen,
   Summen je Ticket) mit den Kopierknöpfen. Der Haken-Kreis an einem Eintrag
   markiert ihn als „in Jira eingetragen".

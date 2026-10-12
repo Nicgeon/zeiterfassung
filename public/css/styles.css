@@ -709,19 +709,23 @@ table.data-table {
 }
 .seg__btn.is-active { background: var(--surface); color: var(--ink); font-weight: 600; }
 
-/* --- Timer ------------------------------------------------------------- */
+/* --- Timer (derselbe Kartenkoerper wie das Eintragsformular) -------------------- */
 
-.timer-card--running { background: var(--accent-wash); border-color: var(--accent-line); }
-.timer-running { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
-.timer-running__clock { display: flex; align-items: center; gap: 10px; }
+.timer-only { display: none; }
+.composer--timer .no-timer { display: none !important; }
+.composer--timer .timer-only { display: flex; }
+.composer--timer .btn.timer-only { display: inline-flex; }
+.composer--timer .field-hint.timer-only { display: inline; }
+.composer--timer .timer-note { display: block; }
+.composer--timer {
+  background: var(--accent-wash);
+  border-color: var(--accent-line);
+}
+.composer--timer .composer__footer { border-top-color: var(--accent-line); }
+.timer-clock { align-items: center; gap: 10px; }
 .timer-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .timer-elapsed { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.timer-running__clock { min-width: 150px; }
-.timer-running__fields { order: 3; flex: 1 1 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.timer-running__fields .suggest-wrap { flex: 1 1 200px; min-width: 0; }
-.timer-running__fields .timer-ticket { flex: 0 1 180px; min-width: 0; }
-.timer-running__meta { flex: 1 1 100%; margin: 0; font-size: 13px; color: var(--ink-muted); }
-.timer-running__actions { display: flex; gap: 8px; margin-left: auto; }
+.timer-note { flex: 1 1 260px; margin: 0; font-size: 14px; color: var(--ink-muted); align-self: center; }
 
 /* --- Neuer Eintrag (Composer) ------------------------------------------------
    Ein grosses Textfeld fuer die Aufgabe, darunter eine einzige Zeile fuer die Zeit
@@ -756,7 +760,7 @@ table.data-table {
   margin-top: 12px;
 }
 .composer__when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: 1 1 340px; min-width: 0; }
-.composer__ticket { flex: 0 1 230px; min-width: 170px; }
+.composer__ticket { flex: 0 1 230px; min-width: 170px; margin-left: auto; }
 
 .when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .when input[type='time'] { width: 124px; }

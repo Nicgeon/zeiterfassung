@@ -43,7 +43,6 @@
     sumDone: $('#sumDone'),
     sumOpen: $('#sumOpen'),
     ticketList: $('#ticketList'),
-    timerCard: $('#timerCard'),
     prevDayBtn: $('#prevDayBtn'),
     nextDayBtn: $('#nextDayBtn'),
     todayBtn: $('#todayBtn'),
@@ -51,15 +50,10 @@
     copyOpenBtn: $('#copyOpenBtn'),
     ledger: $('#ledger'),
     suggestList: $('#suggestList'),
-    timerError: $('#timerError'),
     timerWarning: $('#timerWarning'),
-    timerRunningSuggestList: $('#timerRunningSuggestList'),
     timerElapsed: $('#timerElapsed'),
-    timerRunningView: $('#timerRunningView'),
     timerStartBtn: $('#timerStartBtn'),
     timerStartLabel: $('#timerStartLabel'),
-    timerRunningDescription: $('#timerRunningDescription'),
-    timerRunningJira: $('#timerRunningJira'),
     timerStopBtn: $('#timerStopBtn'),
     timerDiscardBtn: $('#timerDiscardBtn'),
   };
@@ -205,7 +199,7 @@
 
   function resetFormForNewEntry() {
     state.editingId = null;
-    els.formTitle.textContent = 'Neuer Eintrag';
+    els.formTitle.textContent = state.timer ? 'Timer läuft' : 'Neuer Eintrag';
     els.saveBtn.textContent = 'Eintrag speichern';
     els.cancelEditBtn.classList.add('hidden');
     els.startTime.value = defaultStartTime();
@@ -215,8 +209,11 @@
     formState.startIsDefault = true;
     formState.durationError = '';
     els.duration.value = '';
-    els.description.value = '';
-    els.jiraKey.value = '';
+    // Beim laufenden Timer stehen Aufgabe und Ticket des Timers in diesen Feldern - nicht leeren.
+    if (!state.timer) {
+      els.description.value = '';
+      els.jiraKey.value = '';
+    }
     setFormError(els.formError, '');
     updateDurationHint();
   }
@@ -416,12 +413,9 @@
 
   attachSuggest(els.description, els.suggestList, (s) => {
     if (s.jiraKey && !els.jiraKey.value.trim()) els.jiraKey.value = s.jiraKey;
+    saveTimerFields(); // wirkt nur, solange ein Timer laeuft
   });
 
-  attachSuggest(els.timerRunningDescription, els.timerRunningSuggestList, (s) => {
-    if (s.jiraKey && !els.timerRunningJira.value.trim()) els.timerRunningJira.value = s.jiraKey;
-    saveTimerFields();
-  });
 
   // --- Jira-Links -> Ticketnummern ----------------------------------
 
@@ -456,16 +450,10 @@
     });
   }
 
-  convertLinksInTicketField(els.jiraKey);
-  convertLinksInTicketField(els.timerRunningJira, saveTimerFields);
+  convertLinksInTicketField(els.jiraKey, saveTimerFields);
   convertLinksOnPaste(els.description, (key) => {
     if (!els.jiraKey.value.trim()) els.jiraKey.value = key;
-  });
-  convertLinksOnPaste(els.timerRunningDescription, (key) => {
-    if (!els.timerRunningJira.value.trim()) {
-      els.timerRunningJira.value = key;
-      saveTimerFields();
-    }
+    saveTimerFields();
   });
 
   // Strg+Enter (bzw. Cmd+Enter) speichert aus dem Textfeld; Enter im Timerfeld startet den Timer.
@@ -483,8 +471,8 @@
 
   function renderTimer(timer) {
     state.timer = timer;
-    els.timerCard.classList.toggle('hidden', !timer);
-    els.timerStartBtn.classList.toggle('hidden', !!timer);
+    els.composer.classList.toggle('composer--timer', !!timer);
+    els.formTitle.textContent = timer ? 'Timer läuft' : state.editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
     clearInterval(elapsedInterval);
 
     document.title = BASE_TITLE;
@@ -497,12 +485,9 @@
     // Typische Fallen: Timer vergessen bzw. ueber Mitternacht gelaufen.
     const startedYesterdayOrEarlier = timer.workDate !== todayISO();
     els.timerStartLabel.textContent = timer.startTime;
-    if (document.activeElement !== els.timerRunningDescription) {
-      els.timerRunningDescription.value = timer.description || '';
-    }
-    if (document.activeElement !== els.timerRunningJira) {
-      els.timerRunningJira.value = timer.jiraKey || '';
-    }
+    // Aufgabe und Ticket des Timers stehen in den normalen Formularfeldern.
+    if (document.activeElement !== els.description) els.description.value = timer.description || '';
+    if (document.activeElement !== els.jiraKey) els.jiraKey.value = timer.jiraKey || '';
 
     const tick = () => {
       const seconds = Math.max(0, Math.floor((Date.now() - new Date(timer.startedAt).getTime()) / 1000));
@@ -542,10 +527,8 @@
         description: convertTicketLinks(els.description.value).trim(),
         jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null,
       });
-      els.description.value = '';
-      els.jiraKey.value = '';
       renderTimer(data.timer);
-      showToast('Timer läuft.');
+      showToast('Timer läuft – Aufgabe und Ticket lassen sich weiter bearbeiten.');
     } catch (err) {
       setFormError(els.formError, err.message);
     } finally {
@@ -553,47 +536,52 @@
     }
   });
 
+  /** Aufgabe und Ticket des laufenden Timers speichern (ohne Timer: nichts zu tun). */
   async function saveTimerFields() {
     if (!state.timer) return;
     try {
       await Api.patch('/api/timer', {
-        description: els.timerRunningDescription.value.trim(),
-        jira_key: els.timerRunningJira.value.trim(),
+        description: convertTicketLinks(els.description.value).trim(),
+        jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40),
       });
     } catch { /* wird spaetestens beim Stoppen mitgeschickt */ }
   }
-  els.timerRunningDescription.addEventListener('change', saveTimerFields);
-  els.timerRunningJira.addEventListener('change', saveTimerFields);
+  els.description.addEventListener('change', saveTimerFields);
+  els.jiraKey.addEventListener('change', saveTimerFields);
 
-  els.timerStopBtn.addEventListener('click', async () => {
-    setFormError(els.timerError, '');
+  async function stopTimer() {
+    setFormError(els.formError, '');
     els.timerStopBtn.disabled = true;
     try {
       const data = await Api.post('/api/timer/stop', {
         end_time: nowHHMM(),
-        description: els.timerRunningDescription.value.trim(),
-        jira_key: els.timerRunningJira.value.trim(),
+        description: convertTicketLinks(els.description.value).trim(),
+        jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40),
       });
       renderTimer(null);
-      els.timerRunningDescription.value = '';
-      els.timerRunningJira.value = '';
+      els.description.value = '';
+      els.jiraKey.value = '';
       state.viewDate = data.entry.workDate;
       await loadEntries();
       showToast(`Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`);
     } catch (err) {
-      setFormError(els.timerError, err.message);
+      setFormError(els.formError, err.message);
     } finally {
       els.timerStopBtn.disabled = false;
     }
-  });
+  }
+  els.timerStopBtn.addEventListener('click', stopTimer);
 
   els.timerDiscardBtn.addEventListener('click', async () => {
     if (!confirm('Timer verwerfen? Es wird kein Eintrag angelegt.')) return;
     try {
       await Api.del('/api/timer');
       renderTimer(null);
+      els.description.value = '';
+      els.jiraKey.value = '';
+      resetFormForNewEntry();
     } catch (err) {
-      setFormError(els.timerError, err.message);
+      setFormError(els.formError, err.message);
     }
   });
 
@@ -640,6 +628,7 @@
   els.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setFormError(els.formError, '');
+    if (state.timer) return stopTimer(); // Strg+Enter beim laufenden Timer: stoppen und eintragen
     if (formState.durationError) return setFormError(els.formError, formState.durationError);
     if (!els.startTime.value || !els.endTime.value) {
       return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
@@ -679,6 +668,9 @@
     const entry = state.entries.find((x) => x.id === id);
     if (!entry) return;
 
+    if (state.timer && (e.target.closest('.repeat-btn') || e.target.closest('.edit-btn'))) {
+      return showToast('Bitte zuerst den Timer stoppen oder verwerfen.');
+    }
     if (e.target.closest('.copy-btn')) {
       const ok = await copyToClipboard(entryLine(entry, loadCopyTimes()));
       showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');

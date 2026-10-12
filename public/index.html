@@ -43,39 +43,16 @@
 
     <div class="page-main">
 
-      <!-- Laufender Timer (nur sichtbar, solange einer läuft) -->
-      <div class="card timer-card timer-card--running hidden" id="timerCard">
-        <div id="timerError"></div>
-        <div id="timerRunningView" class="timer-running">
-          <div class="timer-running__clock">
-            <span class="timer-dot"></span>
-            <span class="timer-elapsed mono" id="timerElapsed"></span>
-          </div>
-          <div class="timer-running__fields">
-            <div class="suggest-wrap">
-              <label class="visually-hidden" for="timerRunningDescription">Beschreibung</label>
-              <input type="text" id="timerRunningDescription" maxlength="2000" autocomplete="off" placeholder="Wird beim Stoppen übernommen" />
-              <ul class="suggest-list hidden" id="timerRunningSuggestList"></ul>
-            </div>
-            <div class="timer-ticket">
-              <label class="visually-hidden" for="timerRunningJira">Ticket</label>
-              <input type="text" id="timerRunningJira" class="mono" maxlength="500" placeholder="Ticket" />
-            </div>
-            <p class="timer-running__meta">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; läuft serverseitig weiter, auch wenn du den Tab schließt.</p>
-            <div id="timerWarning" class="timer-running__meta"></div>
-          </div>
-          <div class="timer-running__actions">
-            <button type="button" class="btn" id="timerStopBtn">Stoppen &amp; eintragen</button>
-            <button type="button" class="btn btn--ghost" id="timerDiscardBtn">Verwerfen</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Neuer Eintrag -->
+      <!-- Neuer Eintrag. Läuft ein Timer, wird dieselbe Karte zum Timer: Aufgabe und Ticket
+           sind dann die Felder des Timers, die Zeitangaben entfallen. -->
       <div class="card composer" id="composer" data-mode="times">
         <div class="composer__head">
           <h2 id="formTitle">Neuer Eintrag</h2>
-          <div class="composer__head-actions">
+          <div class="timer-only timer-clock">
+            <span class="timer-dot"></span>
+            <span class="timer-elapsed mono" id="timerElapsed"></span>
+          </div>
+          <div class="composer__head-actions no-timer">
             <div class="seg seg--sm" role="group" aria-label="Zeit angeben als">
               <button type="button" class="seg__btn is-active" id="modeTimesBtn" aria-pressed="true">Zeitraum</button>
               <button type="button" class="seg__btn" id="modeDurationBtn" aria-pressed="false">Dauer</button>
@@ -85,6 +62,7 @@
         </div>
 
         <div id="formError"></div>
+        <div id="timerWarning"></div>
 
         <form id="entryForm">
           <div class="suggest-wrap composer__text">
@@ -95,7 +73,7 @@
           </div>
 
           <div class="composer__meta">
-            <div class="composer__when">
+            <div class="composer__when no-timer">
               <div class="when when--times">
                 <label class="visually-hidden" for="startTime">Start</label>
                 <input type="time" id="startTime" class="time-input" />
@@ -118,20 +96,24 @@
               </div>
               <div class="when__summary" id="durationHint">&nbsp;</div>
             </div>
+            <p class="timer-only timer-note">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; läuft serverseitig weiter, auch wenn du den Tab schließt.</p>
             <div class="composer__ticket">
               <label class="visually-hidden" for="jiraKey">Ticket (optional)</label>
               <input type="text" id="jiraKey" class="mono" placeholder="Ticket (optional)" maxlength="500" />
             </div>
           </div>
-          <div class="hint-line">
+          <div class="hint-line no-timer">
             <div class="field-hint duration-hint--error" id="overlapHint"></div>
           </div>
 
           <div class="composer__footer">
-            <span class="field-hint">Strg + Enter speichert · Jira-Links werden zu Ticketnummern</span>
+            <span class="field-hint no-timer">Strg + Enter speichert · Jira-Links werden zu Ticketnummern</span>
+            <span class="field-hint timer-only">Strg + Enter stoppt und trägt ein</span>
             <div class="composer__actions">
-              <button type="button" class="btn btn--secondary" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
-              <button type="submit" class="btn btn--dark" id="saveBtn">Eintrag speichern</button>
+              <button type="button" class="btn btn--secondary no-timer" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
+              <button type="submit" class="btn btn--dark no-timer" id="saveBtn">Eintrag speichern</button>
+              <button type="button" class="btn btn--ghost timer-only" id="timerDiscardBtn">Verwerfen</button>
+              <button type="button" class="btn timer-only" id="timerStopBtn">Stoppen &amp; eintragen</button>
             </div>
           </div>
         </form>
