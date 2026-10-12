@@ -244,9 +244,14 @@
     resetFormForNewEntry();
     els.description.value = entry.description;
     els.jiraKey.value = entry.jiraKey || '';
+    // Dauer uebernehmen: Start wie bei jedem neuen Eintrag (Ende des letzten bzw. jetzt),
+    // das Ende ergibt sich aus der Dauer des Vorbilds.
+    els.duration.value = formatDurationField(entry.durationMinutes);
+    formState.anchor = 'duration';
+    applyDuration();
     els.description.focus();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast('Text und Ticket übernommen – Zeiten prüfen.');
+    showToast('Text, Ticket und Dauer übernommen – Zeiten prüfen.');
   }
 
   function entryRow(e) {

@@ -255,8 +255,9 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   oder nach Ticket. Die Wahl merkt sich der Browser. „Tag kopieren"
   übernimmt die angezeigte Reihenfolge.
 - **Nochmal erfassen**: Der Pfeil (↻) an einem Eintrag füllt das Formular
-  mit dessen Text und Ticket vor, die Zeiten werden wie bei jedem neuen
-  Eintrag gesetzt.
+  mit dessen Text, Ticket und Dauer vor. Der Start wird wie bei jedem neuen
+  Eintrag gesetzt (Ende des letzten Eintrags), das Ende ergibt sich aus der
+  übernommenen Dauer.
 - **Tastatur**: Strg+Enter (am Mac Cmd+Enter) im Beschreibungsfeld speichert
   den Eintrag (beim laufenden Timer: stoppt ihn und trägt ein).
 - **Überschneidungen**: Überlappt ein Zeitraum mit einem anderen Eintrag des
