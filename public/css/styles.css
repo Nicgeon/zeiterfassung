@@ -731,7 +731,21 @@ table.data-table {
 .entry-form__row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 4px; }
 .entry-form__start { flex: 0 0 130px; }
 .entry-form__end { flex: 0 0 200px; }
+.entry-form__duration { flex: 0 0 150px; }
 .entry-form__ticket { flex: 1 1 200px; min-width: 0; }
+.duration-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 4px; }
+.duration-chips__label { font-size: 13px; color: var(--ink-muted); margin-right: 4px; }
+.chip {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+.chip:hover { background: var(--surface-alt); }
 .entry-form__footer {
   display: flex;
   flex-wrap: wrap;

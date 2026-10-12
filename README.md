@@ -214,6 +214,15 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Eintrags, oder die aktuelle Uhrzeit beim allerersten Eintrag des Tages).
   Endzeit per Klick auf "Jetzt" setzen oder manuell eintragen – die Dauer
   wird automatisch berechnet und live angezeigt.
+- **Nur die Dauer bekannt?** Statt Start und Ende lässt sich im Feld „Dauer"
+  einfach die Zeitspanne eintragen, z. B. `45`, `1:30`, `1h30`, `90 min` oder
+  `1,5h` (eine reine Zahl zählt als Minuten, eine Dezimalzahl als Stunden). Die
+  Knöpfe darunter (15 Min bis 2 Std) tragen häufige Werte mit einem Klick ein.
+  Daraus berechnet sich der Rest: Beim ersten Eintrag des Tages endet die Arbeit
+  „jetzt" und beginnt entsprechend früher, sonst schließt der Eintrag an den
+  letzten an (Start = Ende des letzten Eintrags, Ende = Start + Dauer). Fehlt
+  der Start, wird er aus dem Ende berechnet. Ändert man Start oder Ende, folgt
+  die Dauer – und umgekehrt. Gespeichert werden weiterhin Start und Ende.
 - **Rückwirkend erfassen**: Mit den Pfeilen neben dem Datum auf einen
   anderen Tag wechseln und dort Einträge mit frei wählbarer Start-/Endzeit
   anlegen – passend für "alles gesammelt zum Feierabend eintragen".

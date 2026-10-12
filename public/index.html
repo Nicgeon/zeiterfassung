@@ -103,10 +103,23 @@
                 <button type="button" class="btn btn--secondary" id="nowBtn" title="Aktuelle Uhrzeit übernehmen">Jetzt</button>
               </div>
             </div>
+            <div class="field entry-form__duration">
+              <label for="duration">Dauer</label>
+              <input type="text" id="duration" class="mono" inputmode="text" autocomplete="off" placeholder="z. B. 45 oder 1:30" />
+            </div>
             <div class="field entry-form__ticket">
               <label for="jiraKey">Ticket <span class="optional-label">(optional)</span></label>
               <input type="text" id="jiraKey" class="mono" placeholder="z. B. PROJ-123 oder Link" maxlength="500" />
             </div>
+          </div>
+          <div class="duration-chips" role="group" aria-label="Dauer schnell wählen">
+            <span class="duration-chips__label">Nur die Dauer bekannt?</span>
+            <button type="button" class="chip" data-minutes="15">15 Min</button>
+            <button type="button" class="chip" data-minutes="30">30 Min</button>
+            <button type="button" class="chip" data-minutes="45">45 Min</button>
+            <button type="button" class="chip" data-minutes="60">1 Std</button>
+            <button type="button" class="chip" data-minutes="90">1,5 Std</button>
+            <button type="button" class="chip" data-minutes="120">2 Std</button>
           </div>
           <div class="hint-line">
             <div class="field-hint" id="durationHint">&nbsp;</div>

@@ -23,6 +23,8 @@
     endTime: $('#endTime'),
     nowBtn: $('#nowBtn'),
     durationHint: $('#durationHint'),
+    duration: $('#duration'),
+    durationChips: document.querySelector('.duration-chips'),
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
@@ -69,14 +71,26 @@
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
+  // Dauer, Start und Ende haengen zusammen: Wird die Dauer eingegeben, berechnet sich das
+  // Ende (oder bei fehlendem Start der Start); wird eine Uhrzeit geaendert, folgt die Dauer.
+  const MAX_DURATION_MINUTES = 16 * 60; // wie auf dem Server
+  const formState = {
+    anchor: 'times', // 'duration': Dauer ist massgeblich, 'times': Start und Ende
+    startIsDefault: true, // Start wurde noch nicht von Hand geaendert
+    durationError: '',
+  };
+
   function updateDurationHint() {
     updateOverlapHint();
     const s = els.startTime.value;
     const e = els.endTime.value;
+    if (formState.durationError) {
+      els.durationHint.textContent = formState.durationError;
+      els.durationHint.classList.add('duration-hint--error');
+      return;
+    }
     if (!s || !e) { els.durationHint.innerHTML = '&nbsp;'; return; }
-    const [sh, sm] = s.split(':').map(Number);
-    const [eh, em] = e.split(':').map(Number);
-    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    const diff = hmToMinutes(e) - hmToMinutes(s);
     if (diff <= 0) {
       els.durationHint.textContent = 'Ende muss nach dem Start liegen.';
       els.durationHint.classList.add('duration-hint--error');
@@ -84,6 +98,56 @@
       els.durationHint.textContent = `→ ${formatDurationLong(diff)} (${diff} Min)`;
       els.durationHint.classList.remove('duration-hint--error');
     }
+  }
+
+  /** Dauerfeld aus Start und Ende fuellen (oder leeren, wenn dort nichts Gueltiges steht). */
+  function syncDurationFromTimes() {
+    const s = els.startTime.value;
+    const e = els.endTime.value;
+    const diff = s && e ? hmToMinutes(e) - hmToMinutes(s) : 0;
+    els.duration.value = diff > 0 ? formatDurationField(diff) : '';
+  }
+
+  /** Das Dauerfeld wurde geaendert: Ende (bzw. Start) daraus berechnen. */
+  function applyDuration() {
+    formState.durationError = '';
+    const raw = els.duration.value.trim();
+    if (raw) {
+      const minutes = parseDuration(raw);
+      if (minutes === null || minutes <= 0) {
+        formState.durationError = 'Dauer nicht erkannt – z. B. 45, 1:30 oder 1,5h.';
+      } else if (minutes > MAX_DURATION_MINUTES) {
+        formState.durationError = 'Dauer wirkt unrealistisch hoch (mehr als 16 Stunden).';
+      } else {
+        const start = els.startTime.value;
+        const end = els.endTime.value;
+        const noEntriesToday = state.entries.length === 0 && isTodayISO(state.viewDate) && !state.editingId;
+        if (formState.startIsDefault && noEntriesToday) {
+          // Erster Eintrag heute: die Arbeit ist gerade fertig, also endet sie jetzt.
+          const now = hmToMinutes(nowHHMM());
+          if (now - minutes < 0) {
+            formState.durationError = 'Das würde vor Mitternacht beginnen – bitte Start von Hand eintragen.';
+          } else {
+            els.startTime.value = minutesToHM(now - minutes);
+            els.endTime.value = minutesToHM(now);
+          }
+        } else if (start) {
+          const total = hmToMinutes(start) + minutes;
+          if (total > 24 * 60 - 1) {
+            formState.durationError = 'Endet nach Mitternacht – bitte auf zwei Einträge aufteilen.';
+          } else {
+            els.endTime.value = minutesToHM(total);
+          }
+        } else if (end) {
+          const from = hmToMinutes(end) - minutes;
+          if (from < 0) formState.durationError = 'Das würde vor Mitternacht beginnen.';
+          else els.startTime.value = minutesToHM(from);
+        } else {
+          formState.durationError = 'Bitte Start oder Ende angeben.';
+        }
+      }
+    }
+    updateDurationHint();
   }
 
   /** Eintraege in der vom Nutzer gewaehlten Reihenfolge (state.entries bleibt chronologisch). */
@@ -121,6 +185,10 @@
     els.cancelEditBtn.classList.add('hidden');
     els.startTime.value = defaultStartTime();
     els.endTime.value = isTodayISO(state.viewDate) ? nowHHMM() : '';
+    formState.anchor = 'times';
+    formState.startIsDefault = true;
+    formState.durationError = '';
+    els.duration.value = '';
     els.description.value = '';
     els.jiraKey.value = '';
     setFormError(els.formError, '');
@@ -134,6 +202,10 @@
     els.cancelEditBtn.classList.remove('hidden');
     els.startTime.value = entry.startTime;
     els.endTime.value = entry.endTime;
+    formState.anchor = 'times';
+    formState.startIsDefault = false;
+    formState.durationError = '';
+    syncDurationFromTimes();
     els.description.value = entry.description;
     els.jiraKey.value = entry.jiraKey || '';
     setFormError(els.formError, '');
@@ -502,9 +574,33 @@
 
   // --- Events -------------------------------------------------------
 
-  els.startTime.addEventListener('input', updateDurationHint);
-  els.endTime.addEventListener('input', updateDurationHint);
-  els.nowBtn.addEventListener('click', () => { els.endTime.value = nowHHMM(); updateDurationHint(); });
+  els.startTime.addEventListener('input', () => {
+    formState.startIsDefault = false;
+    formState.durationError = '';
+    if (formState.anchor === 'duration' && parseDuration(els.duration.value)) applyDuration();
+    else { syncDurationFromTimes(); updateDurationHint(); }
+  });
+  els.endTime.addEventListener('input', () => {
+    formState.anchor = 'times';
+    formState.durationError = '';
+    syncDurationFromTimes();
+    updateDurationHint();
+  });
+  els.nowBtn.addEventListener('click', () => {
+    els.endTime.value = nowHHMM();
+    formState.anchor = 'times';
+    formState.durationError = '';
+    syncDurationFromTimes();
+    updateDurationHint();
+  });
+  els.duration.addEventListener('input', () => { formState.anchor = 'duration'; applyDuration(); });
+  els.durationChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    els.duration.value = formatDurationField(Number(chip.dataset.minutes));
+    formState.anchor = 'duration';
+    applyDuration();
+  });
 
   els.cancelEditBtn.addEventListener('click', () => resetFormForNewEntry());
 

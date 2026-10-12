@@ -36,6 +36,36 @@ function formatDurationJira(minutes) {
   return `${h}h ${m}m`;
 }
 
+/**
+ * Dauer aus freier Eingabe in Minuten, sonst null. Erkannt werden z. B.
+ * "45" (Minuten), "1:30", "1h", "1h30", "1h 30m", "90 min", "1 Std 30 Min", "1,5h", "1,5" (Stunden).
+ */
+function parseDuration(input) {
+  const t = String(input || '').trim().toLowerCase().replace(',', '.');
+  if (!t) return null;
+  let m = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (m) return Number(m[2]) > 59 ? null : Number(m[1]) * 60 + Number(m[2]);
+  if (/^\d+$/.test(t)) return Number(t); // reine Zahl = Minuten
+  if (/^\d+\.\d+$/.test(t)) return Math.round(Number(t) * 60); // Dezimalzahl = Stunden
+  m = t.match(/^(?:(\d+(?:\.\d+)?)\s*(?:h|std|stunden|stunde)\.?)?\s*(?:(\d+)\s*(?:m|min|minuten|minute)?\.?)?$/);
+  if (!m || (m[1] === undefined && m[2] === undefined)) return null;
+  return Math.round(Number(m[1] || 0) * 60 + Number(m[2] || 0));
+}
+
+/** Dauer fuers Eingabefeld: 45 -> "45 Min", 90 -> "1:30" */
+function formatDurationField(minutes) {
+  return minutes < 60 ? `${minutes} Min` : formatHM(minutes);
+}
+
+/** "08:30" -> 510 und zurueck (Minuten seit Mitternacht) */
+function hmToMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+function minutesToHM(total) {
+  return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
+}
+
 /** 285 -> "4:45" (Stunden:Minuten, fuer Summen und Balken) */
 function formatHM(minutes) {
   return `${Math.floor(minutes / 60)}:${pad2(minutes % 60)}`;
