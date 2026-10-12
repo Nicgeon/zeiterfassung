@@ -125,7 +125,15 @@ router.post('/stop', (req, res) => {
     return res.status(400).json({ error: 'Bitte zuerst eine Beschreibung eintragen.' });
   }
 
-  const duration = toMinutes(end_time) - toMinutes(timer.start_time);
+  let endTime = end_time;
+  let duration = toMinutes(end_time) - toMinutes(timer.start_time);
+  // Direkt wieder gestoppt (gleiche Minute): als Eintrag von einer Minute festhalten,
+  // statt mit einer Fehlermeldung abzulehnen.
+  if (duration === 0 && toMinutes(timer.start_time) < 23 * 60 + 59) {
+    duration = 1;
+    const total = toMinutes(timer.start_time) + 1;
+    endTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
   if (duration <= 0) {
     return res.status(400).json({
       error:
@@ -146,7 +154,7 @@ router.post('/stop', (req, res) => {
       user_id: req.user.id,
       work_date: timer.work_date,
       start_time: timer.start_time,
-      end_time,
+      end_time: endTime,
       duration_minutes: duration,
       description_enc: encryptField(description),
       jira_key: jiraKey,

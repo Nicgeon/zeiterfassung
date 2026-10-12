@@ -25,6 +25,9 @@
     durationHint: $('#durationHint'),
     duration: $('#duration'),
     durationChips: document.querySelector('.duration-chips'),
+    composer: $('#composer'),
+    modeTimesBtn: $('#modeTimesBtn'),
+    modeDurationBtn: $('#modeDurationBtn'),
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
@@ -50,12 +53,9 @@
     suggestList: $('#suggestList'),
     timerError: $('#timerError'),
     timerWarning: $('#timerWarning'),
-    timerSuggestList: $('#timerSuggestList'),
     timerRunningSuggestList: $('#timerRunningSuggestList'),
     timerElapsed: $('#timerElapsed'),
-    timerIdleView: $('#timerIdleView'),
     timerRunningView: $('#timerRunningView'),
-    timerDescription: $('#timerDescription'),
     timerStartBtn: $('#timerStartBtn'),
     timerStartLabel: $('#timerStartLabel'),
     timerRunningDescription: $('#timerRunningDescription'),
@@ -74,30 +74,55 @@
   // Dauer, Start und Ende haengen zusammen: Wird die Dauer eingegeben, berechnet sich das
   // Ende (oder bei fehlendem Start der Start); wird eine Uhrzeit geaendert, folgt die Dauer.
   const MAX_DURATION_MINUTES = 16 * 60; // wie auf dem Server
+  const ENTRY_MODE_KEY = 'zeit.entryMode';
+  function loadEntryMode() {
+    try { return localStorage.getItem(ENTRY_MODE_KEY) === 'duration' ? 'duration' : 'times'; } catch { return 'times'; }
+  }
   const formState = {
+    mode: loadEntryMode(), // 'times': Start/Ende werden eingegeben, 'duration': die Dauer
     anchor: 'times', // 'duration': Dauer ist massgeblich, 'times': Start und Ende
     startIsDefault: true, // Start wurde noch nicht von Hand geaendert
     durationError: '',
   };
 
+  /** Zusammenfassung neben den Zeitfeldern: im Zeitraum-Modus die Dauer, im Dauer-Modus der Zeitraum. */
   function updateDurationHint() {
     updateOverlapHint();
     const s = els.startTime.value;
     const e = els.endTime.value;
+    const diff = s && e ? hmToMinutes(e) - hmToMinutes(s) : 0;
+    let text = '';
+    let isError = false;
     if (formState.durationError) {
-      els.durationHint.textContent = formState.durationError;
-      els.durationHint.classList.add('duration-hint--error');
-      return;
+      text = formState.durationError;
+      isError = true;
+    } else if (formState.mode === 'times' && s && e && diff <= 0) {
+      text = 'Ende muss nach dem Start liegen.';
+      isError = true;
+    } else if (formState.mode === 'times') {
+      if (diff > 0) text = `= ${formatDurationLong(diff)}`;
+    } else if (diff > 0 && els.duration.value.trim()) {
+      text = `${s} – ${e} Uhr`;
+    } else if (s) {
+      text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
     }
-    if (!s || !e) { els.durationHint.innerHTML = '&nbsp;'; return; }
-    const diff = hmToMinutes(e) - hmToMinutes(s);
-    if (diff <= 0) {
-      els.durationHint.textContent = 'Ende muss nach dem Start liegen.';
-      els.durationHint.classList.add('duration-hint--error');
-    } else {
-      els.durationHint.textContent = `→ ${formatDurationLong(diff)} (${diff} Min)`;
-      els.durationHint.classList.remove('duration-hint--error');
+    els.durationHint.textContent = text || '\u00a0';
+    els.durationHint.classList.toggle('is-error', isError);
+  }
+
+  function setEntryMode(mode, { focus } = {}) {
+    formState.mode = mode;
+    els.composer.dataset.mode = mode;
+    els.modeTimesBtn.classList.toggle('is-active', mode === 'times');
+    els.modeDurationBtn.classList.toggle('is-active', mode === 'duration');
+    els.modeTimesBtn.setAttribute('aria-pressed', String(mode === 'times'));
+    els.modeDurationBtn.setAttribute('aria-pressed', String(mode === 'duration'));
+    if (mode === 'duration') {
+      formState.anchor = 'duration';
+      if (!els.duration.value) syncDurationFromTimes();
     }
+    updateDurationHint();
+    if (focus) (mode === 'duration' ? els.duration : els.startTime).focus();
   }
 
   /** Dauerfeld aus Start und Ende fuellen (oder leeren, wenn dort nichts Gueltiges steht). */
@@ -184,8 +209,9 @@
     els.saveBtn.textContent = 'Eintrag speichern';
     els.cancelEditBtn.classList.add('hidden');
     els.startTime.value = defaultStartTime();
-    els.endTime.value = isTodayISO(state.viewDate) ? nowHHMM() : '';
-    formState.anchor = 'times';
+    // Im Dauer-Modus ergibt sich das Ende aus der Dauer, im Zeitraum-Modus ist "jetzt" vorbelegt.
+    els.endTime.value = isTodayISO(state.viewDate) && formState.mode === 'times' ? nowHHMM() : '';
+    formState.anchor = formState.mode === 'duration' ? 'duration' : 'times';
     formState.startIsDefault = true;
     formState.durationError = '';
     els.duration.value = '';
@@ -306,6 +332,7 @@
   }
 
   async function init() {
+    setEntryMode(formState.mode);
     let me;
     try {
       me = await Api.get('/api/auth/me');
@@ -351,6 +378,8 @@
       try {
         const data = await Api.get(`/api/entries/suggestions?q=${encodeURIComponent(query)}`);
         suggestions = data.suggestions.filter((s) => s.description !== query);
+        // Antwort kam erst nach dem Verlassen des Feldes: Liste nicht mehr einblenden
+        if (document.activeElement !== input) return hide();
         render();
       } catch {
         hide();
@@ -367,7 +396,10 @@
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') hide();
     });
-    input.addEventListener('blur', () => setTimeout(hide, 120));
+    input.addEventListener('blur', () => {
+      clearTimeout(timer);
+      setTimeout(hide, 120);
+    });
     list.addEventListener('mousedown', (e) => {
       // mousedown statt click: sonst schliesst das blur-Ereignis die Liste zuerst
       const item = e.target.closest('.suggest-item');
@@ -386,10 +418,6 @@
     if (s.jiraKey && !els.jiraKey.value.trim()) els.jiraKey.value = s.jiraKey;
   });
 
-  // Beim Timer-Start gibt es kein Ticketfeld - ein ausgewaehltes Ticket wird mitgeschickt.
-  let timerPendingJira = null;
-  els.timerDescription.addEventListener('input', () => { timerPendingJira = null; });
-  attachSuggest(els.timerDescription, els.timerSuggestList, (s) => { timerPendingJira = s.jiraKey || null; });
   attachSuggest(els.timerRunningDescription, els.timerRunningSuggestList, (s) => {
     if (s.jiraKey && !els.timerRunningJira.value.trim()) els.timerRunningJira.value = s.jiraKey;
     saveTimerFields();
@@ -433,7 +461,6 @@
   convertLinksOnPaste(els.description, (key) => {
     if (!els.jiraKey.value.trim()) els.jiraKey.value = key;
   });
-  convertLinksOnPaste(els.timerDescription, (key) => { if (!timerPendingJira) timerPendingJira = key; });
   convertLinksOnPaste(els.timerRunningDescription, (key) => {
     if (!els.timerRunningJira.value.trim()) {
       els.timerRunningJira.value = key;
@@ -448,12 +475,6 @@
       els.form.requestSubmit();
     }
   });
-  els.timerDescription.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      els.timerStartBtn.click();
-    }
-  });
 
   // --- Timer ---------------------------------------------------------
 
@@ -462,9 +483,8 @@
 
   function renderTimer(timer) {
     state.timer = timer;
-    els.timerCard.classList.toggle('timer-card--running', !!timer);
-    els.timerIdleView.classList.toggle('hidden', !!timer);
-    els.timerRunningView.classList.toggle('hidden', !timer);
+    els.timerCard.classList.toggle('hidden', !timer);
+    els.timerStartBtn.classList.toggle('hidden', !!timer);
     clearInterval(elapsedInterval);
 
     document.title = BASE_TITLE;
@@ -511,20 +531,25 @@
     } catch { /* Timer ist optional - Seite funktioniert auch ohne */ }
   }
 
+  // Timer starten: Aufgabe und Ticket aus dem Eintragsformular werden uebernommen.
   els.timerStartBtn.addEventListener('click', async () => {
-    setFormError(els.timerError, '');
+    setFormError(els.formError, '');
+    els.timerStartBtn.disabled = true;
     try {
       const data = await Api.post('/api/timer', {
         work_date: todayISO(),
         start_time: nowHHMM(),
-        description: els.timerDescription.value.trim(),
-        jira_key: timerPendingJira,
+        description: convertTicketLinks(els.description.value).trim(),
+        jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null,
       });
-      els.timerDescription.value = '';
-      timerPendingJira = null;
+      els.description.value = '';
+      els.jiraKey.value = '';
       renderTimer(data.timer);
+      showToast('Timer läuft.');
     } catch (err) {
-      setFormError(els.timerError, err.message);
+      setFormError(els.formError, err.message);
+    } finally {
+      els.timerStartBtn.disabled = false;
     }
   });
 
@@ -593,6 +618,14 @@
     syncDurationFromTimes();
     updateDurationHint();
   });
+  els.modeTimesBtn.addEventListener('click', () => {
+    try { localStorage.setItem(ENTRY_MODE_KEY, 'times'); } catch { /* nur Komfort */ }
+    setEntryMode('times');
+  });
+  els.modeDurationBtn.addEventListener('click', () => {
+    try { localStorage.setItem(ENTRY_MODE_KEY, 'duration'); } catch { /* nur Komfort */ }
+    setEntryMode('duration', { focus: true });
+  });
   els.duration.addEventListener('input', () => { formState.anchor = 'duration'; applyDuration(); });
   els.durationChips.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
@@ -607,6 +640,10 @@
   els.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     setFormError(els.formError, '');
+    if (formState.durationError) return setFormError(els.formError, formState.durationError);
+    if (!els.startTime.value || !els.endTime.value) {
+      return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
+    }
     const payload = {
       work_date: state.viewDate,
       start_time: els.startTime.value,

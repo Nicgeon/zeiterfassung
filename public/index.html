@@ -43,20 +43,10 @@
 
     <div class="page-main">
 
-      <!-- Timer -->
-      <div class="card timer-card" id="timerCard">
+      <!-- Laufender Timer (nur sichtbar, solange einer läuft) -->
+      <div class="card timer-card timer-card--running hidden" id="timerCard">
         <div id="timerError"></div>
-
-        <div id="timerIdleView" class="timer-idle">
-          <div class="suggest-wrap">
-            <label class="visually-hidden" for="timerDescription">Woran arbeitest du?</label>
-            <input type="text" id="timerDescription" maxlength="2000" autocomplete="off" placeholder="Timer starten: Woran arbeitest du? (optional)" />
-            <ul class="suggest-list hidden" id="timerSuggestList"></ul>
-          </div>
-          <button type="button" class="btn" id="timerStartBtn">Timer starten</button>
-        </div>
-
-        <div id="timerRunningView" class="timer-running hidden">
+        <div id="timerRunningView" class="timer-running">
           <div class="timer-running__clock">
             <span class="timer-dot"></span>
             <span class="timer-elapsed mono" id="timerElapsed"></span>
@@ -82,62 +72,67 @@
       </div>
 
       <!-- Neuer Eintrag -->
-      <div class="card">
-        <div class="card__header">
+      <div class="card composer" id="composer" data-mode="times">
+        <div class="composer__head">
           <h2 id="formTitle">Neuer Eintrag</h2>
-          <button type="button" class="btn btn--ghost btn--sm hidden" id="cancelEditBtn">Abbrechen</button>
+          <div class="composer__head-actions">
+            <div class="seg seg--sm" role="group" aria-label="Zeit angeben als">
+              <button type="button" class="seg__btn is-active" id="modeTimesBtn" aria-pressed="true">Zeitraum</button>
+              <button type="button" class="seg__btn" id="modeDurationBtn" aria-pressed="false">Dauer</button>
+            </div>
+            <button type="button" class="btn btn--ghost btn--sm hidden" id="cancelEditBtn">Abbrechen</button>
+          </div>
         </div>
 
         <div id="formError"></div>
 
         <form id="entryForm">
-          <div class="entry-form__row">
-            <div class="field entry-form__start">
-              <label for="startTime">Start</label>
-              <input type="time" id="startTime" class="time-input" required />
-            </div>
-            <div class="field entry-form__end">
-              <label for="endTime">Ende</label>
-              <div class="flex gap-sm">
-                <input type="time" id="endTime" class="time-input flex-1" required />
-                <button type="button" class="btn btn--secondary" id="nowBtn" title="Aktuelle Uhrzeit übernehmen">Jetzt</button>
-              </div>
-            </div>
-            <div class="field entry-form__duration">
-              <label for="duration">Dauer</label>
-              <input type="text" id="duration" class="mono" inputmode="text" autocomplete="off" placeholder="z. B. 45 oder 1:30" />
-            </div>
-            <div class="field entry-form__ticket">
-              <label for="jiraKey">Ticket <span class="optional-label">(optional)</span></label>
-              <input type="text" id="jiraKey" class="mono" placeholder="z. B. PROJ-123 oder Link" maxlength="500" />
-            </div>
+          <div class="suggest-wrap composer__text">
+            <label class="visually-hidden" for="description">Aufgabe</label>
+            <textarea id="description" required maxlength="2000" rows="2" autocomplete="off"
+                      placeholder="Was hast du gemacht?"></textarea>
+            <ul class="suggest-list hidden" id="suggestList"></ul>
           </div>
-          <div class="duration-chips" role="group" aria-label="Dauer schnell wählen">
-            <span class="duration-chips__label">Nur die Dauer bekannt?</span>
-            <button type="button" class="chip" data-minutes="15">15 Min</button>
-            <button type="button" class="chip" data-minutes="30">30 Min</button>
-            <button type="button" class="chip" data-minutes="45">45 Min</button>
-            <button type="button" class="chip" data-minutes="60">1 Std</button>
-            <button type="button" class="chip" data-minutes="90">1,5 Std</button>
-            <button type="button" class="chip" data-minutes="120">2 Std</button>
+
+          <div class="composer__meta">
+            <div class="composer__when">
+              <div class="when when--times">
+                <label class="visually-hidden" for="startTime">Start</label>
+                <input type="time" id="startTime" class="time-input" />
+                <span class="when__sep" aria-hidden="true">–</span>
+                <label class="visually-hidden" for="endTime">Ende</label>
+                <input type="time" id="endTime" class="time-input" />
+                <button type="button" class="btn btn--secondary btn--sm" id="nowBtn" title="Aktuelle Uhrzeit als Ende übernehmen">Jetzt</button>
+              </div>
+              <div class="when when--duration">
+                <label class="visually-hidden" for="duration">Dauer</label>
+                <input type="text" id="duration" class="mono" inputmode="text" autocomplete="off" placeholder="z. B. 1:30" />
+                <div class="duration-chips" role="group" aria-label="Dauer schnell wählen">
+                  <button type="button" class="chip" data-minutes="15">15 Min</button>
+                  <button type="button" class="chip" data-minutes="30">30 Min</button>
+                  <button type="button" class="chip" data-minutes="45">45 Min</button>
+                  <button type="button" class="chip" data-minutes="60">1 Std</button>
+                  <button type="button" class="chip" data-minutes="90">1,5 Std</button>
+                  <button type="button" class="chip" data-minutes="120">2 Std</button>
+                </div>
+              </div>
+              <div class="when__summary" id="durationHint">&nbsp;</div>
+            </div>
+            <div class="composer__ticket">
+              <label class="visually-hidden" for="jiraKey">Ticket (optional)</label>
+              <input type="text" id="jiraKey" class="mono" placeholder="Ticket (optional)" maxlength="500" />
+            </div>
           </div>
           <div class="hint-line">
-            <div class="field-hint" id="durationHint">&nbsp;</div>
             <div class="field-hint duration-hint--error" id="overlapHint"></div>
           </div>
 
-          <div class="field">
-            <label for="description">Aufgabe</label>
-            <div class="suggest-wrap">
-              <textarea id="description" required maxlength="2000" autocomplete="off"
-                        placeholder="Was hast du gemacht?"></textarea>
-              <ul class="suggest-list hidden" id="suggestList"></ul>
-            </div>
-          </div>
-
-          <div class="entry-form__footer">
+          <div class="composer__footer">
             <span class="field-hint">Strg + Enter speichert · Jira-Links werden zu Ticketnummern</span>
-            <button type="submit" class="btn btn--dark" id="saveBtn">Eintrag speichern</button>
+            <div class="composer__actions">
+              <button type="button" class="btn btn--secondary" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
+              <button type="submit" class="btn btn--dark" id="saveBtn">Eintrag speichern</button>
+            </div>
           </div>
         </form>
       </div>

@@ -196,7 +196,8 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 
 ## Nutzung
 
-- **Timer**: „Timer starten“ drücken und einfach arbeiten. Der Timer läuft
+- **Timer**: Im Eintragsformular Aufgabe und Ticket eintragen (oder leer lassen)
+  und „Timer starten“ drücken, dann einfach arbeiten. Der Timer läuft
   serverseitig, also auch weiter, wenn der Tab geschlossen oder das Gerät
   gewechselt wird. Beim Stoppen entsteht automatisch ein Eintrag, der sich
   danach ganz normal bearbeiten lässt, um Zeiten nachzujustieren. Über
@@ -214,8 +215,8 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Eintrags, oder die aktuelle Uhrzeit beim allerersten Eintrag des Tages).
   Endzeit per Klick auf "Jetzt" setzen oder manuell eintragen – die Dauer
   wird automatisch berechnet und live angezeigt.
-- **Nur die Dauer bekannt?** Statt Start und Ende lässt sich im Feld „Dauer"
-  einfach die Zeitspanne eintragen, z. B. `45`, `1:30`, `1h30`, `90 min` oder
+- **Nur die Dauer bekannt?** Im Formular auf „Dauer" umschalten (die Wahl merkt
+  sich der Browser) und die Zeitspanne eintragen, z. B. `45`, `1:30`, `1h30`, `90 min` oder
   `1,5h` (eine reine Zahl zählt als Minuten, eine Dezimalzahl als Stunden). Die
   Knöpfe darunter (15 Min bis 2 Std) tragen häufige Werte mit einem Klick ein.
   Daraus berechnet sich der Rest: Beim ersten Eintrag des Tages endet die Arbeit
@@ -243,8 +244,8 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   mit dessen Text und Ticket vor, die Zeiten werden wie bei jedem neuen
   Eintrag gesetzt.
 - **Tastatur**: Strg+Enter (am Mac Cmd+Enter) im Beschreibungsfeld speichert
-  den Eintrag, Enter im Timer-Feld startet den Timer. Die
-  Autovervollständigung gibt es auch beim Timer.
+  den Eintrag. Die Autovervollständigung gibt es auch im Feld des laufenden
+  Timers.
 - **Überschneidungen**: Überlappt ein Zeitraum mit einem anderen Eintrag des
   Tages, erscheint unter der Dauer eine Warnung (Speichern bleibt möglich).
 - **Offene kopieren**: Der Knopf „Offene kopieren" neben „Tag kopieren"
@@ -271,8 +272,12 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Nummer gefüllt. Erkannt werden `*.atlassian.net`-Adressen sowie Adressen mit
   `/browse/`, `/jira/` oder `/servicedesk/` im Pfad; andere Links bleiben
   unverändert. Die Logik liegt in `public/js/tickets.js` (Browser und Server).
-- **Oberfläche**: Die Erfassungsseite zeigt links Timer, Eingabeformular und
-  Tagesliste, rechts eine Zusammenfassung (Gesamtzeit, Anteil in Jira/offen,
+- **Oberfläche**: Die Erfassungsseite zeigt links das Eintragsformular (ein
+  großes Aufgabenfeld, darunter eine Zeile für Zeit und Ticket; der Umschalter
+  „Zeitraum / Dauer" bestimmt, ob Start und Ende oder die Dauer eingegeben
+  wird, die jeweils andere Angabe erscheint nur als Zusammenfassung; der Timer
+  wird über den Knopf im Formular gestartet und läuft als Leiste darüber),
+  darunter die Tagesliste, rechts eine Zusammenfassung (Gesamtzeit, Anteil in Jira/offen,
   Summen je Ticket) mit den Kopierknöpfen. Der Haken-Kreis an einem Eintrag
   markiert ihn als „in Jira eingetragen".
 - **Konto**: Passwort ändern, 2FA (Authenticator-App) und Passkeys unter
