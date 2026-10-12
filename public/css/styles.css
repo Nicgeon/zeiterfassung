@@ -944,3 +944,33 @@ html { zoom: var(--ui-zoom); }
 @media (min-width: 2400px) { :root { --ui-zoom: 1.55; } }
 @media (min-width: 2900px) { :root { --ui-zoom: 1.9; } }
 @media (min-width: 3600px) { :root { --ui-zoom: 2.3; } }
+
+/* --- Unterbrochene Aufgaben (Weitermachen) ---------------------------------------- */
+
+.resume-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.resume-bar__label { font-size: 13px; color: var(--ink-muted); margin-right: 2px; }
+.resume-item { display: inline-flex; align-items: stretch; }
+.chip--resume {
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+}
+.chip--resume:hover { background: var(--surface); }
+.chip--resume .mono { font-size: 12px; color: var(--ink-muted); margin-left: 6px; }
+.chip-x {
+  min-height: 36px;
+  min-width: 30px;
+  border: 1px solid var(--accent-line);
+  border-left: 0;
+  border-radius: 0 999px 999px 0;
+  background: var(--accent-wash);
+  color: var(--ink-muted);
+  font-size: 16px;
+  line-height: 1;
+}
+.chip-x:hover { color: var(--ink); background: var(--surface); }

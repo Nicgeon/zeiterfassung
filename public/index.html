@@ -43,6 +43,9 @@
 
     <div class="page-main">
 
+      <!-- Unterbrochene Aufgaben: ein Klick startet den Timer damit erneut -->
+      <div class="resume-bar hidden" id="resumeBar" aria-label="Unterbrochene Aufgaben"></div>
+
       <!-- Neuer Eintrag. Läuft ein Timer, wird dieselbe Karte zum Timer: Aufgabe und Ticket
            sind dann die Felder des Timers, die Zeitangaben entfallen. -->
       <div class="card composer" id="composer" data-mode="times">
@@ -113,6 +116,7 @@
               <button type="button" class="btn btn--secondary no-timer" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
               <button type="submit" class="btn btn--dark no-timer" id="saveBtn">Eintrag speichern</button>
               <button type="button" class="btn btn--ghost timer-only" id="timerDiscardBtn">Verwerfen</button>
+              <button type="button" class="btn btn--secondary timer-only" id="timerPauseBtn" title="Bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>
               <button type="button" class="btn timer-only" id="timerStopBtn">Stoppen &amp; eintragen</button>
             </div>
           </div>

@@ -55,6 +55,8 @@
     timerStartBtn: $('#timerStartBtn'),
     timerStartLabel: $('#timerStartLabel'),
     timerStopBtn: $('#timerStopBtn'),
+    timerPauseBtn: $('#timerPauseBtn'),
+    resumeBar: $('#resumeBar'),
     timerDiscardBtn: $('#timerDiscardBtn'),
   };
 
@@ -330,6 +332,7 @@
 
   async function init() {
     setEntryMode(formState.mode);
+    renderResumeBar();
     let me;
     try {
       me = await Api.get('/api/auth/me');
@@ -472,6 +475,7 @@
   function renderTimer(timer) {
     state.timer = timer;
     els.composer.classList.toggle('composer--timer', !!timer);
+    renderResumeBar();
     els.formTitle.textContent = timer ? 'Timer läuft' : state.editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
     clearInterval(elapsedInterval);
 
@@ -549,28 +553,112 @@
   els.description.addEventListener('change', saveTimerFields);
   els.jiraKey.addEventListener('change', saveTimerFields);
 
-  async function stopTimer() {
+  /** Timer beenden und als Eintrag speichern; mit pause wird die Aufgabe zum Weitermachen gemerkt. */
+  async function stopTimer({ pause = false } = {}) {
     setFormError(els.formError, '');
     els.timerStopBtn.disabled = true;
+    els.timerPauseBtn.disabled = true;
+    const description = convertTicketLinks(els.description.value).trim();
+    const jiraKey = convertTicketLinks(els.jiraKey.value).trim().slice(0, 40);
     try {
       const data = await Api.post('/api/timer/stop', {
         end_time: nowHHMM(),
-        description: convertTicketLinks(els.description.value).trim(),
-        jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40),
+        description,
+        jira_key: jiraKey,
       });
+      if (pause) addPausedTask({ description, jiraKey });
       renderTimer(null);
       els.description.value = '';
       els.jiraKey.value = '';
       state.viewDate = data.entry.workDate;
       await loadEntries();
-      showToast(`Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`);
+      showToast(
+        pause
+          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description}" ist unterbrochen, oben geht es mit „Weitermachen" weiter.`
+          : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`,
+        pause ? { durationMs: 7000 } : undefined
+      );
     } catch (err) {
       setFormError(els.formError, err.message);
     } finally {
       els.timerStopBtn.disabled = false;
+      els.timerPauseBtn.disabled = false;
     }
   }
-  els.timerStopBtn.addEventListener('click', stopTimer);
+  els.timerStopBtn.addEventListener('click', () => stopTimer());
+  els.timerPauseBtn.addEventListener('click', () => stopTimer({ pause: true }));
+
+  // --- Unterbrochene Aufgaben ------------------------------------------------
+  // Beim Unterbrechen wird der Timer wie beim Stoppen als Eintrag gespeichert; Aufgabe und
+  // Ticket merkt sich der Browser. "Weitermachen" startet einen neuen Timer damit. So
+  // entstehen nahtlos anschliessende Eintraege (A, dann B, dann A) ohne Ueberschneidung.
+
+  const PAUSED_KEY = 'zeit.pausedTasks';
+  const PAUSED_MAX = 6;
+  const PAUSED_MAX_AGE_MS = 36 * 3600 * 1000;
+
+  function loadPausedTasks() {
+    try {
+      const list = JSON.parse(localStorage.getItem(PAUSED_KEY) || '[]');
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter((t) => t && typeof t.description === 'string' && t.at > Date.now() - PAUSED_MAX_AGE_MS)
+        .slice(0, PAUSED_MAX);
+    } catch {
+      return [];
+    }
+  }
+
+  function savePausedTasks(list) {
+    try { localStorage.setItem(PAUSED_KEY, JSON.stringify(list.slice(0, PAUSED_MAX))); } catch { /* nur Komfort */ }
+    renderResumeBar();
+  }
+
+  function addPausedTask({ description, jiraKey }) {
+    const rest = loadPausedTasks().filter((t) => !(t.description === description && (t.jiraKey || '') === (jiraKey || '')));
+    savePausedTasks([{ description, jiraKey: jiraKey || '', at: Date.now() }, ...rest]);
+  }
+
+  function renderResumeBar() {
+    const list = loadPausedTasks();
+    els.resumeBar.classList.toggle('hidden', list.length === 0 || !!state.timer);
+    els.resumeBar.innerHTML = list.length === 0 ? '' : `
+      <span class="resume-bar__label">Weitermachen:</span>
+      ${list.map((t, i) => `
+        <span class="resume-item">
+          <button type="button" class="chip chip--resume" data-index="${i}" title="Timer mit dieser Aufgabe starten">▶ ${escapeHtml(t.description)}${t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}</button>
+          <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
+        </span>`).join('')}`;
+  }
+
+  els.resumeBar.addEventListener('click', async (e) => {
+    const list = loadPausedTasks();
+    const removeBtn = e.target.closest('[data-remove]');
+    if (removeBtn) {
+      list.splice(Number(removeBtn.dataset.remove), 1);
+      return savePausedTasks(list);
+    }
+    const chip = e.target.closest('.chip--resume');
+    if (!chip) return;
+    const index = Number(chip.dataset.index);
+    const task = list[index];
+    if (!task) return;
+    setFormError(els.formError, '');
+    try {
+      const data = await Api.post('/api/timer', {
+        work_date: todayISO(),
+        start_time: nowHHMM(),
+        description: task.description,
+        jira_key: task.jiraKey || null,
+      });
+      list.splice(index, 1);
+      savePausedTasks(list);
+      renderTimer(data.timer);
+      showToast('Timer läuft wieder.');
+    } catch (err) {
+      setFormError(els.formError, err.message);
+    }
+  });
 
   els.timerDiscardBtn.addEventListener('click', async () => {
     if (!confirm('Timer verwerfen? Es wird kein Eintrag angelegt.')) return;
