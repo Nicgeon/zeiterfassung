@@ -16,12 +16,12 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const getTimerStmt = db.prepare('SELECT * FROM active_timers WHERE user_id = ?');
 const startTimerStmt = db.prepare(
-  `INSERT INTO active_timers (user_id, started_at, work_date, start_time, description_enc, jira_key)
-   VALUES (@user_id, @started_at, @work_date, @start_time, @description_enc, @jira_key)
+  `INSERT INTO active_timers (user_id, started_at, work_date, start_time, description_enc, jira_key, carry_minutes)
+   VALUES (@user_id, @started_at, @work_date, @start_time, @description_enc, @jira_key, @carry_minutes)
    ON CONFLICT(user_id) DO UPDATE SET
      started_at = excluded.started_at, work_date = excluded.work_date,
      start_time = excluded.start_time, description_enc = excluded.description_enc,
-     jira_key = excluded.jira_key`
+     jira_key = excluded.jira_key, carry_minutes = excluded.carry_minutes`
 );
 const updateTimerStmt = db.prepare(
   'UPDATE active_timers SET description_enc = ?, jira_key = ? WHERE user_id = ?'
@@ -32,6 +32,12 @@ const insertEntryStmt = db.prepare(
    VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key)`
 );
 const getEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ?');
+const getOwnEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+const trashEntryStmt = db.prepare("UPDATE entries SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?");
+
+function fromMinutes(total) {
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 function toMinutes(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
@@ -56,6 +62,7 @@ function serializeTimer(row) {
     startTime: row.start_time,
     description: row.description_enc ? decryptField(row.description_enc) : '',
     jiraKey: row.jira_key,
+    carryMinutes: row.carry_minutes || 0,
   };
 }
 
@@ -79,15 +86,38 @@ router.post('/', (req, res) => {
   }
 
   const description = cleanDescription(req.body.description);
-  startTimerStmt.run({
-    user_id: req.user.id,
-    started_at: new Date().toISOString(),
-    work_date,
-    start_time,
-    description_enc: description ? encryptField(description) : null,
-    jira_key: cleanJira(req.body.jira_key),
+
+  // Weitermachen nach einer Unterbrechung: Der fruehere Teil (ein eigener Eintrag) wird
+  // geloescht, seine Zeit zaehlt zum neuen Eintrag. Nur, wenn das ohne Folgen geht.
+  let carry = 0;
+  let resumeEntry = null;
+  const resumeId = req.body.resume_entry_id;
+  if (resumeId !== undefined && resumeId !== null) {
+    const reject = (error) => res.status(409).json({ error, mergeRejected: true });
+    resumeEntry = Number.isInteger(resumeId) ? getOwnEntryStmt.get(resumeId, req.user.id) : null;
+    if (!resumeEntry) return reject('Der fruehere Teil existiert nicht mehr.');
+    if (resumeEntry.transferred_to_jira) return reject('Der fruehere Teil ist schon in Jira eingetragen.');
+    if (resumeEntry.work_date !== work_date) return reject('Der fruehere Teil stammt von einem anderen Tag.');
+    carry = parseInt(req.body.carry_minutes, 10);
+    if (!Number.isInteger(carry) || carry < 0 || carry > resumeEntry.duration_minutes) {
+      return reject('Ungueltige uebernommene Zeit.');
+    }
+  }
+
+  const start = db.transaction(() => {
+    if (resumeEntry) trashEntryStmt.run(resumeEntry.id, req.user.id);
+    startTimerStmt.run({
+      user_id: req.user.id,
+      started_at: new Date().toISOString(),
+      work_date,
+      start_time,
+      description_enc: description ? encryptField(description) : null,
+      jira_key: cleanJira(req.body.jira_key),
+      carry_minutes: carry,
+    });
   });
-  res.status(201).json({ timer: serializeTimer(getTimerStmt.get(req.user.id)) });
+  start();
+  res.status(201).json({ timer: serializeTimer(getTimerStmt.get(req.user.id)), mergedEntryId: resumeEntry ? resumeEntry.id : null });
 });
 
 /** Beschreibung/Ticket waehrend der laufenden Zeit nachtragen. */
@@ -131,8 +161,7 @@ router.post('/stop', (req, res) => {
   // statt mit einer Fehlermeldung abzulehnen.
   if (duration === 0 && toMinutes(timer.start_time) < 23 * 60 + 59) {
     duration = 1;
-    const total = toMinutes(timer.start_time) + 1;
-    endTime = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    endTime = fromMinutes(toMinutes(timer.start_time) + 1);
   }
   if (duration <= 0) {
     return res.status(400).json({
@@ -140,6 +169,24 @@ router.post('/stop', (req, res) => {
         'Die Endzeit liegt nicht nach der Startzeit (z.B. bei einem Timer ueber Mitternacht). ' +
         'Bitte den Timer verwerfen und den Eintrag von Hand erfassen.',
     });
+  }
+
+  // Uebernommene Zeit eines frueheren Teils: der Eintrag beginnt entsprechend frueher
+  // (liegt also nie vor dem Start des fruehen Teils); reicht der Tag dafuer nicht, wird
+  // das Ende nach hinten geschoben.
+  let startMin = toMinutes(timer.start_time);
+  let endMin = toMinutes(endTime);
+  const carry = timer.carry_minutes || 0;
+  if (carry > 0) {
+    startMin -= carry;
+    if (startMin < 0) {
+      endMin -= startMin;
+      startMin = 0;
+    }
+    duration += carry;
+    if (endMin > 23 * 60 + 59) {
+      return res.status(400).json({ error: 'Mit der uebernommenen Zeit reicht der Tag nicht. Bitte verwerfen und von Hand erfassen.' });
+    }
   }
   if (duration > 16 * 60) {
     return res.status(400).json({
@@ -153,8 +200,8 @@ router.post('/stop', (req, res) => {
     const info = insertEntryStmt.run({
       user_id: req.user.id,
       work_date: timer.work_date,
-      start_time: timer.start_time,
-      end_time: endTime,
+      start_time: fromMinutes(startMin),
+      end_time: fromMinutes(endMin),
       duration_minutes: duration,
       description_enc: encryptField(description),
       jira_key: jiraKey,

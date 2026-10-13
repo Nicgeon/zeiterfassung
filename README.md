@@ -209,10 +209,17 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 - **Unterbrechen und Weitermachen**: Kommt eine Aufgabe dazwischen, beim
   laufenden Timer auf „Unterbrechen“ klicken. Die bisherige Zeit wird wie beim
   Stoppen als Eintrag gespeichert, und die Aufgabe (Text und Ticket) erscheint
-  oben als Knopf „▶ Weitermachen“. Danach lässt sich die dazwischengekommene
-  Aufgabe per Timer oder von Hand erfassen; ein Klick auf den Knopf startet
-  den Timer mit der unterbrochenen Aufgabe erneut. So entstehen nahtlos
-  anschließende Einträge (A, dann B, dann A) ohne Überschneidung. Mehrere
+  oben als Knopf „▶ Weitermachen“ mit den bisherigen Minuten. Danach lässt sich
+  die dazwischengekommene Aufgabe per Timer oder von Hand erfassen. Ein Klick
+  auf „Weitermachen“ startet den Timer wieder und **führt beide Teile zu einem
+  Eintrag zusammen**: Der frühere Teil verschwindet, seine Minuten zählen zum
+  neuen Eintrag (die Uhr beginnt bei ihnen und der Hinweis nennt sie). Der
+  fertige Eintrag beginnt entsprechend früher, liegt also bei „Weitermachen
+  nach Zwischenaufgabe“ zeitlich um die dazwischen liegende Aufgabe herum; die
+  Dauern addieren sich, nichts wird doppelt gezählt. Der Zeitzuschlag kommt nur
+  einmal dazu. Zusammengeführt wird nur, wenn der frühere Teil noch existiert,
+  vom selben Tag ist und noch nicht „in Jira eingetragen“ wurde; sonst läuft der
+  Timer als eigener Eintrag weiter (mit entsprechendem Hinweis). Mehrere
   unterbrochene Aufgaben sind möglich (bis 6, sie verfallen nach 36 Stunden),
   über das × lässt sich ein Eintrag aus der Liste entfernen. Die Liste merkt
   sich der Browser, sie gilt also nur an diesem Gerät.

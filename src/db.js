@@ -79,7 +79,8 @@ CREATE TABLE IF NOT EXISTS active_timers (
   work_date        TEXT NOT NULL,
   start_time       TEXT NOT NULL,
   description_enc  TEXT,
-  jira_key         TEXT
+  jira_key         TEXT,
+  carry_minutes    INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -138,6 +139,13 @@ if (!entryColumns.includes('deleted_at')) {
   db.exec('ALTER TABLE entries ADD COLUMN deleted_at TEXT');
   // eslint-disable-next-line no-console
   console.log('[MIGRATION] Spalte "deleted_at" (Papierkorb fuer Undo) zur Tabelle entries hinzugefuegt.');
+}
+
+const timerColumns = db.prepare('PRAGMA table_info(active_timers)').all().map((c) => c.name);
+if (!timerColumns.includes('carry_minutes')) {
+  db.exec('ALTER TABLE active_timers ADD COLUMN carry_minutes INTEGER NOT NULL DEFAULT 0');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "carry_minutes" (uebernommene Zeit beim Weitermachen) zur Tabelle active_timers hinzugefuegt.');
 }
 
 const passkeyColumns = db.prepare('PRAGMA table_info(passkeys)').all().map((c) => c.name);

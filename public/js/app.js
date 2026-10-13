@@ -517,16 +517,20 @@
     const startedYesterdayOrEarlier = timer.workDate !== todayISO();
     els.timerStartLabel.textContent = timer.startTime;
     const sur = loadSurcharge();
-    els.timerSurchargeNote.textContent = sur > 0 ? ` Beim Eintragen kommen ${sur} Min Zuschlag dazu.` : '';
+    const carryMin = timer.carryMinutes || 0;
+    els.timerSurchargeNote.textContent =
+      (carryMin > 0 ? ` Enthält ${carryMin} Min vom unterbrochenen Teil.` : '') +
+      (sur > 0 ? ` Beim Eintragen kommen ${sur} Min Zuschlag dazu.` : '');
     // Aufgabe und Ticket des Timers stehen in den normalen Formularfeldern.
     if (document.activeElement !== els.description) els.description.value = timer.description || '';
     if (document.activeElement !== els.jiraKey) els.jiraKey.value = timer.jiraKey || '';
 
     const tick = () => {
       const seconds = Math.max(0, Math.floor((Date.now() - new Date(timer.startedAt).getTime()) / 1000));
-      const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
-      const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
-      const s2 = String(seconds % 60).padStart(2, '0');
+      const shown = seconds + (timer.carryMinutes || 0) * 60; // Uhr zeigt die Gesamtzeit der Aufgabe
+      const h = String(Math.floor(shown / 3600)).padStart(2, '0');
+      const m = String(Math.floor((shown % 3600) / 60)).padStart(2, '0');
+      const s2 = String(shown % 60).padStart(2, '0');
       els.timerElapsed.textContent = `${h}:${m}:${s2}`;
       document.title = `${h}:${m}:${s2} · ${BASE_TITLE}`;
       if (startedYesterdayOrEarlier) {
@@ -597,7 +601,15 @@
         description,
         jira_key: jiraKey,
       });
-      if (pause) addPausedTask({ description, jiraKey });
+      if (pause) {
+        addPausedTask({
+          description,
+          jiraKey,
+          entryId: data.entry.id,
+          minutes: data.entry.durationMinutes,
+          workDate: data.entry.workDate,
+        });
+      }
       renderTimer(null);
       els.description.value = '';
       els.jiraKey.value = '';
@@ -605,7 +617,7 @@
       await loadEntries();
       showToast(
         pause
-          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description}" ist unterbrochen, oben geht es mit „Weitermachen" weiter.`
+          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.`
           : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`,
         pause ? { durationMs: 7000 } : undefined
       );
@@ -645,9 +657,9 @@
     renderResumeBar();
   }
 
-  function addPausedTask({ description, jiraKey }) {
+  function addPausedTask({ description, jiraKey, entryId, minutes, workDate }) {
     const rest = loadPausedTasks().filter((t) => !(t.description === description && (t.jiraKey || '') === (jiraKey || '')));
-    savePausedTasks([{ description, jiraKey: jiraKey || '', at: Date.now() }, ...rest]);
+    savePausedTasks([{ description, jiraKey: jiraKey || '', entryId, minutes, workDate, at: Date.now() }, ...rest]);
   }
 
   function renderResumeBar() {
@@ -657,7 +669,7 @@
       <span class="resume-bar__label">Weitermachen:</span>
       ${list.map((t, i) => `
         <span class="resume-item">
-          <button type="button" class="chip chip--resume" data-index="${i}" title="Timer mit dieser Aufgabe starten">▶ ${escapeHtml(t.description)}${t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}</button>
+          <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description)}${t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
           <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
         </span>`).join('')}`;
   }
@@ -675,17 +687,38 @@
     const task = list[index];
     if (!task) return;
     setFormError(els.formError, '');
+    const base = {
+      work_date: todayISO(),
+      start_time: nowHHMM(),
+      description: task.description,
+      jira_key: task.jiraKey || null,
+    };
+    // Der fruehere Teil wird mit dem neuen zusammengefuehrt (er verschwindet, seine Zeit zaehlt
+    // zum neuen Eintrag) - ausser er ist von einem anderen Tag, in Jira oder weg. Der Zuschlag
+    // steckt schon im frueheren Teil und kommt beim Stoppen genau einmal dazu.
+    const canMerge = task.entryId && task.workDate === todayISO();
+    const carry = canMerge ? Math.max(0, task.minutes - loadSurcharge()) : 0;
     try {
-      const data = await Api.post('/api/timer', {
-        work_date: todayISO(),
-        start_time: nowHHMM(),
-        description: task.description,
-        jira_key: task.jiraKey || null,
-      });
+      let data;
+      let merged = false;
+      try {
+        data = await Api.post('/api/timer', canMerge ? { ...base, resume_entry_id: task.entryId, carry_minutes: carry } : base);
+        merged = canMerge;
+      } catch (err) {
+        if (!(err.status === 409 && err.data && err.data.mergeRejected)) throw err;
+        // Zusammenfuehren nicht moeglich: als eigener Eintrag weitermachen
+        data = await Api.post('/api/timer', base);
+        showToast(`${err.message} Der neue Teil wird ein eigener Eintrag.`);
+      }
       list.splice(index, 1);
       savePausedTasks(list);
       renderTimer(data.timer);
-      showToast('Timer läuft wieder.');
+      if (merged) {
+        await loadEntries();
+        showToast('Timer läuft weiter – der frühere Teil wurde übernommen und zählt jetzt zu diesem Eintrag.');
+      } else if (!canMerge) {
+        showToast('Timer läuft wieder.');
+      }
     } catch (err) {
       setFormError(els.formError, err.message);
     }
