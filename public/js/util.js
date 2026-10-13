@@ -155,6 +155,28 @@ function saveCopyTimes(enabled) {
   try { localStorage.setItem(COPY_TIMES_KEY, enabled ? '1' : '0'); } catch { /* nur Komfort */ }
 }
 
+// --- Zeitzuschlag -------------------------------------------------------------
+// Minuten, die auf jeden NEUEN Eintrag (Formular, Timer) aufgerechnet werden, z. B. fuer
+// Vor- und Nachbereitung. Einstellung unter Konto; gilt pro Browser.
+
+const SURCHARGE_KEY = 'zeit.surchargeMinutes';
+const SURCHARGE_MAX = 240;
+
+function loadSurcharge() {
+  try {
+    const value = parseInt(localStorage.getItem(SURCHARGE_KEY) || '0', 10);
+    return Number.isFinite(value) ? Math.min(Math.max(value, 0), SURCHARGE_MAX) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveSurcharge(minutes) {
+  const value = Math.min(Math.max(parseInt(minutes, 10) || 0, 0), SURCHARGE_MAX);
+  try { localStorage.setItem(SURCHARGE_KEY, String(value)); } catch { /* nur Komfort */ }
+  return value;
+}
+
 /** Eine Zeile fuer die Zwischenablage; withTimes haengt Start-/Endzeit davor. */
 function entryLine(entry, withTimes) {
   const text = `${entry.description}${entry.jiraKey ? ` [${entry.jiraKey}]` : ''}`;

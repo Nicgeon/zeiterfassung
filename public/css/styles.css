@@ -974,3 +974,23 @@ html { zoom: var(--ui-zoom); }
   line-height: 1;
 }
 .chip-x:hover { color: var(--ink); background: var(--surface); }
+
+/* --- Einstellungen mit Zahlenfeld ------------------------------------------------ */
+
+.setting-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 18px; }
+.setting-row label { margin: 0; font-size: 14px; font-weight: 400; color: var(--ink); }
+.setting-row__control { display: flex; align-items: center; gap: 8px; }
+.setting-row__control input { width: 90px; }
+input[type='number'] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  min-height: 44px;
+  padding: 9px 12px;
+  outline: none;
+}
+input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }

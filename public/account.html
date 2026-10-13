@@ -38,6 +38,19 @@
       Standard: Es wird ohne Uhrzeiten kopiert, z. B. „60 Min – Tagesabschluss [ITPKK-1182]".
       Mit dieser Option steht davor zusätzlich die Zeit („08:00–09:00 (60 Min) – …"). Gilt für diesen Browser.
     </p>
+    <div class="setting-row">
+      <label for="surchargeInput">Zeitzuschlag pro Aufgabe</label>
+      <div class="setting-row__control">
+        <input type="number" id="surchargeInput" min="0" max="240" step="1" inputmode="numeric" value="0" />
+        <span class="text-muted">Minuten</span>
+      </div>
+    </div>
+    <p class="field-hint">
+      Wird bei jedem <strong>neuen</strong> Eintrag und beim Stoppen eines Timers auf die Zeit aufgerechnet,
+      z. B. für Vor- und Nachbereitung. Beispiel: Bei 5 Minuten wird eine Aufgabe von 45 Minuten als
+      50 Minuten erfasst, das Ende verschiebt sich entsprechend. Bestehende Einträge und das Bearbeiten
+      bleiben unverändert. 0 schaltet den Zuschlag aus. Gilt für diesen Browser.
+    </p>
     <div class="local-only" id="localSettings">
       <label class="checkbox-label mt-lg">
         <input type="checkbox" id="localApprenticeToggle" />

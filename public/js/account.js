@@ -71,6 +71,14 @@
     showToast(copyTimesToggle.checked ? 'Uhrzeiten werden mitkopiert.' : 'Es wird ohne Uhrzeiten kopiert.');
   });
 
+  const surchargeInput = $('#surchargeInput');
+  surchargeInput.value = String(loadSurcharge());
+  surchargeInput.addEventListener('change', () => {
+    const value = saveSurcharge(surchargeInput.value);
+    surchargeInput.value = String(value);
+    showToast(value > 0 ? `Zuschlag: ${value} Min pro neuer Aufgabe.` : 'Zeitzuschlag ausgeschaltet.');
+  });
+
   // --- Updates (nur lokaler Betrieb) --------------------------------
 
   const updateEls = {

@@ -54,6 +54,7 @@
     timerElapsed: $('#timerElapsed'),
     timerStartBtn: $('#timerStartBtn'),
     timerStartLabel: $('#timerStartLabel'),
+    timerSurchargeNote: $('#timerSurchargeNote'),
     timerStopBtn: $('#timerStopBtn'),
     timerPauseBtn: $('#timerPauseBtn'),
     resumeBar: $('#resumeBar'),
@@ -95,10 +96,19 @@
     } else if (formState.mode === 'times' && s && e && diff <= 0) {
       text = 'Ende muss nach dem Start liegen.';
       isError = true;
+    } else if (diff > 0 && currentSurcharge() > 0 && els.endTime.value && !effectiveEnd(e)) {
+      text = 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.';
+      isError = true;
     } else if (formState.mode === 'times') {
-      if (diff > 0) text = `= ${formatDurationLong(diff)}`;
+      if (diff > 0) {
+        const sur = currentSurcharge();
+        text = sur > 0
+          ? `= ${formatDurationLong(diff)} + ${sur} Min Zuschlag = ${formatDurationLong(diff + sur)}`
+          : `= ${formatDurationLong(diff)}`;
+      }
     } else if (diff > 0 && els.duration.value.trim()) {
-      text = `${s} – ${e} Uhr`;
+      const sur = currentSurcharge();
+      text = sur > 0 ? `${s} – ${e} Uhr + ${sur} Min Zuschlag → Ende ${effectiveEnd(e)}` : `${s} – ${e} Uhr`;
     } else if (s) {
       text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
     }
@@ -177,9 +187,20 @@
   }
 
   /** Warnt (ohne zu blockieren), wenn der Zeitraum einen anderen Eintrag des Tages ueberschneidet. */
+  /** Zuschlag, der beim Speichern auf diese Eingabe kommt (nur bei neuen Eintraegen). */
+  function currentSurcharge() {
+    return state.editingId ? 0 : loadSurcharge();
+  }
+
+  /** Ende, wie es mit Zuschlag gespeichert wuerde ("HH:MM"), oder null, wenn es nach Mitternacht laege. */
+  function effectiveEnd(end) {
+    const total = hmToMinutes(end) + currentSurcharge();
+    return total > 24 * 60 - 1 ? null : minutesToHM(total);
+  }
+
   function updateOverlapHint() {
     const s = els.startTime.value;
-    const e = els.endTime.value;
+    const e = els.endTime.value ? effectiveEnd(els.endTime.value) || els.endTime.value : '';
     let text = '';
     if (s && e && e > s) {
       const hits = state.entries.filter((x) => x.id !== state.editingId && x.startTime < e && s < x.endTime);
@@ -246,7 +267,8 @@
     els.jiraKey.value = entry.jiraKey || '';
     // Dauer uebernehmen: Start wie bei jedem neuen Eintrag (Ende des letzten bzw. jetzt),
     // das Ende ergibt sich aus der Dauer des Vorbilds.
-    els.duration.value = formatDurationField(entry.durationMinutes);
+    // Der Vorbild-Eintrag enthaelt den Zuschlag schon; er kommt beim Speichern wieder dazu.
+    els.duration.value = formatDurationField(Math.max(1, entry.durationMinutes - loadSurcharge()));
     formState.anchor = 'duration';
     applyDuration();
     els.description.focus();
@@ -494,6 +516,8 @@
     // Typische Fallen: Timer vergessen bzw. ueber Mitternacht gelaufen.
     const startedYesterdayOrEarlier = timer.workDate !== todayISO();
     els.timerStartLabel.textContent = timer.startTime;
+    const sur = loadSurcharge();
+    els.timerSurchargeNote.textContent = sur > 0 ? ` Beim Eintragen kommen ${sur} Min Zuschlag dazu.` : '';
     // Aufgabe und Ticket des Timers stehen in den normalen Formularfeldern.
     if (document.activeElement !== els.description) els.description.value = timer.description || '';
     if (document.activeElement !== els.jiraKey) els.jiraKey.value = timer.jiraKey || '';
@@ -566,8 +590,10 @@
     const description = convertTicketLinks(els.description.value).trim();
     const jiraKey = convertTicketLinks(els.jiraKey.value).trim().slice(0, 40);
     try {
+      // Zuschlag auf die gelaufene Zeit; nie ueber 23:59 hinaus
+      const stopAt = Math.min(hmToMinutes(nowHHMM()) + loadSurcharge(), 24 * 60 - 1);
       const data = await Api.post('/api/timer/stop', {
-        end_time: nowHHMM(),
+        end_time: minutesToHM(stopAt),
         description,
         jira_key: jiraKey,
       });
@@ -726,10 +752,15 @@
     if (!els.startTime.value || !els.endTime.value) {
       return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
     }
+    // Zuschlag nur bei neuen Eintraegen; beim Bearbeiten bleibt die Zeit, wie sie eingegeben wurde.
+    const endWithSurcharge = effectiveEnd(els.endTime.value);
+    if (!endWithSurcharge) {
+      return setFormError(els.formError, 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.');
+    }
     const payload = {
       work_date: state.viewDate,
       start_time: els.startTime.value,
-      end_time: els.endTime.value,
+      end_time: endWithSurcharge,
       description: convertTicketLinks(els.description.value),
       jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null,
     };

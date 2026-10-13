@@ -216,6 +216,16 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   unterbrochene Aufgaben sind möglich (bis 6, sie verfallen nach 36 Stunden),
   über das × lässt sich ein Eintrag aus der Liste entfernen. Die Liste merkt
   sich der Browser, sie gilt also nur an diesem Gerät.
+- **Zeitzuschlag**: Unter „Konto → Einstellungen“ lässt sich ein Zuschlag in
+  Minuten festlegen (z. B. 5 für Vor- und Nachbereitung). Er wird auf jeden
+  **neuen** Eintrag aufgerechnet, egal ob er per Zeitraum, Dauer oder Timer
+  entsteht: Bei 5 Minuten Zuschlag wird eine Aufgabe von 45 Minuten als 50
+  Minuten gespeichert, das Ende verschiebt sich entsprechend (die Zusammenfassung
+  im Formular zeigt die Rechnung, z. B. „= 45 Min + 5 Min Zuschlag = 50 Min“).
+  Beim Bearbeiten wird nicht erneut aufgeschlagen, „Nochmal erfassen“ ergibt
+  dieselbe Gesamtdauer wie das Vorbild, und ein Eintrag, der durch den Zuschlag
+  über Mitternacht reichen würde, wird abgelehnt (beim Timer-Stopp gilt 23:59
+  als Grenze). 0 schaltet den Zuschlag aus; die Einstellung gilt pro Browser.
 - **Autovervollständigung**: Beim Tippen im Beschreibungsfeld erscheinen die
   eigenen zuletzt und am häufigsten genutzten Texte. Ein Klick übernimmt den
   Text samt zugehöriger Ticketnummer.
