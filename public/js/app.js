@@ -7,6 +7,7 @@
     viewDate: todayISO(),
     entries: [],
     editingId: null, // wenn gesetzt: Formular ist im Bearbeiten-Modus
+    editSurcharge: 0, // Zuschlag, der im bearbeiteten Eintrag steckt und beim Speichern wieder aufgeschlagen wird
     timer: null,
     sortMode: loadSortMode(),
   };
@@ -186,10 +187,12 @@
     return sortEntries(state.entries, state.sortMode);
   }
 
-  /** Warnt (ohne zu blockieren), wenn der Zeitraum einen anderen Eintrag des Tages ueberschneidet. */
-  /** Zuschlag, der beim Speichern auf diese Eingabe kommt (nur bei neuen Eintraegen). */
+  /**
+   * Zuschlag, der beim Speichern auf die Eingabe kommt. Beim Bearbeiten zeigt das Formular die
+   * Zeit ohne den im Eintrag steckenden Zuschlag, der beim Speichern wieder aufgeschlagen wird.
+   */
   function currentSurcharge() {
-    return state.editingId ? 0 : loadSurcharge();
+    return state.editingId ? state.editSurcharge : loadSurcharge();
   }
 
   /** Ende, wie es mit Zuschlag gespeichert wuerde ("HH:MM"), oder null, wenn es nach Mitternacht laege. */
@@ -198,6 +201,7 @@
     return total > 24 * 60 - 1 ? null : minutesToHM(total);
   }
 
+  /** Warnt (ohne zu blockieren), wenn der Zeitraum einen anderen Eintrag des Tages ueberschneidet. */
   function updateOverlapHint() {
     const s = els.startTime.value;
     const e = els.endTime.value ? effectiveEnd(els.endTime.value) || els.endTime.value : '';
@@ -222,6 +226,7 @@
 
   function resetFormForNewEntry() {
     state.editingId = null;
+    state.editSurcharge = 0;
     els.formTitle.textContent = state.timer ? 'Timer läuft' : 'Neuer Eintrag';
     els.saveBtn.textContent = 'Eintrag speichern';
     els.cancelEditBtn.classList.add('hidden');
@@ -246,8 +251,12 @@
     els.formTitle.textContent = 'Eintrag bearbeiten';
     els.saveBtn.textContent = 'Aktualisieren';
     els.cancelEditBtn.classList.remove('hidden');
+    // Im Formular steht die Zeit ohne Zuschlag; er kommt beim Speichern wieder dazu. Ist der Eintrag
+    // kuerzer als der Zuschlag (etwa vor dessen Einfuehrung angelegt), bleibt er unveraendert.
+    const sur = loadSurcharge();
+    state.editSurcharge = entry.durationMinutes > sur ? sur : 0;
     els.startTime.value = entry.startTime;
-    els.endTime.value = entry.endTime;
+    els.endTime.value = minutesToHM(hmToMinutes(entry.endTime) - state.editSurcharge);
     formState.anchor = 'times';
     formState.startIsDefault = false;
     formState.durationError = '';
@@ -282,8 +291,10 @@
       <div class="entry${e.transferred ? ' entry--done' : ''}" data-id="${e.id}">
         <div class="entry__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}</div>
         <div class="entry__body">
-          <div class="entry__desc">${escapeHtml(e.description)}</div>
-          ${e.jiraKey ? `<div class="entry__meta"><span class="jira-tag">${escapeHtml(e.jiraKey)}</span></div>` : ''}
+          ${e.description
+            ? `<div class="entry__desc">${escapeHtml(e.description)}</div>
+          ${e.jiraKey ? `<div class="entry__meta"><span class="jira-tag">${escapeHtml(e.jiraKey)}</span></div>` : ''}`
+            : `<div class="entry__desc mono">${escapeHtml(e.jiraKey || '')}</div>`}
         </div>
         <div class="entry__dur mono">${formatDurationLong(e.durationMinutes)}</div>
         <div class="entry__actions">
@@ -617,7 +628,7 @@
       await loadEntries();
       showToast(
         pause
-          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.`
+          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description || jiraKey}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.`
           : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`,
         pause ? { durationMs: 7000 } : undefined
       );
@@ -669,7 +680,7 @@
       <span class="resume-bar__label">Weitermachen:</span>
       ${list.map((t, i) => `
         <span class="resume-item">
-          <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description)}${t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
+          <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description || t.jiraKey)}${t.description && t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
           <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
         </span>`).join('')}`;
   }
@@ -782,6 +793,9 @@
     setFormError(els.formError, '');
     if (state.timer) return stopTimer(); // Strg+Enter beim laufenden Timer: stoppen und eintragen
     if (formState.durationError) return setFormError(els.formError, formState.durationError);
+    if (!els.description.value.trim() && !convertTicketLinks(els.jiraKey.value).trim()) {
+      return setFormError(els.formError, 'Bitte eine Aufgabe oder ein Ticket angeben.');
+    }
     if (!els.startTime.value || !els.endTime.value) {
       return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
     }

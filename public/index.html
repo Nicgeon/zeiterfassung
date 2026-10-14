@@ -70,8 +70,8 @@
         <form id="entryForm">
           <div class="suggest-wrap composer__text">
             <label class="visually-hidden" for="description">Aufgabe</label>
-            <textarea id="description" required maxlength="2000" rows="2" autocomplete="off"
-                      placeholder="Was hast du gemacht?"></textarea>
+            <textarea id="description" maxlength="2000" rows="2" autocomplete="off"
+                      placeholder="Was hast du gemacht? (oder nur ein Ticket angeben)"></textarea>
             <ul class="suggest-list hidden" id="suggestList"></ul>
           </div>
 
@@ -101,8 +101,8 @@
             </div>
             <p class="timer-only timer-note">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; läuft serverseitig weiter, auch wenn du den Tab schließt.<span id="timerSurchargeNote"></span></p>
             <div class="composer__ticket">
-              <label class="visually-hidden" for="jiraKey">Ticket (optional)</label>
-              <input type="text" id="jiraKey" class="mono" placeholder="Ticket (optional)" maxlength="500" />
+              <label class="visually-hidden" for="jiraKey">Ticket</label>
+              <input type="text" id="jiraKey" class="mono" placeholder="Ticket" maxlength="500" />
             </div>
           </div>
           <div class="hint-line no-timer">

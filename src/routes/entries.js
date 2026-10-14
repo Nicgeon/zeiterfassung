@@ -68,8 +68,9 @@ function validateAndCompute(body) {
   if (!DATE_RE.test(work_date || '')) return { error: 'Ungueltiges Datum.' };
   if (!TIME_RE.test(start_time || '')) return { error: 'Ungueltige Startzeit (HH:MM).' };
   if (!TIME_RE.test(end_time || '')) return { error: 'Ungueltige Endzeit (HH:MM).' };
-  if (!description || !String(description).trim()) return { error: 'Beschreibung darf nicht leer sein.' };
-  if (String(description).length > 2000) return { error: 'Beschreibung ist zu lang (max. 2000 Zeichen).' };
+  if (description !== undefined && description !== null && String(description).length > 2000) {
+    return { error: 'Beschreibung ist zu lang (max. 2000 Zeichen).' };
+  }
 
   const duration = toMinutes(end_time) - toMinutes(start_time);
   if (duration <= 0) {
@@ -83,12 +84,16 @@ function validateAndCompute(body) {
   let jiraKey = body.jira_key ? convertTicketLinks(String(body.jira_key).trim()).slice(0, 40) : null;
   if (jiraKey === '') jiraKey = null;
 
+  // Mindestens eines von beiden: Beschreibung oder Ticket.
+  const text = description ? String(description).trim() : '';
+  if (!text && !jiraKey) return { error: 'Bitte eine Beschreibung oder ein Ticket angeben.' };
+
   return {
     work_date,
     start_time,
     end_time,
     duration_minutes: duration,
-    description: String(description).trim(),
+    description: text,
     jira_key: jiraKey,
   };
 }

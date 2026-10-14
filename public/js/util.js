@@ -179,7 +179,10 @@ function saveSurcharge(minutes) {
 
 /** Eine Zeile fuer die Zwischenablage; withTimes haengt Start-/Endzeit davor. */
 function entryLine(entry, withTimes) {
-  const text = `${entry.description}${entry.jiraKey ? ` [${entry.jiraKey}]` : ''}`;
+  // Ohne Beschreibung steht nur das Ticket da
+  const text = entry.description
+    ? `${entry.description}${entry.jiraKey ? ` [${entry.jiraKey}]` : ''}`
+    : entry.jiraKey || '';
   return withTimes
     ? `${entry.startTime}–${entry.endTime} (${entry.durationMinutes} Min) – ${text}`
     : `${entry.durationMinutes} Min – ${text}`;

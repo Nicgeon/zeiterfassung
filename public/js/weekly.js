@@ -42,7 +42,10 @@
 
   function taskLines(tasks) {
     const withJira = els.includeJira.checked;
-    let lines = tasks.map((t) => (withJira && t.jiraKey ? `${t.description} (${t.jiraKey})` : t.description));
+    // Eintraege ohne Text erscheinen nur, wenn Ticketnummern ausgegeben werden
+    let lines = tasks
+      .map((t) => (t.description ? (withJira && t.jiraKey ? `${t.description} (${t.jiraKey})` : t.description) : withJira ? t.jiraKey || '' : ''))
+      .filter(Boolean);
     if (els.mergeDuplicates.checked) lines = [...new Set(lines)];
     return lines;
   }

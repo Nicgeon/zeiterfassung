@@ -150,9 +150,10 @@ router.post('/stop', (req, res) => {
   // laufenden Zeit gespeicherte.
   const provided = cleanDescription(req.body.description);
   const stored = timer.description_enc ? decryptField(timer.description_enc) : null;
-  const description = provided || stored;
-  if (!description) {
-    return res.status(400).json({ error: 'Bitte zuerst eine Beschreibung eintragen.' });
+  const description = provided || stored || '';
+  const jiraKey = req.body.jira_key !== undefined ? cleanJira(req.body.jira_key) : timer.jira_key;
+  if (!description && !jiraKey) {
+    return res.status(400).json({ error: 'Bitte zuerst eine Beschreibung oder ein Ticket eintragen.' });
   }
 
   let endTime = end_time;
@@ -193,8 +194,6 @@ router.post('/stop', (req, res) => {
       error: 'Der Timer laeuft laenger als 16 Stunden. Bitte verwerfen und von Hand erfassen.',
     });
   }
-
-  const jiraKey = req.body.jira_key !== undefined ? cleanJira(req.body.jira_key) : timer.jira_key;
 
   const stop = db.transaction(() => {
     const info = insertEntryStmt.run({

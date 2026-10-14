@@ -163,7 +163,7 @@
               <td class="mono">${shortDate(e.workDate)}</td>
               <td class="mono">${e.startTime}–${e.endTime}</td>
               <td class="mono">${formatDurationLong(e.durationMinutes)}</td>
-              <td>${escapeHtml(e.description)}</td>
+              <td>${e.description ? escapeHtml(e.description) : '<span class="text-faint">–</span>'}</td>
               <td>${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}</td>
               <td>${e.transferred ? '<span class="badge badge--success">in Jira</span>' : '<span class="badge">offen</span>'}</td>
             </tr>`
