@@ -25,7 +25,7 @@ const ALLOWED = [
   /^src\//,
   /^public\//,
   /^package(-lock)?\.json$/,
-  /^start-local\.(sh|bat)$/,
+  /^start-local\.(sh|bat|command)$/,
   /^README\.md$/,
   /^\.env\.example$/,
   /^\.gitattributes$/,
@@ -127,7 +127,7 @@ async function fetchRemote() {
     },
     files: tree.tree
       .filter((e) => e.type === 'blob' && isUpdatablePath(e.path))
-      .map((e) => ({ path: e.path, sha: e.sha })),
+      .map((e) => ({ path: e.path, sha: e.sha, executable: e.mode === '100755' })),
   };
 }
 
@@ -202,13 +202,16 @@ function pruneBackups() {
   } catch { /* keine Sicherungen vorhanden */ }
 }
 
-function writeFileAtomic(target, buffer, relPath) {
+function writeFileAtomic(target, buffer, relPath, executable) {
   let data = buffer;
   // Windows-Stapeldateien brauchen CRLF (sonst funktionieren Sprungmarken nicht).
   if (relPath.endsWith('.bat')) data = Buffer.from(buffer.toString('utf8').replace(/\r?\n/g, '\r\n'), 'utf8');
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const tmp = `${target}.update-tmp`;
-  fs.writeFileSync(tmp, data);
+  // Dateirechte wie im Repository: Startskripte muessen ausfuehrbar bleiben (macOS/Linux),
+  // sonst startet "./start-local.sh" nach einem Update nicht mehr.
+  fs.writeFileSync(tmp, data, { mode: executable ? 0o755 : 0o644 });
+  if (executable) fs.chmodSync(tmp, 0o755);
   fs.renameSync(tmp, target);
 }
 
@@ -242,7 +245,9 @@ async function apply() {
     pruneBackups();
 
     // 3. ersetzen
-    for (const { file, buffer } of downloaded) writeFileAtomic(path.join(APP_DIR, file.path), buffer, file.path);
+    for (const { file, buffer } of downloaded) {
+      writeFileAtomic(path.join(APP_DIR, file.path), buffer, file.path, file.executable);
+    }
     if (changed.some((f) => DEPENDENCY_FILES.has(f.path))) fs.writeFileSync(INSTALL_MARKER, 'npm install --omit=dev\n');
     writeState({ appliedCommit: remote.commit.sha, appliedAt: new Date().toISOString() });
     lastCheck = { at: new Date().toISOString(), commit: remote.commit, changed: [], files: remote.files };

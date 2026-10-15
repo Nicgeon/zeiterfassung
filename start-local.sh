@@ -2,8 +2,15 @@
 # Startet die Zeiterfassung lokal (nur auf diesem Rechner erreichbar).
 # Nach einem Update beendet sich die Anwendung mit Code 75 und wird hier neu gestartet.
 cd "$(dirname "$0")" || exit 1
+
+# macOS: Homebrew-Node liegt unter /opt/homebrew (Apple Silicon) bzw. /usr/local (Intel) und ist
+# nicht immer im PATH, etwa wenn das Skript nicht aus einem Terminal mit Profil gestartet wird.
+for dir in /opt/homebrew/bin /usr/local/bin; do
+  case ":$PATH:" in *":$dir:"*) ;; *) [ -d "$dir" ] && PATH="$PATH:$dir" ;; esac
+done
+
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js fehlt. Bitte Version 22 oder neuer von https://nodejs.org installieren."; exit 1
+  echo "Node.js fehlt. Bitte Version 22 oder neuer installieren: https://nodejs.org (oder mit Homebrew: brew install node)."; exit 1
 fi
 MAJOR=$(node -p "process.versions.node.split('.')[0]")
 if [ "$MAJOR" -lt 20 ]; then echo "Node.js $MAJOR ist zu alt (benoetigt: 20 oder neuer)."; exit 1; fi
@@ -24,7 +31,8 @@ while true; do
     echo "Node.js-Version hat sich geaendert - better-sqlite3 wird neu gebaut ..."
     npm rebuild better-sqlite3
     if ! node -e "new (require('better-sqlite3'))(':memory:').close()" >/dev/null 2>&1; then
-      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und start-local.sh erneut starten."; exit 1
+      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und start-local.sh erneut starten."
+      echo "(macOS: ggf. vorher die Entwicklerwerkzeuge installieren: xcode-select --install)"; exit 1
     fi
   fi
   OPEN_BROWSER=$OPEN node src/server.js

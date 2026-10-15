@@ -457,6 +457,18 @@ Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automat
 
 **Node.js-Version gewechselt?** Das native Modul `better-sqlite3` gilt nur für die Node-Version, mit der es installiert wurde (Fehler `NODE_MODULE_VERSION … requires …`). Die Startskripte erkennen das und bauen es automatisch neu. Von Hand: `npm rebuild better-sqlite3`, notfalls den Ordner `node_modules` löschen und `npm install --omit=dev` ausführen. Die Daten sind davon nicht betroffen.
 
+**macOS**
+
+Der lokale Betrieb läuft auf dem Mac aus derselben Codebasis, ein eigener Branch ist nicht nötig.
+
+1. **Node.js 22 oder neuer installieren**: das macOS-Paket (`.pkg`) von https://nodejs.org (läuft auf Apple Silicon und Intel) oder mit Homebrew `brew install node`.
+2. **Programmordner entpacken** (ZIP von GitHub), z. B. nach `~/Zeiterfassung`.
+3. **Starten**: im Terminal im Ordner `./start-local.sh`, oder per Doppelklick auf **`start-local.command`**. Beim ersten Doppelklick blockiert macOS die Datei evtl. („nicht verifizierter Entwickler“): Rechtsklick → *Öffnen* → *Öffnen*, oder im Terminal einmalig `xattr -dr com.apple.quarantine .` im Programmordner. Falls die Datei nicht ausführbar ist: `chmod +x start-local.sh start-local.command`.
+4. Beim ersten Start werden die Abhängigkeiten installiert und der Browser geöffnet (`http://localhost:4711`). Nur falls dabei Pakete übersetzt werden müssen (selten, es gibt fertige Binärdateien), fragt macOS nach den Entwicklerwerkzeugen: `xcode-select --install`.
+5. Beenden: im Terminalfenster `Strg+C` oder das Fenster schließen.
+
+Die Daten liegen unter `~/Library/Application Support/Zeiterfassung` (ein bereits vorhandener Ordner `~/.zeiterfassung` wird weiter benutzt). Updates (siehe unten) funktionieren wie unter Windows; das Startskript startet danach selbst neu. Als Browser eignen sich Safari (ab Version 15), Chrome und Firefox. Ob sich der Zeitfeld-Stil von Safari unterscheidet, ist rein optisch.
+
 **Was im lokalen Modus anders ist**
 - Die App lauscht ausschliesslich auf `127.0.0.1`; aus dem Netzwerk ist sie nicht erreichbar. Fremde Hostnamen werden abgewiesen (Schutz gegen DNS-Rebinding).
 - Es gibt keine Anmeldung: Der lokale Nutzer ist automatisch angemeldet. Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Geschuetzt sind die Daten durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschluesselung der Beschreibungen (AES-256-GCM).

@@ -11,7 +11,13 @@ function defaultLocalDataDir() {
   if (process.platform === 'win32' && process.env.APPDATA) {
     return path.join(process.env.APPDATA, 'Zeiterfassung');
   }
-  return path.join(os.homedir(), '.zeiterfassung');
+  const legacy = path.join(os.homedir(), '.zeiterfassung');
+  if (process.platform === 'darwin' && !fs.existsSync(legacy)) {
+    // macOS-ueblicher Ort (im Finder unter Library sichtbar); ein bereits vorhandener
+    // Ordner ~/.zeiterfassung wird weiter benutzt, damit keine Daten "verschwinden".
+    return path.join(os.homedir(), 'Library', 'Application Support', 'Zeiterfassung');
+  }
+  return legacy;
 }
 
 /**

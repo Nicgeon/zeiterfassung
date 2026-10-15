@@ -6,12 +6,14 @@
 //   https://firma.atlassian.net/jira/software/projects/ABC/boards/1?selectedIssue=ABC-7      -> ABC-7
 // Die Datei laeuft im Browser und (fuer die Pruefung auf dem Server) auch in Node.
 (function (root) {
-  const KEY_RE = /(?<![A-Za-z0-9_])[A-Z][A-Z0-9_]+-\d+(?![A-Za-z0-9_])/g;
+  // Ohne Lookbehind, damit auch aeltere Safari-Versionen (vor 16.4) die Datei laden koennen.
+  const KEY_RE = /(^|[^A-Za-z0-9_])([A-Z][A-Z0-9_]+-\d+)(?![A-Za-z0-9_])/g;
   const URL_RE = /https?:\/\/[^\s<>"'`]+/gi;
 
   function lastMatch(text) {
-    const matches = text.match(KEY_RE);
-    return matches ? matches[matches.length - 1] : null;
+    let last = null;
+    for (const m of text.matchAll(KEY_RE)) last = m[2];
+    return last;
   }
 
   /** Ticketnummer aus einem Jira-Link, sonst null (fremde Adressen werden nicht angefasst). */
