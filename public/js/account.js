@@ -64,11 +64,11 @@
 
   // --- Einstellungen ------------------------------------------------
 
-  const copyTimesToggle = $('#copyTimesToggle');
-  copyTimesToggle.checked = loadCopyTimes();
-  copyTimesToggle.addEventListener('change', () => {
-    saveCopyTimes(copyTimesToggle.checked);
-    showToast(copyTimesToggle.checked ? 'Uhrzeiten werden mitkopiert.' : 'Es wird ohne Uhrzeiten kopiert.');
+  const showTimesToggle = $('#showTimesToggle');
+  showTimesToggle.checked = loadShowTimes();
+  showTimesToggle.addEventListener('change', () => {
+    saveShowTimes(showTimesToggle.checked);
+    showToast(showTimesToggle.checked ? 'Uhrzeiten werden angezeigt und mitkopiert.' : 'Uhrzeiten sind ausgeblendet.');
   });
 
   const surchargeInput = $('#surchargeInput');

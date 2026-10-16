@@ -31,6 +31,16 @@
   let mode = load();
   apply(mode);
 
+  // Uhrzeiten ausgeblendet? (gleiche Einstellung wie util.js/loadShowTimes, aber schon im <head>,
+  // damit beim Laden nichts aufblitzt)
+  try {
+    const stored = localStorage.getItem('zeit.showTimes');
+    const showTimes = stored === null ? localStorage.getItem('zeit.copyTimes') === '1' : stored === '1';
+    document.documentElement.classList.toggle('no-times', !showTimes);
+  } catch {
+    document.documentElement.classList.add('no-times');
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.createElement('button');
     btn.type = 'button';

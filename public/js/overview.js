@@ -161,7 +161,7 @@
           .map(
             (e) => `<tr${e.transferred ? ' class="row--transferred"' : ''}>
               <td class="mono">${shortDate(e.workDate)}</td>
-              <td class="mono">${e.startTime}–${e.endTime}</td>
+              <td class="mono col-time">${e.startTime}–${e.endTime}</td>
               <td class="mono">${formatDurationLong(e.durationMinutes)}</td>
               <td>${e.description ? escapeHtml(e.description) : '<span class="text-faint">–</span>'}</td>
               <td>${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}</td>
@@ -240,9 +240,15 @@
   });
 
   els.csvBtn.addEventListener('click', () => {
-    const rows = [['Datum', 'Start', 'Ende', 'Dauer (Min)', 'Beschreibung', 'Ticket', 'In Jira eingetragen']];
+    const withTimes = loadShowTimes();
+    const rows = [[
+      'Datum', ...(withTimes ? ['Start', 'Ende'] : []), 'Dauer (Min)', 'Beschreibung', 'Ticket', 'In Jira eingetragen',
+    ]];
     for (const e of visibleEntries()) {
-      rows.push([e.workDate, e.startTime, e.endTime, e.durationMinutes, e.description, e.jiraKey || '', e.transferred ? 'ja' : 'nein']);
+      rows.push([
+        e.workDate, ...(withTimes ? [e.startTime, e.endTime] : []), e.durationMinutes, e.description,
+        e.jiraKey || '', e.transferred ? 'ja' : 'nein',
+      ]);
     }
     const { from, to } = currentRange();
     downloadFile(`zeiterfassung_${from}_${to}.csv`, toCsv(rows), 'text/csv;charset=utf-8');

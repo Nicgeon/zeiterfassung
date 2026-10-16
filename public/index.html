@@ -66,6 +66,10 @@
 
         <div id="formError"></div>
         <div id="timerWarning"></div>
+        <div class="merge-banner hidden no-timer" id="mergeBanner" role="status">
+          <span id="mergeText"></span>
+          <button type="button" class="btn btn--ghost btn--sm" id="mergeCancelBtn">Nicht zusammenführen</button>
+        </div>
 
         <form id="entryForm">
           <div class="suggest-wrap composer__text">
@@ -99,7 +103,7 @@
               </div>
               <div class="when__summary" id="durationHint">&nbsp;</div>
             </div>
-            <p class="timer-only timer-note">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; läuft serverseitig weiter, auch wenn du den Tab schließt.<span id="timerSurchargeNote"></span></p>
+            <p class="timer-only timer-note"><span class="times-only">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; </span>Läuft serverseitig weiter, auch wenn du den Tab schließt.<span id="timerSurchargeNote"></span></p>
             <div class="composer__ticket">
               <label class="visually-hidden" for="jiraKey">Ticket</label>
               <input type="text" id="jiraKey" class="mono" placeholder="Ticket" maxlength="500" />
@@ -113,7 +117,8 @@
             <span class="field-hint no-timer">Strg + Enter speichert · Jira-Links werden zu Ticketnummern</span>
             <span class="field-hint timer-only">Strg + Enter stoppt und trägt ein</span>
             <div class="composer__actions">
-              <button type="button" class="btn btn--secondary no-timer" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
+              <button type="button" class="btn btn--secondary no-timer no-edit" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
+              <button type="button" class="btn btn--secondary no-timer no-edit" id="pauseEntryBtn" title="Zeit bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>
               <button type="submit" class="btn btn--dark no-timer" id="saveBtn">Eintrag speichern</button>
               <button type="button" class="btn btn--ghost timer-only" id="timerDiscardBtn">Verwerfen</button>
               <button type="button" class="btn btn--secondary timer-only" id="timerPauseBtn" title="Bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>

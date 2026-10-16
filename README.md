@@ -206,23 +206,28 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   gewechselt wird. Beim Stoppen entsteht automatisch ein Eintrag, der sich
   danach ganz normal bearbeiten lässt, um Zeiten nachzujustieren. Über
   „Verwerfen“ endet der Timer ohne Eintrag.
-- **Unterbrechen und Weitermachen**: Kommt eine Aufgabe dazwischen, beim
-  laufenden Timer auf „Unterbrechen“ klicken. Die bisherige Zeit wird wie beim
-  Stoppen als Eintrag gespeichert, und die Aufgabe (Text und Ticket) erscheint
-  oben als Knopf „▶ Weitermachen“ mit den bisherigen Minuten. Danach lässt sich
-  die dazwischengekommene Aufgabe per Timer oder von Hand erfassen. Ein Klick
-  auf „Weitermachen“ startet den Timer wieder und **führt beide Teile zu einem
-  Eintrag zusammen**: Der frühere Teil verschwindet, seine Minuten zählen zum
-  neuen Eintrag (die Uhr beginnt bei ihnen und der Hinweis nennt sie). Der
-  fertige Eintrag beginnt entsprechend früher, liegt also bei „Weitermachen
-  nach Zwischenaufgabe“ zeitlich um die dazwischen liegende Aufgabe herum; die
-  Dauern addieren sich, nichts wird doppelt gezählt. Der Zeitzuschlag kommt nur
-  einmal dazu. Zusammengeführt wird nur, wenn der frühere Teil noch existiert,
-  vom selben Tag ist und noch nicht „in Jira eingetragen“ wurde; sonst läuft der
-  Timer als eigener Eintrag weiter (mit entsprechendem Hinweis). Mehrere
-  unterbrochene Aufgaben sind möglich (bis 6, sie verfallen nach 36 Stunden),
-  über das × lässt sich ein Eintrag aus der Liste entfernen. Die Liste merkt
-  sich der Browser, sie gilt also nur an diesem Gerät.
+- **Unterbrechen und Weitermachen**: Kommt eine Aufgabe dazwischen, lässt sich
+  die laufende Arbeit unterbrechen – egal ob per Timer oder von Hand erfasst.
+  *Timer:* „Unterbrechen“ neben „Stoppen & eintragen“. *Von Hand:* Aufgabe
+  und Dauer (bzw. Zeitraum) eintragen und „Unterbrechen“ statt „Eintrag
+  speichern“ klicken. Die bisherige Zeit wird als Eintrag gespeichert, und die
+  Aufgabe (Text und Ticket) erscheint oben als „▶ Weitermachen“ mit den bisherigen
+  Minuten. Danach lässt sich die dazwischengekommene Aufgabe erfassen. Zum
+  Fortsetzen gibt es zwei Wege: **▶** startet einen Timer, **＋ Zeit** füllt
+  das Formular vor, und die neu eingegebene Dauer bzw. der Zeitraum wird
+  gespeichert. In beiden Fällen werden die Teile **zu einem Eintrag
+  zusammengeführt**: Der frühere Teil verschwindet, seine Minuten werden auf
+  den neuen Zeitraum draufgelegt (die Uhr bzw. die Zusammenfassung nennt sie,
+  z. B. „= 20 Min + 30 Min aus dem unterbrochenen Teil + 5 Min Zuschlag = 55 Min“).
+  Der fertige Eintrag beginnt entsprechend früher, liegt also zeitlich um die
+  dazwischen liegende Aufgabe herum; die Dauern addieren sich, nichts wird
+  doppelt gezählt. Der Zeitzuschlag kommt nur einmal dazu. Zusammengeführt wird
+  nur, wenn der frühere Teil noch existiert, vom selben Tag ist und noch nicht
+  „in Jira eingetragen“ wurde; sonst entsteht ein eigener Eintrag (mit
+  Hinweis). Über „Nicht zusammenführen“ lässt sich das auch bewusst abschalten.
+  Mehrere unterbrochene Aufgaben sind möglich (bis 6, sie verfallen nach
+  36 Stunden), das × entfernt einen Eintrag aus der Liste. Die Liste merkt sich
+  der Browser, sie gilt also nur an diesem Gerät.
 - **Zeitzuschlag**: Unter „Konto → Einstellungen“ lässt sich ein Zuschlag in
   Minuten festlegen (z. B. 5 für Vor- und Nachbereitung). Er wird bei jedem
   Speichern aufgerechnet, egal ob der Eintrag per Zeitraum, Dauer oder Timer
@@ -272,9 +277,18 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   formatiert in der Zwischenablage zum Einfügen ins Jira-Ticket.
   **Standardmäßig ohne Uhrzeiten**: `60 Min – Tagesabschluss gebucht [ITPKK-1182]`.
   Wer die Zeiten mitkopieren möchte, schaltet unter „Konto → Einstellungen"
-  die Option „Uhrzeiten beim Kopieren mitnehmen" ein
+  die Option „Uhrzeiten verwenden" ein
   (`08:00–09:00 (60 Min) – Tagesabschluss gebucht [ITPKK-1182]`). Die Einstellung
   gilt pro Browser.
+- **Uhrzeiten aus (Standard)**: Ohne die Option „Uhrzeiten verwenden" arbeitet
+  die Oberfläche nur mit Dauern: Einträge werden über die Dauer erfasst (es gibt
+  keine Start-/Endfelder und keinen Umschalter), Tagesliste und Übersichtstabelle
+  zeigen keine Uhrzeiten, der CSV-Export enthält keine Start-/Endspalten, und
+  die Kopierzeile hat keine Zeiten. Intern bekommt jeder Eintrag trotzdem Start
+  und Ende: Er schließt lückenlos an den letzten des Tages an, der erste des
+  heutigen Tages endet „jetzt", der erste eines anderen Tages beginnt (unsichtbar)
+  um 08:00. Wer einmal mit Uhrzeiten gearbeitet hat und „Uhrzeiten verwenden"
+  einschaltet, sieht alles wieder, auch die früher erfassten Zeiten.
 - **Sortierung**: Über der Tagesliste (und der Tabelle in der Übersicht)
   lässt sich die Reihenfolge wählen: älteste/neueste zuerst, längste zuerst
   oder nach Ticket. Die Wahl merkt sich der Browser. „Tag kopieren"

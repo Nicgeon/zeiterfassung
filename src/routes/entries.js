@@ -235,19 +235,59 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const result = validateAndCompute(req.body || {});
+  const body = { ...(req.body || {}) };
+
+  // Weitermachen nach einer Unterbrechung von Hand: Die Zeit eines frueheren Teils (eigener Eintrag)
+  // wird auf den neuen Zeitraum draufgelegt, der fruehere Eintrag verschwindet. Der neue Eintrag beginnt
+  // um diese Minuten frueher (nie vor dem Start des frueheren Teils); reicht der Tag dafuer nicht, wird
+  // das Ende nach hinten geschoben.
+  let mergeEntry = null;
+  if (body.merge_entry_id !== undefined && body.merge_entry_id !== null) {
+    const reject = (error) => res.status(409).json({ error, mergeRejected: true });
+    mergeEntry = Number.isInteger(body.merge_entry_id) ? getOwnStmt.get(body.merge_entry_id, req.user.id) : null;
+    if (!mergeEntry) return reject('Der fruehere Teil existiert nicht mehr.');
+    if (mergeEntry.transferred_to_jira) return reject('Der fruehere Teil ist schon in Jira eingetragen.');
+    if (mergeEntry.work_date !== body.work_date) return reject('Der fruehere Teil stammt von einem anderen Tag.');
+    const carry = parseInt(body.carry_minutes, 10);
+    if (!Number.isInteger(carry) || carry < 0 || carry > mergeEntry.duration_minutes) {
+      return reject('Ungueltige uebernommene Zeit.');
+    }
+    if (TIME_RE.test(body.start_time || '') && TIME_RE.test(body.end_time || '') && carry > 0) {
+      let startMin = toMinutes(body.start_time) - carry;
+      let endMin = toMinutes(body.end_time);
+      if (startMin < 0) {
+        endMin -= startMin;
+        startMin = 0;
+      }
+      if (endMin > 23 * 60 + 59) {
+        return res.status(400).json({ error: 'Mit der uebernommenen Zeit reicht der Tag nicht.' });
+      }
+      const hm = (total) => `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+      body.start_time = hm(startMin);
+      body.end_time = hm(endMin);
+    }
+  }
+
+  const result = validateAndCompute(body);
   if (result.error) return res.status(400).json({ error: result.error });
 
-  const info = insertStmt.run({
-    user_id: req.user.id,
-    work_date: result.work_date,
-    start_time: result.start_time,
-    end_time: result.end_time,
-    duration_minutes: result.duration_minutes,
-    description_enc: encryptField(result.description),
-    jira_key: result.jira_key,
+  const create = db.transaction(() => {
+    if (mergeEntry) softDeleteStmt.run(mergeEntry.id, req.user.id);
+    return insertStmt.run({
+      user_id: req.user.id,
+      work_date: result.work_date,
+      start_time: result.start_time,
+      end_time: result.end_time,
+      duration_minutes: result.duration_minutes,
+      description_enc: encryptField(result.description),
+      jira_key: result.jira_key,
+    });
   });
-  res.status(201).json({ entry: serialize(getOwnStmt.get(info.lastInsertRowid, req.user.id)) });
+  const info = create();
+  res.status(201).json({
+    entry: serialize(getOwnStmt.get(info.lastInsertRowid, req.user.id)),
+    mergedEntryId: mergeEntry ? mergeEntry.id : null,
+  });
 });
 
 router.put('/:id', (req, res) => {

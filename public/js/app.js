@@ -29,6 +29,10 @@
     composer: $('#composer'),
     modeTimesBtn: $('#modeTimesBtn'),
     modeDurationBtn: $('#modeDurationBtn'),
+    mergeBanner: $('#mergeBanner'),
+    mergeText: $('#mergeText'),
+    mergeCancelBtn: $('#mergeCancelBtn'),
+    pauseEntryBtn: $('#pauseEntryBtn'),
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
@@ -74,6 +78,8 @@
   const MAX_DURATION_MINUTES = 16 * 60; // wie auf dem Server
   const ENTRY_MODE_KEY = 'zeit.entryMode';
   function loadEntryMode() {
+    // Ohne Uhrzeiten gibt es nur die Dauer-Eingabe.
+    if (!loadShowTimes()) return 'duration';
     try { return localStorage.getItem(ENTRY_MODE_KEY) === 'duration' ? 'duration' : 'times'; } catch { return 'times'; }
   }
   const formState = {
@@ -81,7 +87,21 @@
     anchor: 'times', // 'duration': Dauer ist massgeblich, 'times': Start und Ende
     startIsDefault: true, // Start wurde noch nicht von Hand geaendert
     durationError: '',
+    merge: null, // { entryId, minutes, carry, label }: fruehere Zeit, die auf diesen Eintrag draufgelegt wird
   };
+
+  /** "= 45 Min + 35 Min aus dem unterbrochenen Teil + 5 Min Zuschlag = 1 Std 25 Min" */
+  function describeTotal(base) {
+    const carry = formState.merge ? formState.merge.carry : 0;
+    const sur = currentSurcharge();
+    if (!carry && !sur) return `= ${formatDurationLong(base)}`;
+    return (
+      `= ${formatDurationLong(base)}` +
+      (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
+      (sur ? ` + ${sur} Min Zuschlag` : '') +
+      ` = ${formatDurationLong(base + carry + sur)}`
+    );
+  }
 
   /** Zusammenfassung neben den Zeitfeldern: im Zeitraum-Modus die Dauer, im Dauer-Modus der Zeitraum. */
   function updateDurationHint() {
@@ -98,18 +118,21 @@
       text = 'Ende muss nach dem Start liegen.';
       isError = true;
     } else if (diff > 0 && currentSurcharge() > 0 && els.endTime.value && !effectiveEnd(e)) {
-      text = 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.';
+      text = loadShowTimes()
+        ? 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.'
+        : 'Der Tag ist voll – der Eintrag würde über Mitternacht hinausgehen.';
       isError = true;
+    } else if (!loadShowTimes()) {
+      // Ohne Uhrzeiten zeigt die Zusammenfassung nur die Rechnung der Dauer
+      const minutes = parseDuration(els.duration.value);
+      if (minutes && minutes > 0 && minutes <= MAX_DURATION_MINUTES) text = describeTotal(minutes);
     } else if (formState.mode === 'times') {
-      if (diff > 0) {
-        const sur = currentSurcharge();
-        text = sur > 0
-          ? `= ${formatDurationLong(diff)} + ${sur} Min Zuschlag = ${formatDurationLong(diff + sur)}`
-          : `= ${formatDurationLong(diff)}`;
-      }
+      if (diff > 0) text = describeTotal(diff);
     } else if (diff > 0 && els.duration.value.trim()) {
       const sur = currentSurcharge();
-      text = sur > 0 ? `${s} – ${e} Uhr + ${sur} Min Zuschlag → Ende ${effectiveEnd(e)}` : `${s} – ${e} Uhr`;
+      const carry = formState.merge ? formState.merge.carry : 0;
+      text = `${s} – ${e} Uhr` + (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
+        (sur > 0 ? ` + ${sur} Min Zuschlag → Ende ${effectiveEnd(e)}` : '');
     } else if (s) {
       text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
     }
@@ -117,7 +140,8 @@
     els.durationHint.classList.toggle('is-error', isError);
   }
 
-  function setEntryMode(mode, { focus } = {}) {
+  function setEntryMode(requested, { focus } = {}) {
+    const mode = loadShowTimes() ? requested : 'duration';
     formState.mode = mode;
     els.composer.dataset.mode = mode;
     els.modeTimesBtn.classList.toggle('is-active', mode === 'times');
@@ -206,7 +230,7 @@
     const s = els.startTime.value;
     const e = els.endTime.value ? effectiveEnd(els.endTime.value) || els.endTime.value : '';
     let text = '';
-    if (s && e && e > s) {
+    if (loadShowTimes() && !formState.merge && s && e && e > s) {
       const hits = state.entries.filter((x) => x.id !== state.editingId && x.startTime < e && s < x.endTime);
       if (hits.length > 0) {
         text = `⚠ Überschneidet sich mit ${hits.map((x) => `${x.startTime}–${x.endTime}`).join(', ')}.`;
@@ -215,9 +239,19 @@
     els.overlapHint.textContent = text;
   }
 
+  /** Hinweis, solange die Zeit eines unterbrochenen Teils auf den neuen Eintrag draufgelegt wird. */
+  function renderMergeBanner() {
+    const m = formState.merge;
+    els.mergeBanner.classList.toggle('hidden', !m);
+    els.mergeText.textContent = m
+      ? `Weitermachen mit „${m.label}“: ${m.carry} Min vom unterbrochenen Teil werden auf diesen Eintrag draufgelegt, der frühere Teil entfällt.`
+      : '';
+  }
+
   function defaultStartTime() {
     if (state.entries.length === 0) {
-      return isTodayISO(state.viewDate) ? nowHHMM() : '';
+      // Ohne sichtbare Uhrzeiten braucht auch ein leerer Vortag einen (unsichtbaren) Start.
+      return isTodayISO(state.viewDate) ? nowHHMM() : loadShowTimes() ? '' : '08:00';
     }
     // Kette an das Ende des letzten (spaetesten) Eintrags des Tages an -
     // unabhaengig von der gewaehlten Anzeigereihenfolge.
@@ -227,6 +261,9 @@
   function resetFormForNewEntry() {
     state.editingId = null;
     state.editSurcharge = 0;
+    formState.merge = null;
+    renderMergeBanner();
+    els.composer.classList.remove('composer--editing');
     els.formTitle.textContent = state.timer ? 'Timer läuft' : 'Neuer Eintrag';
     els.saveBtn.textContent = 'Eintrag speichern';
     els.cancelEditBtn.classList.add('hidden');
@@ -248,6 +285,9 @@
 
   function fillFormForEdit(entry) {
     state.editingId = entry.id;
+    formState.merge = null;
+    renderMergeBanner();
+    els.composer.classList.add('composer--editing');
     els.formTitle.textContent = 'Eintrag bearbeiten';
     els.saveBtn.textContent = 'Aktualisieren';
     els.cancelEditBtn.classList.remove('hidden');
@@ -673,6 +713,10 @@
     savePausedTasks([{ description, jiraKey: jiraKey || '', entryId, minutes, workDate, at: Date.now() }, ...rest]);
   }
 
+  function removePausedTaskByEntry(entryId) {
+    savePausedTasks(loadPausedTasks().filter((t) => t.entryId !== entryId));
+  }
+
   function renderResumeBar() {
     const list = loadPausedTasks();
     els.resumeBar.classList.toggle('hidden', list.length === 0 || !!state.timer);
@@ -681,8 +725,36 @@
       ${list.map((t, i) => `
         <span class="resume-item">
           <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description || t.jiraKey)}${t.description && t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
+          <button type="button" class="chip chip--mid" data-manual="${i}" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">＋ Zeit</button>
           <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
         </span>`).join('')}`;
+  }
+
+  /** Unterbrochene Aufgabe von Hand fortsetzen: Formular vorbefuellen, die bisherige Zeit kommt dazu. */
+  async function resumeManually(index) {
+    const task = loadPausedTasks()[index];
+    if (!task) return;
+    // Zusammenfuehren geht nur am selben Tag wie der fruehere Teil
+    const canMerge = !!task.entryId && !!task.workDate;
+    if (canMerge && task.workDate !== state.viewDate) {
+      state.viewDate = task.workDate;
+      await loadEntries();
+    }
+    resetFormForNewEntry();
+    els.description.value = task.description;
+    els.jiraKey.value = task.jiraKey || '';
+    if (canMerge) {
+      formState.merge = {
+        entryId: task.entryId,
+        minutes: task.minutes,
+        carry: Math.max(0, task.minutes - loadSurcharge()), // der Zuschlag steckt schon im frueheren Teil
+        label: task.description || task.jiraKey,
+      };
+    }
+    renderMergeBanner();
+    updateDurationHint();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    (formState.mode === 'duration' ? els.duration : els.endTime).focus();
   }
 
   els.resumeBar.addEventListener('click', async (e) => {
@@ -692,6 +764,8 @@
       list.splice(Number(removeBtn.dataset.remove), 1);
       return savePausedTasks(list);
     }
+    const manualBtn = e.target.closest('[data-manual]');
+    if (manualBtn) return resumeManually(Number(manualBtn.dataset.manual));
     const chip = e.target.closest('.chip--resume');
     if (!chip) return;
     const index = Number(chip.dataset.index);
@@ -788,8 +862,8 @@
 
   els.cancelEditBtn.addEventListener('click', () => resetFormForNewEntry());
 
-  els.form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  /** Eintrag speichern; mit pause wird die Aufgabe zusaetzlich zum Weitermachen gemerkt. */
+  async function saveEntry({ pause = false } = {}) {
     setFormError(els.formError, '');
     if (state.timer) return stopTimer(); // Strg+Enter beim laufenden Timer: stoppen und eintragen
     if (formState.durationError) return setFormError(els.formError, formState.durationError);
@@ -799,19 +873,32 @@
     if (!els.startTime.value || !els.endTime.value) {
       return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
     }
-    // Zuschlag nur bei neuen Eintraegen; beim Bearbeiten bleibt die Zeit, wie sie eingegeben wurde.
+    // Zuschlag auf die Eingabe (auch beim Bearbeiten; dort steckt er nicht im Formular)
     const endWithSurcharge = effectiveEnd(els.endTime.value);
     if (!endWithSurcharge) {
-      return setFormError(els.formError, 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.');
+      return setFormError(
+        els.formError,
+        loadShowTimes()
+          ? 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.'
+          : 'Der Tag ist voll – der Eintrag würde über Mitternacht hinausgehen.'
+      );
     }
+    const description = convertTicketLinks(els.description.value);
+    const jiraKey = convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null;
     const payload = {
       work_date: state.viewDate,
       start_time: els.startTime.value,
       end_time: endWithSurcharge,
-      description: convertTicketLinks(els.description.value),
-      jira_key: convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null,
+      description,
+      jira_key: jiraKey,
     };
+    const merge = !state.editingId && formState.merge ? { ...formState.merge } : null;
+    if (merge) {
+      payload.merge_entry_id = merge.entryId;
+      payload.carry_minutes = merge.carry;
+    }
     els.saveBtn.disabled = true;
+    els.pauseEntryBtn.disabled = true;
     try {
       if (state.editingId) {
         await Api.put(`/api/entries/${state.editingId}`, payload);
@@ -821,15 +908,55 @@
         state.editingId = null;
         showToast('Eintrag aktualisiert.');
       } else {
-        await Api.post('/api/entries', payload);
-        showToast('Eintrag gespeichert.');
+        let data;
+        let merged = false;
+        let fellBack = false;
+        try {
+          data = await Api.post('/api/entries', payload);
+          merged = !!merge;
+        } catch (err) {
+          if (!merge || !(err.status === 409 && err.data && err.data.mergeRejected)) throw err;
+          // Zusammenfuehren nicht moeglich: als eigener Eintrag speichern
+          delete payload.merge_entry_id;
+          delete payload.carry_minutes;
+          data = await Api.post('/api/entries', payload);
+          fellBack = true;
+          showToast(`${err.message} Der neue Teil wurde als eigener Eintrag gespeichert.`);
+        }
+        if (merged) removePausedTaskByEntry(merge.entryId);
+        if (pause) {
+          addPausedTask({
+            description: description.trim(),
+            jiraKey: jiraKey || '',
+            entryId: data.entry.id,
+            minutes: data.entry.durationMinutes,
+            workDate: data.entry.workDate,
+          });
+          showToast(`Eintrag gespeichert – „${description.trim() || jiraKey}" ist unterbrochen. Oben geht es mit „Weitermachen" weiter.`, { durationMs: 6000 });
+        } else if (merged) {
+          showToast('Eintrag gespeichert – der frühere Teil wurde übernommen.');
+        } else if (!fellBack) {
+          showToast('Eintrag gespeichert.');
+        }
       }
       await loadEntries();
     } catch (err) {
       setFormError(els.formError, err.message);
     } finally {
       els.saveBtn.disabled = false;
+      els.pauseEntryBtn.disabled = false;
     }
+  }
+
+  els.form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveEntry();
+  });
+  els.pauseEntryBtn.addEventListener('click', () => saveEntry({ pause: true }));
+  els.mergeCancelBtn.addEventListener('click', () => {
+    formState.merge = null;
+    renderMergeBanner();
+    updateDurationHint();
   });
 
   els.ledger.addEventListener('click', async (e) => {
@@ -843,7 +970,7 @@
       return showToast('Bitte zuerst den Timer stoppen oder verwerfen.');
     }
     if (e.target.closest('.copy-btn')) {
-      const ok = await copyToClipboard(entryLine(entry, loadCopyTimes()));
+      const ok = await copyToClipboard(entryLine(entry, loadShowTimes()));
       showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');
     } else if (e.target.closest('.repeat-btn')) {
       startFromEntry(entry);
@@ -890,7 +1017,7 @@
    */
   async function copyEntries(list, doneMessage) {
     if (list.length === 0) return;
-    const withTimes = loadCopyTimes();
+    const withTimes = loadShowTimes();
     const total = list.reduce((sum, e) => sum + e.durationMinutes, 0);
     const text = [
       ...list.map((e) => entryLine(e, withTimes)),

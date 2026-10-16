@@ -928,6 +928,29 @@ table.data-table {
 .update-banner__actions { display: flex; gap: 8px; }
 
 
+.composer--editing .no-edit { display: none !important; }
+
+.merge-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  font-size: 14px;
+}
+
+/* --- Uhrzeiten ausgeblendet (Standard; Klasse "no-times" setzt theme.js) ---------- */
+
+.no-times .times-only,
+.no-times .col-time,
+.no-times .entry__time,
+.no-times .composer__head-actions .seg { display: none !important; }
+
 /* --- Grosse Bildschirme ---------------------------------------------------------
    Die Inhalte nutzen die volle Breite (bis --page-max). Auf grossen Monitoren wuerde
    dadurch alles winzig wirken, deshalb wird die ganze Oberflaeche in Stufen
@@ -961,6 +984,8 @@ html { zoom: var(--ui-zoom); }
   background: var(--accent-wash);
 }
 .chip--resume:hover { background: var(--surface); }
+.chip--mid { border-radius: 0; border-left: 0; border-color: var(--accent-line); background: var(--accent-wash); }
+.chip--mid:hover { background: var(--surface); }
 .chip--resume .mono { font-size: 12px; color: var(--ink-muted); margin-left: 6px; }
 .chip-x {
   min-height: 36px;

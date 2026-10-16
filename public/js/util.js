@@ -137,22 +137,29 @@ function sortEntries(entries, mode) {
   }
 }
 
-// --- Kopierformat -----------------------------------------------------------
-// Standard: ohne Uhrzeiten ("60 Min – Text [TICKET]"). Wer die Uhrzeiten mit
-// kopieren moechte, schaltet das unter Konto -> Einstellungen ein (pro Browser).
+// --- Uhrzeiten ein/aus ------------------------------------------------------------
+// Standard: AUS. Dann arbeitet die ganze Oberflaeche nur mit Dauern: Eintraege werden ueber die
+// Dauer erfasst, Listen, Tabellen und Kopierzeilen zeigen keine Uhrzeiten ("60 Min – Text
+// [TICKET]"). Intern bekommt jeder Eintrag weiterhin Start und Ende (lueckenlos aneinander
+// gereiht), sie bleiben nur unsichtbar. Einstellung unter Konto -> Einstellungen (pro Browser);
+// theme.js setzt die Klasse "no-times" schon beim Laden der Seite.
 
-const COPY_TIMES_KEY = 'zeit.copyTimes';
+const SHOW_TIMES_KEY = 'zeit.showTimes';
 
-function loadCopyTimes() {
+function loadShowTimes() {
   try {
-    return localStorage.getItem(COPY_TIMES_KEY) === '1';
+    const value = localStorage.getItem(SHOW_TIMES_KEY);
+    // Wer frueher das Mitkopieren der Uhrzeiten eingeschaltet hatte, behaelt die Uhrzeiten.
+    if (value === null) return localStorage.getItem('zeit.copyTimes') === '1';
+    return value === '1';
   } catch {
     return false;
   }
 }
 
-function saveCopyTimes(enabled) {
-  try { localStorage.setItem(COPY_TIMES_KEY, enabled ? '1' : '0'); } catch { /* nur Komfort */ }
+function saveShowTimes(enabled) {
+  try { localStorage.setItem(SHOW_TIMES_KEY, enabled ? '1' : '0'); } catch { /* nur Komfort */ }
+  document.documentElement.classList.toggle('no-times', !enabled);
 }
 
 // --- Zeitzuschlag -------------------------------------------------------------

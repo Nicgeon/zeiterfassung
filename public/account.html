@@ -31,12 +31,15 @@
   <div class="card" id="settingsCard">
     <div class="card__header"><h2>Einstellungen</h2></div>
     <label class="checkbox-label">
-      <input type="checkbox" id="copyTimesToggle" />
-      <span>Uhrzeiten beim Kopieren mitnehmen</span>
+      <input type="checkbox" id="showTimesToggle" />
+      <span>Uhrzeiten verwenden</span>
     </label>
     <p class="field-hint">
-      Standard: Es wird ohne Uhrzeiten kopiert, z. B. „60 Min – Tagesabschluss [ITPKK-1182]".
-      Mit dieser Option steht davor zusätzlich die Zeit („08:00–09:00 (60 Min) – …"). Gilt für diesen Browser.
+      Aus (Standard): Die Oberfläche arbeitet nur mit Dauern. Einträge werden über die Dauer erfasst,
+      Listen, Tabellen und die Kopierzeile zeigen keine Uhrzeiten, z. B. „60 Min – Tagesabschluss [ITPKK-1182]".
+      Intern bekommt jeder Eintrag trotzdem Start und Ende (lückenlos aneinandergereiht), nur unsichtbar.
+      An: Start und Ende lassen sich eingeben, Uhrzeiten erscheinen in Listen und Tabellen und beim Kopieren
+      („08:00–09:00 (60 Min) – …"). Gilt für diesen Browser.
     </p>
     <div class="setting-row">
       <label for="surchargeInput">Zeitzuschlag pro Aufgabe</label>
