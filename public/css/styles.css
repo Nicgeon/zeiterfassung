@@ -39,7 +39,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='marine']) {
+  :root:not([data-theme='light']):not([data-theme='marine']):not([data-theme='marine-dark']) {
     --bg: #0f1114;
     --surface: #16191e;
     --surface-alt: #1d2127;
@@ -86,11 +86,46 @@
 :root { color-scheme: light; }
 :root[data-theme='dark'] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']):not([data-theme='marine']) { color-scheme: dark; }
+  :root:not([data-theme='light']):not([data-theme='marine']):not([data-theme='marine-dark']) { color-scheme: dark; }
 }
 
-.theme-toggle { min-width: 44px; font-size: 16px; line-height: 1; color: var(--ink); }
-.theme-toggle--floating { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 5; }
+.theme-menu { position: relative; }
+.theme-menu--floating { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 30; }
+.theme-toggle { gap: 6px; min-width: 44px; font-size: 13px; line-height: 1; color: var(--ink); }
+.theme-toggle svg { flex: none; }
+.theme-menu__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.theme-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+}
+.theme-menu__item:hover,
+.theme-menu__item:focus-visible { background: var(--surface-alt); outline: none; }
+.theme-menu__item span { flex: 1; }
+.theme-menu__check { visibility: hidden; color: var(--accent); }
+.theme-menu__item[aria-checked='true'] { font-weight: 600; }
+.theme-menu__item[aria-checked='true'] .theme-menu__check { visibility: visible; }
+@media (max-width: 640px) { .theme-toggle__label { display: none; } }
 
 * { box-sizing: border-box; }
 
@@ -1109,10 +1144,36 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   color-scheme: light;
 }
 
+/* Marine dunkel: dasselbe Design auf tiefem Nachtblau, Cyan als Akzent */
+:root[data-theme='marine-dark'] {
+  --bg: #0c1238;
+  --surface: #141b4a;
+  --surface-alt: #1c2560;
+  --ink: #eef1ff;
+  --ink-muted: #b7bede;
+  --ink-faint: #98a1cc;
+  --border: #262f6b;
+  --border-strong: #3d4a94;
+  --accent: #30d1ff;
+  --accent-strong: #6fe0ff;
+  --accent-wash: #12306a;
+  --accent-line: #24508f;
+  --on-accent: #08123a;
+  --warn-bar: #4f7cf0;
+  --danger: #ff8f9a;
+  --danger-wash: #3a1a2c;
+  --success: #07edac;
+  --success-wash: #0d3a3f;
+  --radius-sm: 14px;
+  --radius-md: 28px;
+  --font-sans: 'Be Vietnam Pro', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+
 /* Hintergrund: dunkelblaues Kopfband, darunter ein Verlauf in leuchtendem Blau */
-[data-theme='marine'],
-[data-theme='marine'] body { overflow-x: clip; }
-[data-theme='marine'] body {
+[data-theme^='marine'],
+[data-theme^='marine'] body { overflow-x: clip; }
+[data-theme^='marine'] body {
   position: relative;
   background:
     linear-gradient(#16205d, #16205d) top / 100% 280px no-repeat,
@@ -1120,8 +1181,8 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   background-color: #035bcc;
 }
 /* zwei schraege Streifen im Kopfband (rein dekorativ) */
-[data-theme='marine'] body::before,
-[data-theme='marine'] body::after {
+[data-theme^='marine'] body::before,
+[data-theme^='marine'] body::after {
   content: '';
   position: absolute;
   z-index: 0;
@@ -1129,60 +1190,60 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   transform: skewX(-24deg);
   pointer-events: none;
 }
-[data-theme='marine'] body::before { right: -90px; width: 220px; height: 204px; background: linear-gradient(160deg, #0472ff, #30d1ff); opacity: 0.55; }
-[data-theme='marine'] body::after { right: 190px; width: 60px; height: 204px; background: linear-gradient(180deg, #0472ff, #07edac); opacity: 0.35; }
-[data-theme='marine'] .shell { position: relative; z-index: 1; }
+[data-theme^='marine'] body::before { right: -90px; width: 220px; height: 204px; background: linear-gradient(160deg, #0472ff, #30d1ff); opacity: 0.55; }
+[data-theme^='marine'] body::after { right: 190px; width: 60px; height: 204px; background: linear-gradient(180deg, #0472ff, #07edac); opacity: 0.35; }
+[data-theme^='marine'] .shell { position: relative; z-index: 1; }
 
-[data-theme='marine'] h1,
-[data-theme='marine'] h2,
-[data-theme='marine'] h3 { font-weight: 500; letter-spacing: -0.01em; }
-[data-theme='marine'] h2 { font-size: 20px; }
-[data-theme='marine'] h3 { font-size: 14px; }
+[data-theme^='marine'] h1,
+[data-theme^='marine'] h2,
+[data-theme^='marine'] h3 { font-weight: 500; letter-spacing: -0.01em; }
+[data-theme^='marine'] h2 { font-size: 20px; }
+[data-theme^='marine'] h3 { font-size: 14px; }
 
 /* Navigation: weiss, Wortmarke links, Reiter als Pillen */
-[data-theme='marine'] .topbar { min-height: 76px; border-bottom: 0; background: var(--bg); }
-[data-theme='marine'] .topbar__brand .mark { display: none; }
-[data-theme='marine'] .topbar__brand strong { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
-[data-theme='marine'] .topbar__nav a {
+[data-theme^='marine'] .topbar { min-height: 76px; border-bottom: 0; background: var(--bg); }
+[data-theme^='marine'] .topbar__brand .mark { display: none; }
+[data-theme^='marine'] .topbar__brand strong { font-size: 24px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
+[data-theme^='marine'] .topbar__nav a {
   padding: 8px 14px;
   border-bottom: 0;
   border-radius: 999px;
   font-size: 15px;
   color: var(--ink);
 }
-[data-theme='marine'] .topbar__nav a:hover { background: var(--surface-alt); }
-[data-theme='marine'] .topbar__nav a.active { background: var(--accent-wash); font-weight: 600; }
-[data-theme='marine'] .topbar__user { font-size: 14px; }
+[data-theme^='marine'] .topbar__nav a:hover { background: var(--surface-alt); }
+[data-theme^='marine'] .topbar__nav a.active { background: var(--accent-wash); font-weight: 600; }
+[data-theme^='marine'] .topbar__user { font-size: 14px; }
 
 /* Seitenkopf auf dem dunkelblauen Band */
-[data-theme='marine'] .page-head { color: #fafafa; }
-[data-theme='marine'] .eyebrow { color: #30d1ff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-[data-theme='marine'] .page-title { color: #fafafa; font-size: 44px; font-weight: 500; }
-[data-theme='marine'] .page-head p,
-[data-theme='marine'] .page-head .field-hint,
-[data-theme='marine'] .page-head .range-label { color: #d5d9f0; }
-[data-theme='marine'] .page-head .btn--secondary { background: transparent; color: #fafafa; border: 1.5px solid rgba(250, 250, 250, 0.6); }
-[data-theme='marine'] .page-head .btn--secondary:hover { background: rgba(250, 250, 250, 0.14); }
-[data-theme='marine'] #todayBtn { background: #fafafa; color: var(--ink); border-color: #fafafa; }
-[data-theme='marine'] #todayBtn:hover { background: #ffffff; }
-[data-theme='marine'] .page-head .seg { background: rgba(250, 250, 250, 0.14); }
-[data-theme='marine'] .page-head .seg__btn { color: #fafafa; }
-[data-theme='marine'] .page-head .seg__btn.is-active { background: #30d1ff; color: var(--ink); }
+[data-theme^='marine'] .page-head { color: #fafafa; }
+[data-theme^='marine'] .eyebrow { color: #30d1ff; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+[data-theme^='marine'] .page-title { color: #fafafa; font-size: 44px; font-weight: 500; }
+[data-theme^='marine'] .page-head p,
+[data-theme^='marine'] .page-head .field-hint,
+[data-theme^='marine'] .page-head .range-label { color: #d5d9f0; }
+[data-theme^='marine'] .page-head .btn--secondary { background: transparent; color: #fafafa; border: 1.5px solid rgba(250, 250, 250, 0.6); }
+[data-theme^='marine'] .page-head .btn--secondary:hover { background: rgba(250, 250, 250, 0.14); }
+[data-theme^='marine'] #todayBtn { background: #fafafa; color: #16205d; border-color: #fafafa; }
+[data-theme^='marine'] #todayBtn:hover { background: #ffffff; }
+[data-theme^='marine'] .page-head .seg { background: rgba(250, 250, 250, 0.14); }
+[data-theme^='marine'] .page-head .seg__btn { color: #fafafa; }
+[data-theme^='marine'] .page-head .seg__btn.is-active { background: #30d1ff; color: #16205d; }
 
 /* Karten: weiss, stark gerundet, kein Rahmen */
-[data-theme='marine'] .card,
-[data-theme='marine'] .stat,
-[data-theme='marine'] .auth-card {
+[data-theme^='marine'] .card,
+[data-theme^='marine'] .stat,
+[data-theme^='marine'] .auth-card {
   border: 0;
   box-shadow: 0 12px 32px rgba(3, 40, 110, 0.25);
 }
-[data-theme='marine'] .card { padding: 28px; }
-[data-theme='marine'] .card--flush { padding: 0; }
-[data-theme='marine'] .stat { padding: 22px 24px; }
-[data-theme='marine'] .stat__value { color: var(--accent); font-weight: 500; }
+[data-theme^='marine'] .card { padding: 28px; }
+[data-theme^='marine'] .card--flush { padding: 0; }
+[data-theme^='marine'] .stat { padding: 22px 24px; }
+[data-theme^='marine'] .stat__value { color: var(--accent); font-weight: 500; }
 
 /* Bedienelemente: Pillen mit Grossbuchstaben wie auf der Vorlage */
-[data-theme='marine'] .btn {
+[data-theme^='marine'] .btn {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
@@ -1191,66 +1252,94 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   min-height: 48px;
   padding: 0 24px;
 }
-[data-theme='marine'] .btn--sm { min-height: 38px; padding: 0 14px; font-size: 12px; letter-spacing: 0.03em; }
-[data-theme='marine'] .btn--nav { min-width: 48px; padding: 0 12px; }
-[data-theme='marine'] .btn--secondary { border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink); }
-[data-theme='marine'] .btn--secondary:hover { background: var(--accent-wash); }
-[data-theme='marine'] .btn--ghost { color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 500; }
-[data-theme='marine'] .btn--dark { background: var(--ink); color: #fafafa; }
-[data-theme='marine'] .btn--dark:hover { background: #0e1647; opacity: 1; }
-[data-theme='marine'] .btn--danger { background: var(--danger); color: #fff; }
-[data-theme='marine'] #timerStartBtn { background: #30d1ff; color: var(--ink); }
-[data-theme='marine'] #timerStartBtn:hover { background: #5ddcff; }
-[data-theme='marine'] .split__main { border-radius: 999px 0 0 999px; }
-[data-theme='marine'] .split__toggle { border-radius: 0 999px 999px 0; border-left-color: rgba(250, 250, 250, 0.3); }
-[data-theme='marine'] .composer--editing .split__main { border-radius: 999px; }
-[data-theme='marine'] .split__menu { border: 0; border-radius: 20px; box-shadow: 0 12px 32px rgba(3, 40, 110, 0.3); }
-[data-theme='marine'] .split__menu button { border-radius: 14px; }
-[data-theme='marine'] .icon-btn { border-radius: 999px; }
+[data-theme^='marine'] .btn--sm { min-height: 38px; padding: 0 14px; font-size: 12px; letter-spacing: 0.03em; }
+[data-theme^='marine'] .btn--nav { min-width: 48px; padding: 0 12px; }
+[data-theme^='marine'] .btn--secondary { border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink); }
+[data-theme^='marine'] .btn--secondary:hover { background: var(--accent-wash); }
+[data-theme^='marine'] .btn--ghost { color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 500; }
+[data-theme^='marine'] .btn--dark { background: var(--ink); color: #fafafa; }
+[data-theme^='marine'] .btn--dark:hover { background: #0e1647; opacity: 1; }
+[data-theme^='marine'] .btn--danger { background: var(--danger); color: #fff; }
+[data-theme^='marine'] #timerStartBtn { background: #30d1ff; color: #16205d; }
+[data-theme^='marine'] #timerStartBtn:hover { background: #5ddcff; }
+[data-theme^='marine'] .split__main { border-radius: 999px 0 0 999px; }
+[data-theme^='marine'] .split__toggle { border-radius: 0 999px 999px 0; border-left-color: rgba(250, 250, 250, 0.3); }
+[data-theme^='marine'] .composer--editing .split__main { border-radius: 999px; }
+[data-theme^='marine'] .split__menu { border: 0; border-radius: 20px; box-shadow: 0 12px 32px rgba(3, 40, 110, 0.3); }
+[data-theme^='marine'] .split__menu button { border-radius: 14px; }
+[data-theme^='marine'] .icon-btn { border-radius: 999px; }
 
-[data-theme='marine'] input[type='text'],
-[data-theme='marine'] input[type='password'],
-[data-theme='marine'] input[type='time'],
-[data-theme='marine'] input[type='date'],
-[data-theme='marine'] input[type='number'],
-[data-theme='marine'] select,
-[data-theme='marine'] textarea {
+[data-theme^='marine'] input[type='text'],
+[data-theme^='marine'] input[type='password'],
+[data-theme^='marine'] input[type='time'],
+[data-theme^='marine'] input[type='date'],
+[data-theme^='marine'] input[type='number'],
+[data-theme^='marine'] select,
+[data-theme^='marine'] textarea {
   border-width: 1.5px;
   min-height: 48px;
 }
-[data-theme='marine'] textarea { border-radius: 16px; padding: 12px 16px; }
-[data-theme='marine'] select { border-radius: 999px; padding-left: 16px; }
-[data-theme='marine'] .sort-control select { min-height: 40px; }
-[data-theme='marine'] .fieldblock__label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-[data-theme='marine'] .composer__head h2 { font-size: 24px; }
-[data-theme='marine'] .chip { border-width: 1.5px; color: var(--ink); }
-[data-theme='marine'] .chip:hover { background: var(--accent-wash); }
-[data-theme='marine'] .seg { background: var(--surface-alt); border-radius: 999px; }
-[data-theme='marine'] .seg__btn { border-radius: 999px; }
-[data-theme='marine'] .seg__btn.is-active { background: var(--surface); box-shadow: 0 1px 3px rgba(22, 32, 93, 0.18); }
+[data-theme^='marine'] textarea { border-radius: 16px; padding: 12px 16px; }
+[data-theme^='marine'] select { border-radius: 999px; padding-left: 16px; }
+[data-theme^='marine'] .sort-control select { min-height: 40px; }
+[data-theme^='marine'] .fieldblock__label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+[data-theme^='marine'] .composer__head h2 { font-size: 24px; }
+[data-theme^='marine'] .chip { border-width: 1.5px; color: var(--ink); }
+[data-theme^='marine'] .chip:hover { background: var(--accent-wash); }
+[data-theme^='marine'] .seg { background: var(--surface-alt); border-radius: 999px; }
+[data-theme^='marine'] .seg__btn { border-radius: 999px; }
+[data-theme^='marine'] .seg__btn.is-active { background: var(--surface); box-shadow: 0 1px 3px rgba(22, 32, 93, 0.18); }
 
 /* Zeitleiste, Zusammenfassung */
-[data-theme='marine'] .entry { padding-left: 28px; }
-[data-theme='marine'] .entry__dur { font-family: var(--font-sans); font-weight: 600; color: var(--accent); font-size: 16px; }
-[data-theme='marine'] .transfer-btn[aria-pressed='true'] .transfer-dot { background: #07edac; border-color: #07edac; color: var(--ink); }
-[data-theme='marine'] .badge { background: var(--accent-wash); color: var(--ink); }
-[data-theme='marine'] .resume-bar {
+[data-theme^='marine'] .entry { padding-left: 28px; }
+[data-theme^='marine'] .entry__dur { font-family: var(--font-sans); font-weight: 600; color: var(--accent); font-size: 16px; }
+[data-theme^='marine'] .transfer-btn[aria-pressed='true'] .transfer-dot { background: #07edac; border-color: #07edac; color: #16205d; }
+[data-theme^='marine'] .badge { background: var(--accent-wash); color: var(--ink); }
+[data-theme^='marine'] .resume-bar {
   padding: 10px 16px;
   border-radius: 999px;
   background: var(--surface);
   box-shadow: 0 12px 32px rgba(3, 40, 110, 0.25);
 }
-[data-theme='marine'] .merge-banner { border-radius: 20px; }
+[data-theme^='marine'] .merge-banner { border-radius: 20px; }
 
 /* Texte, die direkt auf dem blauen Hintergrund stehen */
-[data-theme='marine'] .shell > .field-hint,
-[data-theme='marine'] .shell > p { color: #e6eeff; }
-[data-theme='marine'] .toast { background: var(--ink); color: #fafafa; border-radius: 999px; }
+[data-theme^='marine'] .shell > .field-hint,
+[data-theme^='marine'] .shell > p { color: #e6eeff; }
+[data-theme^='marine'] .toast { background: var(--ink); color: #fafafa; border-radius: 999px; }
 
 @media (max-width: 640px) {
-  [data-theme='marine'] body { background-size: 100% 380px, auto; }
-  [data-theme='marine'] body::before,
-  [data-theme='marine'] body::after { display: none; }
-  [data-theme='marine'] .page-title { font-size: 32px; }
-  [data-theme='marine'] .card { padding: 22px; }
+  [data-theme^='marine'] body { background-size: 100% 380px, auto; }
+  [data-theme^='marine'] body::before,
+  [data-theme^='marine'] body::after { display: none; }
+  [data-theme^='marine'] .page-title { font-size: 32px; }
+  [data-theme^='marine'] .card { padding: 22px; }
 }
+
+/* Marine dunkel: Ueberschreibungen, die nicht allein ueber Token gehen */
+[data-theme='marine-dark'] body {
+  background:
+    linear-gradient(#080c2b, #080c2b) top / 100% 280px no-repeat,
+    linear-gradient(180deg, #0b2a7a 0%, #08205f 50%, #050f33 100%) fixed;
+  background-color: #08205f;
+}
+[data-theme='marine-dark'] .card,
+[data-theme='marine-dark'] .stat,
+[data-theme='marine-dark'] .auth-card,
+[data-theme='marine-dark'] .resume-bar { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); }
+[data-theme='marine-dark'] .btn--dark { background: #fafafa; color: #16205d; }
+[data-theme='marine-dark'] .btn--dark:hover { background: #ffffff; }
+[data-theme='marine-dark'] .split__toggle { border-left-color: rgba(22, 32, 93, 0.3); }
+[data-theme='marine-dark'] .btn--secondary { border-color: var(--border-strong); }
+[data-theme='marine-dark'] .btn--secondary:hover { background: var(--surface-alt); }
+[data-theme='marine-dark'] .toast { background: var(--surface-alt); color: var(--ink); }
+[data-theme='marine-dark'] .split__menu,
+[data-theme='marine-dark'] .theme-menu__list { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); }
+[data-theme='marine-dark'] .stat__value { color: var(--accent); }
+@media (max-width: 640px) {
+  [data-theme='marine-dark'] body { background-size: 100% 380px, auto; }
+}
+
+[data-theme^='marine'] .theme-menu__list { border: 0; border-radius: 20px; box-shadow: 0 12px 32px rgba(3, 40, 110, 0.3); }
+[data-theme^='marine'] .theme-menu__item { border-radius: 14px; }
+[data-theme^='marine'] .theme-toggle { font-size: 14px; }
