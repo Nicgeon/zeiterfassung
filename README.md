@@ -325,7 +325,10 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   über 10 Stunden oder wurde er an einem früheren Tag gestartet, erscheint
   ein Hinweis.
 - **Farbschema**: Der Knopf oben rechts (◐ / ☀ / ☾) wechselt zwischen Auto
-  (folgt dem Betriebssystem), Hell und Dunkel. Die Wahl merkt sich der Browser.
+  (folgt dem Betriebssystem), Hell, Dunkel und **Marine** (〰). Marine ist ein
+  drittes Design: tiefes Blau mit dunklem Kopfband, Pillen-Knöpfe und weiße,
+  stark gerundete Karten auf leuchtendem Blau, Schrift Be Vietnam Pro (selbst
+  gehostet, SIL OFL). Die Wahl merkt sich der Browser.
 - **Datensicherung**: Unter „Konto" lassen sich die eigenen Einträge als
   JSON-Datei exportieren und wieder importieren (vorhandene Einträge werden
   übersprungen). Die Datei enthält die Texte **unverschlüsselt**. In der

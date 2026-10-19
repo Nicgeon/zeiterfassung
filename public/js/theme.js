@@ -1,11 +1,11 @@
 'use strict';
 
-// Farbschema: "auto" folgt dem Betriebssystem, "light"/"dark" erzwingen es.
+// Farbschema: "auto" folgt dem Betriebssystem, "light"/"dark"/"marine" erzwingen es.
 // Die Wahl wird pro Browser gemerkt. Das Skript steht bewusst im <head>, damit
 // das Schema gesetzt ist, bevor etwas gezeichnet wird (kein Aufblitzen).
 (function () {
   const KEY = 'zeit.theme';
-  const ORDER = ['auto', 'light', 'dark'];
+  const ORDER = ['auto', 'light', 'dark', 'marine'];
   const SVG = (paths) =>
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
@@ -13,6 +13,7 @@
     auto: { icon: SVG('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>'), label: 'Auto' },
     light: { icon: SVG('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>'), label: 'Hell' },
     dark: { icon: SVG('<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>'), label: 'Dunkel' },
+    marine: { icon: SVG('<path d="M3 9c3-3 6 3 9 0s6-3 9 0M3 15c3-3 6 3 9 0s6-3 9 0"/>'), label: 'Marine' },
   };
 
   function load() {
