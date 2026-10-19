@@ -196,6 +196,11 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 
 ## Nutzung
 
+- **Eintragsformular**: Oben die Aufgabe, darunter „Dauer“ bzw. „Zeitraum“ und
+  „Ticket“ mit sichtbaren Beschriftungen. Unten rechts liegen die Aktionen immer
+  an derselben Stelle: links der grüne „Timer starten“-Knopf, ganz rechts der
+  dunkle „Eintrag speichern“-Knopf; dessen Pfeil öffnet „Speichern und
+  unterbrechen“.
 - **Timer**: Im Eintragsformular Aufgabe und Ticket eintragen (oder leer lassen)
   und „Timer starten“ drücken, dann einfach arbeiten. Dieselbe Karte wird zum
   Timer: Aufgabe und Ticket bleiben in denselben Feldern (Änderungen werden am
@@ -209,8 +214,8 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 - **Unterbrechen und Weitermachen**: Kommt eine Aufgabe dazwischen, lässt sich
   die laufende Arbeit unterbrechen – egal ob per Timer oder von Hand erfasst.
   *Timer:* „Unterbrechen“ neben „Stoppen & eintragen“. *Von Hand:* Aufgabe
-  und Dauer (bzw. Zeitraum) eintragen und „Unterbrechen“ statt „Eintrag
-  speichern“ klicken. Die bisherige Zeit wird als Eintrag gespeichert, und die
+  und Dauer (bzw. Zeitraum) eintragen und über den Pfeil neben „Eintrag
+  speichern“ „Speichern und unterbrechen“ wählen. Die bisherige Zeit wird als Eintrag gespeichert, und die
   Aufgabe (Text und Ticket) erscheint oben als „▶ Weitermachen“ mit den bisherigen
   Minuten. Danach lässt sich die dazwischengekommene Aufgabe erfassen. Zum
   Fortsetzen gibt es zwei Wege: **▶** startet einen Timer, **＋ Zeit** füllt

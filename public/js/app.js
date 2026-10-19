@@ -33,6 +33,8 @@
     mergeText: $('#mergeText'),
     mergeCancelBtn: $('#mergeCancelBtn'),
     pauseEntryBtn: $('#pauseEntryBtn'),
+    saveMenuBtn: $('#saveMenuBtn'),
+    saveMenu: $('#saveMenu'),
     description: $('#description'),
     jiraKey: $('#jiraKey'),
     saveBtn: $('#saveBtn'),
@@ -136,7 +138,7 @@
     } else if (s) {
       text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
     }
-    els.durationHint.textContent = text || '\u00a0';
+    els.durationHint.textContent = text || '';
     els.durationHint.classList.toggle('is-error', isError);
   }
 
@@ -952,7 +954,26 @@
     e.preventDefault();
     saveEntry();
   });
-  els.pauseEntryBtn.addEventListener('click', () => saveEntry({ pause: true }));
+  // Aufklappmenue am Speichern-Knopf
+  function toggleSaveMenu(open) {
+    const show = open === undefined ? els.saveMenu.classList.contains('hidden') : open;
+    els.saveMenu.classList.toggle('hidden', !show);
+    els.saveMenuBtn.setAttribute('aria-expanded', String(show));
+  }
+  els.saveMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSaveMenu();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.split')) toggleSaveMenu(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') toggleSaveMenu(false);
+  });
+  els.pauseEntryBtn.addEventListener('click', () => {
+    toggleSaveMenu(false);
+    saveEntry({ pause: true });
+  });
   els.mergeCancelBtn.addEventListener('click', () => {
     formState.merge = null;
     renderMergeBanner();

@@ -725,12 +725,12 @@ table.data-table {
 .timer-clock { align-items: center; gap: 10px; }
 .timer-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .timer-elapsed { font-size: 24px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.timer-note { flex: 1 1 260px; margin: 0; font-size: 14px; color: var(--ink-muted); align-self: center; }
+.timer-note { margin: 0; font-size: 14px; color: var(--ink-muted); align-self: center; }
 
 /* --- Neuer Eintrag (Composer) ------------------------------------------------
-   Ein grosses Textfeld fuer die Aufgabe, darunter eine einzige Zeile fuer die Zeit
-   (je nach Umschalter Zeitraum ODER Dauer) und das Ticket. Die jeweils andere Angabe
-   erscheint nur als Zusammenfassung, nicht als zusaetzliches Feld. */
+   Aufgabe oben, darunter in zwei Spalten "Dauer/Zeitraum" und "Ticket" mit sichtbaren
+   Beschriftungen, unten die Aktionen: Timer starten immer am selben Platz, Speichern
+   als dunkle Hauptaktion ganz rechts. */
 
 .composer__head {
   display: flex;
@@ -753,29 +753,41 @@ table.data-table {
 }
 
 .composer__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px 16px;
-  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 270px);
+  gap: 12px 20px;
+  align-items: start;
+  margin-top: 14px;
 }
-.composer__when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: 1 1 340px; min-width: 0; }
-.composer__ticket { flex: 0 1 230px; min-width: 170px; margin-left: auto; }
+.fieldblock { min-width: 0; }
+.fieldblock__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.composer__ticket input { width: 100%; }
 
 .when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .when input[type='time'] { width: 124px; }
-.when #duration { width: 130px; }
+.when #duration { width: 120px; }
 .when__sep { color: var(--ink-faint); }
-.when__summary { font-size: 14px; color: var(--ink-muted); min-width: 0; }
+.when__summary { margin-top: 6px; font-size: 14px; color: var(--ink-muted); min-width: 0; }
+.when__summary:empty { display: none; }
 .when__summary.is-error { color: var(--danger); }
 
-.composer[data-mode='times'] .when--duration { display: none; }
-.composer[data-mode='duration'] .when--times { display: none; }
+.composer[data-mode='times'] .when--duration,
+.composer[data-mode='times'] .label-duration { display: none; }
+.composer[data-mode='duration'] .when--times,
+.composer[data-mode='duration'] .label-times { display: none; }
 
 .duration-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .chip {
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--surface);
@@ -785,7 +797,7 @@ table.data-table {
 }
 .chip:hover { background: var(--surface-alt); }
 
-.hint-line { min-height: 0; margin: 4px 0 0; }
+.hint-line { margin: 6px 0 0; }
 .hint-line .field-hint { margin: 0; }
 .hint-line .field-hint:empty { display: none; }
 
@@ -794,13 +806,58 @@ table.data-table {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px 16px;
+  margin-top: 18px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 .composer__footer .field-hint { margin: 0; }
-.composer__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Aktionen immer rechts und in fester Reihenfolge: Timer links, Speichern ganz rechts */
+.composer__actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+.btn__icon { width: 14px; height: 14px; flex: none; }
+
+/* Speichern mit Aufklappmenue ("Speichern und unterbrechen") */
+.split { position: relative; display: inline-flex; }
+.split__main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split__toggle {
+  min-width: 42px;
+  padding: 0 10px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid color-mix(in srgb, var(--bg) 40%, transparent);
+}
+.composer--editing .split__main { border-radius: var(--radius-sm); }
+.split__menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  min-width: 270px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.split__menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.split__menu button:hover { background: var(--surface-alt); }
+.split__menu small { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--ink-muted); }
+
+@media (max-width: 640px) {
+  .composer__meta { grid-template-columns: minmax(0, 1fr); }
+  .composer__actions { width: 100%; }
+}
 
 /* --- Liste ------------------------------------------------------------- */
 

@@ -80,7 +80,9 @@
           </div>
 
           <div class="composer__meta">
-            <div class="composer__when no-timer">
+            <div class="fieldblock composer__when no-timer">
+              <label class="fieldblock__label label-duration" for="duration">Dauer</label>
+              <span class="fieldblock__label label-times" id="timesLabel">Zeitraum</span>
               <div class="when when--times">
                 <label class="visually-hidden" for="startTime">Start</label>
                 <input type="time" id="startTime" class="time-input" />
@@ -90,23 +92,21 @@
                 <button type="button" class="btn btn--secondary btn--sm" id="nowBtn" title="Aktuelle Uhrzeit als Ende übernehmen">Jetzt</button>
               </div>
               <div class="when when--duration">
-                <label class="visually-hidden" for="duration">Dauer</label>
                 <input type="text" id="duration" class="mono" inputmode="text" autocomplete="off" placeholder="z. B. 1:30" />
                 <div class="duration-chips" role="group" aria-label="Dauer schnell wählen">
                   <button type="button" class="chip" data-minutes="15">15 Min</button>
                   <button type="button" class="chip" data-minutes="30">30 Min</button>
                   <button type="button" class="chip" data-minutes="45">45 Min</button>
                   <button type="button" class="chip" data-minutes="60">1 Std</button>
-                  <button type="button" class="chip" data-minutes="90">1,5 Std</button>
                   <button type="button" class="chip" data-minutes="120">2 Std</button>
                 </div>
               </div>
-              <div class="when__summary" id="durationHint">&nbsp;</div>
+              <div class="when__summary" id="durationHint"></div>
             </div>
             <p class="timer-only timer-note"><span class="times-only">Gestartet um <strong class="mono" id="timerStartLabel"></strong> &middot; </span>Läuft serverseitig weiter, auch wenn du den Tab schließt.<span id="timerSurchargeNote"></span></p>
-            <div class="composer__ticket">
-              <label class="visually-hidden" for="jiraKey">Ticket</label>
-              <input type="text" id="jiraKey" class="mono" placeholder="Ticket" maxlength="500" />
+            <div class="fieldblock composer__ticket">
+              <label class="fieldblock__label" for="jiraKey">Ticket</label>
+              <input type="text" id="jiraKey" class="mono" placeholder="z. B. ITPKK-123 oder Link" maxlength="500" />
             </div>
           </div>
           <div class="hint-line no-timer">
@@ -114,12 +114,27 @@
           </div>
 
           <div class="composer__footer">
-            <span class="field-hint no-timer">Strg + Enter speichert · Jira-Links werden zu Ticketnummern</span>
+            <span class="field-hint no-timer">Strg + Enter speichert</span>
             <span class="field-hint timer-only">Strg + Enter stoppt und trägt ein</span>
             <div class="composer__actions">
-              <button type="button" class="btn btn--secondary no-timer no-edit" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">Timer starten</button>
-              <button type="button" class="btn btn--secondary no-timer no-edit" id="pauseEntryBtn" title="Zeit bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>
-              <button type="submit" class="btn btn--dark no-timer" id="saveBtn">Eintrag speichern</button>
+              <!-- ohne laufenden Timer: links der Timer (immer am selben Platz), rechts Speichern -->
+              <button type="button" class="btn no-timer no-edit" id="timerStartBtn" title="Timer mit Aufgabe und Ticket starten">
+                <svg class="btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+                Timer starten
+              </button>
+              <div class="split no-timer">
+                <button type="submit" class="btn btn--dark split__main" id="saveBtn">Eintrag speichern</button>
+                <button type="button" class="btn btn--dark split__toggle no-edit" id="saveMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="saveMenu" aria-label="Weitere Speicheroptionen" title="Weitere Optionen">
+                  <svg class="btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>
+                </button>
+                <div class="split__menu hidden no-edit" id="saveMenu" role="menu">
+                  <button type="button" role="menuitem" id="pauseEntryBtn">
+                    Speichern und unterbrechen
+                    <small>Merkt die Aufgabe zum Weitermachen</small>
+                  </button>
+                </div>
+              </div>
+              <!-- mit laufendem Timer -->
               <button type="button" class="btn btn--ghost timer-only" id="timerDiscardBtn">Verwerfen</button>
               <button type="button" class="btn btn--secondary timer-only" id="timerPauseBtn" title="Bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>
               <button type="button" class="btn timer-only" id="timerStopBtn">Stoppen &amp; eintragen</button>
