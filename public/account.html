@@ -44,16 +44,23 @@
     <div class="setting-row">
       <label for="surchargeInput">Zeitzuschlag pro Aufgabe</label>
       <div class="setting-row__control">
-        <input type="number" id="surchargeInput" min="0" max="240" step="1" inputmode="numeric" value="0" />
+        <span class="text-muted">von</span>
+        <input type="number" id="surchargeInput" min="0" max="240" step="1" inputmode="numeric" value="0" aria-label="Zuschlag von (Minuten)" />
+        <span class="text-muted">bis</span>
+        <input type="number" id="surchargeMaxInput" min="0" max="240" step="1" inputmode="numeric" value="0" aria-label="Zuschlag bis (Minuten)" />
         <span class="text-muted">Minuten</span>
       </div>
     </div>
+    <p class="field-hint" id="surchargeSummary"></p>
     <p class="field-hint">
-      Wird bei jedem Speichern auf die Zeit aufgerechnet (neuer Eintrag, Timer-Stopp und Bearbeiten),
-      z. B. für Vor- und Nachbereitung. Beispiel: Bei 5 Minuten wird eine Aufgabe von 45 Minuten als
-      50 Minuten erfasst, das Ende verschiebt sich entsprechend. Beim Bearbeiten zeigt das Formular die
-      Zeit ohne Zuschlag, er kommt beim Speichern wieder dazu. Bereits gespeicherte Einträge ändern sich
-      nicht von selbst. 0 schaltet den Zuschlag aus. Gilt für diesen Browser.
+      Wird bei jedem Speichern auf die Zeit aufgerechnet (neuer Eintrag und Timer-Stopp), z. B. für
+      Vor- und Nachbereitung. Sind „von“ und „bis“ gleich, ist der Zuschlag fest: Bei 5 Minuten wird eine
+      Aufgabe von 45 Minuten als 50 Minuten erfasst, das Ende verschiebt sich entsprechend. Bei
+      unterschiedlichen Werten wird für jeden Eintrag ein zufälliger Zuschlag dazwischen gewürfelt
+      (z. B. 3 bis 8 Minuten). 0 ist erlaubt, auch als Untergrenze („von 0“). Beim Bearbeiten zeigt das
+      Formular bei einem festen Zuschlag die Zeit ohne Zuschlag, er kommt beim Speichern wieder dazu; bei einem
+      Zufallsbereich bleibt die gespeicherte Zeit unverändert. Bereits gespeicherte Einträge ändern sich nicht
+      von selbst. 0 bis 0 schaltet den Zuschlag aus. Gilt für diesen Browser.
     </p>
     <div class="local-only" id="localSettings">
       <label class="checkbox-label mt-lg">

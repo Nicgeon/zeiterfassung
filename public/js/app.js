@@ -95,13 +95,16 @@
   /** "= 45 Min + 35 Min aus dem unterbrochenen Teil + 5 Min Zuschlag = 1 Std 25 Min" */
   function describeTotal(base) {
     const carry = formState.merge ? formState.merge.carry : 0;
-    const sur = currentSurcharge();
-    if (!carry && !sur) return `= ${formatDurationLong(base)}`;
+    const range = surchargeBounds();
+    if (!carry && !range.max) return `= ${formatDurationLong(base)}`;
+    const total = surchargeIsRandom(range)
+      ? `${formatDurationLong(base + carry + range.min)} – ${formatDurationLong(base + carry + range.max)}`
+      : formatDurationLong(base + carry + range.min);
     return (
       `= ${formatDurationLong(base)}` +
       (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
-      (sur ? ` + ${sur} Min Zuschlag` : '') +
-      ` = ${formatDurationLong(base + carry + sur)}`
+      (range.max ? ` + ${describeSurcharge(range)}` : '') +
+      ` = ${total}`
     );
   }
 
@@ -131,10 +134,11 @@
     } else if (formState.mode === 'times') {
       if (diff > 0) text = describeTotal(diff);
     } else if (diff > 0 && els.duration.value.trim()) {
-      const sur = currentSurcharge();
+      const range = surchargeBounds();
       const carry = formState.merge ? formState.merge.carry : 0;
       text = `${s} – ${e} Uhr` + (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
-        (sur > 0 ? ` + ${sur} Min Zuschlag → Ende ${effectiveEnd(e)}` : '');
+        (range.max > 0 ? ` + ${describeSurcharge(range)}` : '') +
+        (range.max > 0 && !surchargeIsRandom(range) ? ` → Ende ${effectiveEnd(e)}` : '');
     } else if (s) {
       text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
     }
@@ -217,8 +221,18 @@
    * Zuschlag, der beim Speichern auf die Eingabe kommt. Beim Bearbeiten zeigt das Formular die
    * Zeit ohne den im Eintrag steckenden Zuschlag, der beim Speichern wieder aufgeschlagen wird.
    */
+  function surchargeBounds() {
+    return state.editingId ? { min: state.editSurcharge, max: state.editSurcharge } : loadSurchargeRange();
+  }
+
+  /** Sicher aufgeschlagener Zuschlag (bei einem Bereich die Untergrenze). */
   function currentSurcharge() {
-    return state.editingId ? state.editSurcharge : loadSurcharge();
+    return surchargeBounds().min;
+  }
+
+  /** "5 Min Zuschlag" bzw. "3–8 Min Zuschlag (zufällig)" */
+  function describeSurcharge(range) {
+    return `${formatSurchargeRange(range)} Min Zuschlag${surchargeIsRandom(range) ? ' (zufällig)' : ''}`;
   }
 
   /** Ende, wie es mit Zuschlag gespeichert wuerde ("HH:MM"), oder null, wenn es nach Mitternacht laege. */
@@ -295,7 +309,10 @@
     els.cancelEditBtn.classList.remove('hidden');
     // Im Formular steht die Zeit ohne Zuschlag; er kommt beim Speichern wieder dazu. Ist der Eintrag
     // kuerzer als der Zuschlag (etwa vor dessen Einfuehrung angelegt), bleibt er unveraendert.
-    const sur = loadSurcharge();
+    // Bei einem Zufallsbereich ist der enthaltene Zuschlag nicht bekannt: Der Eintrag bleibt dann
+    // wie gespeichert, und beim Speichern kommt nichts dazu.
+    const range = loadSurchargeRange();
+    const sur = surchargeIsRandom(range) ? 0 : range.min;
     state.editSurcharge = entry.durationMinutes > sur ? sur : 0;
     els.startTime.value = entry.startTime;
     els.endTime.value = minutesToHM(hmToMinutes(entry.endTime) - state.editSurcharge);
@@ -319,7 +336,8 @@
     // Dauer uebernehmen: Start wie bei jedem neuen Eintrag (Ende des letzten bzw. jetzt),
     // das Ende ergibt sich aus der Dauer des Vorbilds.
     // Der Vorbild-Eintrag enthaelt den Zuschlag schon; er kommt beim Speichern wieder dazu.
-    els.duration.value = formatDurationField(Math.max(1, entry.durationMinutes - loadSurcharge()));
+    // (bei einem Zufallsbereich ungefaehr: der mittlere Zuschlag wird abgezogen)
+    els.duration.value = formatDurationField(Math.max(1, entry.durationMinutes - typicalSurcharge()));
     formState.anchor = 'duration';
     applyDuration();
     els.description.focus();
@@ -569,11 +587,11 @@
     // Typische Fallen: Timer vergessen bzw. ueber Mitternacht gelaufen.
     const startedYesterdayOrEarlier = timer.workDate !== todayISO();
     els.timerStartLabel.textContent = timer.startTime;
-    const sur = loadSurcharge();
+    const range = loadSurchargeRange();
     const carryMin = timer.carryMinutes || 0;
     els.timerSurchargeNote.textContent =
       (carryMin > 0 ? ` Enthält ${carryMin} Min vom unterbrochenen Teil.` : '') +
-      (sur > 0 ? ` Beim Eintragen kommen ${sur} Min Zuschlag dazu.` : '');
+      (range.max > 0 ? ` Beim Eintragen kommen ${describeSurcharge(range)} dazu.` : '');
     // Aufgabe und Ticket des Timers stehen in den normalen Formularfeldern.
     if (document.activeElement !== els.description) els.description.value = timer.description || '';
     if (document.activeElement !== els.jiraKey) els.jiraKey.value = timer.jiraKey || '';
@@ -648,9 +666,10 @@
     const jiraKey = convertTicketLinks(els.jiraKey.value).trim().slice(0, 40);
     try {
       // Zuschlag auf die gelaufene Zeit; nie ueber 23:59 hinaus
-      const stopAt = Math.min(hmToMinutes(nowHHMM()) + loadSurcharge(), 24 * 60 - 1);
+      const nowMin = hmToMinutes(nowHHMM());
+      const surcharge = Math.max(0, Math.min(rollSurcharge(), 24 * 60 - 1 - nowMin));
       const data = await Api.post('/api/timer/stop', {
-        end_time: minutesToHM(stopAt),
+        end_time: minutesToHM(nowMin + surcharge),
         description,
         jira_key: jiraKey,
       });
@@ -661,6 +680,7 @@
           entryId: data.entry.id,
           minutes: data.entry.durationMinutes,
           workDate: data.entry.workDate,
+          surcharge,
         });
       }
       renderTimer(null);
@@ -710,9 +730,19 @@
     renderResumeBar();
   }
 
-  function addPausedTask({ description, jiraKey, entryId, minutes, workDate }) {
+  /** Zuschlag, der im frueheren Teil einer unterbrochenen Aufgabe steckt (aeltere Merkzettel: der mittlere). */
+  function pausedSurcharge(task) {
+    return Number.isFinite(task.surcharge) ? task.surcharge : typicalSurcharge();
+  }
+
+  function typicalSurcharge() {
+    const range = loadSurchargeRange();
+    return Math.round((range.min + range.max) / 2);
+  }
+
+  function addPausedTask({ description, jiraKey, entryId, minutes, workDate, surcharge }) {
     const rest = loadPausedTasks().filter((t) => !(t.description === description && (t.jiraKey || '') === (jiraKey || '')));
-    savePausedTasks([{ description, jiraKey: jiraKey || '', entryId, minutes, workDate, at: Date.now() }, ...rest]);
+    savePausedTasks([{ description, jiraKey: jiraKey || '', entryId, minutes, workDate, surcharge, at: Date.now() }, ...rest]);
   }
 
   function removePausedTaskByEntry(entryId) {
@@ -749,7 +779,7 @@
       formState.merge = {
         entryId: task.entryId,
         minutes: task.minutes,
-        carry: Math.max(0, task.minutes - loadSurcharge()), // der Zuschlag steckt schon im frueheren Teil
+        carry: Math.max(0, task.minutes - pausedSurcharge(task)), // der Zuschlag steckt schon im frueheren Teil
         label: task.description || task.jiraKey,
       };
     }
@@ -784,7 +814,7 @@
     // zum neuen Eintrag) - ausser er ist von einem anderen Tag, in Jira oder weg. Der Zuschlag
     // steckt schon im frueheren Teil und kommt beim Stoppen genau einmal dazu.
     const canMerge = task.entryId && task.workDate === todayISO();
-    const carry = canMerge ? Math.max(0, task.minutes - loadSurcharge()) : 0;
+    const carry = canMerge ? Math.max(0, task.minutes - pausedSurcharge(task)) : 0;
     try {
       let data;
       let merged = false;
@@ -876,8 +906,7 @@
       return setFormError(els.formError, 'Bitte einen Zeitraum oder eine Dauer angeben.');
     }
     // Zuschlag auf die Eingabe (auch beim Bearbeiten; dort steckt er nicht im Formular)
-    const endWithSurcharge = effectiveEnd(els.endTime.value);
-    if (!endWithSurcharge) {
+    if (!effectiveEnd(els.endTime.value)) {
       return setFormError(
         els.formError,
         loadShowTimes()
@@ -885,6 +914,10 @@
           : 'Der Tag ist voll – der Eintrag würde über Mitternacht hinausgehen.'
       );
     }
+    // Beim Bearbeiten steht der Zuschlag fest, sonst wird er (ggf. zufaellig) gewuerfelt, aber nie ueber 23:59
+    const endMinutes = hmToMinutes(els.endTime.value);
+    const surcharge = Math.min(state.editingId ? state.editSurcharge : rollSurcharge(), 24 * 60 - 1 - endMinutes);
+    const endWithSurcharge = minutesToHM(endMinutes + surcharge);
     const description = convertTicketLinks(els.description.value);
     const jiraKey = convertTicketLinks(els.jiraKey.value).trim().slice(0, 40) || null;
     const payload = {
@@ -933,6 +966,7 @@
             entryId: data.entry.id,
             minutes: data.entry.durationMinutes,
             workDate: data.entry.workDate,
+            surcharge,
           });
           showToast(`Eintrag gespeichert – „${description.trim() || jiraKey}" ist unterbrochen. Oben geht es mit „Weitermachen" weiter.`, { durationMs: 6000 });
         } else if (merged) {

@@ -247,6 +247,15 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   der durch den Zuschlag über Mitternacht reichen würde, wird abgelehnt (beim
   Timer-Stopp gilt 23:59 als Grenze). 0 schaltet den Zuschlag aus; die
   Einstellung gilt pro Browser.
+  **Zufälliger Zuschlag:** Statt eines festen Werts lässt sich ein Bereich
+  „von … bis …“ angeben (z. B. 3 bis 8 Minuten, auch „von 0“ ist möglich). Bei
+  jedem neuen Eintrag und jedem Timer-Stopp wird ein Wert aus diesem Bereich
+  gewürfelt; das Formular zeigt vorab den Bereich („+ 3–8 Min Zuschlag
+  (zufällig)“). Weil sich der gewürfelte Wert später nicht mehr zurückrechnen
+  lässt, bleibt die Zeit beim Bearbeiten unverändert (es kommt nichts dazu), und
+  „Nochmal erfassen“ zieht ungefähr den mittleren Zuschlag ab. Beim
+  Weitermachen einer unterbrochenen Aufgabe wird der tatsächlich gewürfelte
+  Zuschlag des früheren Teils ersetzt, nicht addiert.
 - **Aufgabe oder Ticket**: Ein Eintrag braucht nicht beides, es genügt eine
   Beschreibung **oder** ein Ticket. Ohne Beschreibung steht in der Liste und
   beim Kopieren die Ticketnummer (`35 Min – ITPKK-55`); im Wochenbericht

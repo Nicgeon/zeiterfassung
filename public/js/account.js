@@ -72,12 +72,29 @@
   });
 
   const surchargeInput = $('#surchargeInput');
-  surchargeInput.value = String(loadSurcharge());
-  surchargeInput.addEventListener('change', () => {
-    const value = saveSurcharge(surchargeInput.value);
-    surchargeInput.value = String(value);
-    showToast(value > 0 ? `Zuschlag: ${value} Min pro neuer Aufgabe.` : 'Zeitzuschlag ausgeschaltet.');
-  });
+  const surchargeMaxInput = $('#surchargeMaxInput');
+  const surchargeSummary = $('#surchargeSummary');
+  function showSurcharge(range) {
+    surchargeInput.value = String(range.min);
+    surchargeMaxInput.value = String(range.max);
+    surchargeSummary.textContent =
+      range.max === 0 ? 'Zeitzuschlag ist aus.'
+        : range.min === range.max ? `Jeder neue Eintrag bekommt ${range.min} Min Zuschlag.`
+          : `Jeder neue Eintrag bekommt einen zufälligen Zuschlag von ${range.min} bis ${range.max} Min.`;
+  }
+  showSurcharge(loadSurchargeRange());
+  // "von" zieht "bis" mit hoch, "bis" darf nicht unter "von" fallen
+  function commitSurcharge(changed) {
+    const min = clampSurcharge(surchargeInput.value);
+    const max = changed === 'min' && surchargeMaxInput.value === '' ? min : clampSurcharge(surchargeMaxInput.value);
+    const range = saveSurcharge(min, max);
+    showSurcharge(range);
+    showToast(range.max === 0 ? 'Zeitzuschlag ausgeschaltet.' : range.min === range.max
+      ? `Zuschlag: ${range.min} Min pro neuer Aufgabe.`
+      : `Zuschlag: zufällig ${range.min}–${range.max} Min pro neuer Aufgabe.`);
+  }
+  surchargeInput.addEventListener('change', () => commitSurcharge('min'));
+  surchargeMaxInput.addEventListener('change', () => commitSurcharge('max'));
 
   // --- Updates (nur lokaler Betrieb) --------------------------------
 

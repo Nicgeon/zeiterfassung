@@ -164,24 +164,51 @@ function saveShowTimes(enabled) {
 
 // --- Zeitzuschlag -------------------------------------------------------------
 // Minuten, die auf jeden NEUEN Eintrag (Formular, Timer) aufgerechnet werden, z. B. fuer
-// Vor- und Nachbereitung. Einstellung unter Konto; gilt pro Browser.
+// Vor- und Nachbereitung. Einstellung unter Konto; gilt pro Browser. Ein Bereich von bis
+// ergibt bei jedem Speichern einen zufaelligen Wert dazwischen (0 ist erlaubt).
 
-const SURCHARGE_KEY = 'zeit.surchargeMinutes';
+const SURCHARGE_KEY = 'zeit.surchargeMinutes'; // Untergrenze (frueher: der feste Wert)
+const SURCHARGE_UPPER_KEY = 'zeit.surchargeMax'; // Obergrenze; fehlt sie, ist der Zuschlag fest
 const SURCHARGE_MAX = 240;
 
-function loadSurcharge() {
+function clampSurcharge(value) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, 0), SURCHARGE_MAX) : 0;
+}
+
+/** { min, max } in Minuten; min === max bedeutet einen festen Zuschlag. */
+function loadSurchargeRange() {
   try {
-    const value = parseInt(localStorage.getItem(SURCHARGE_KEY) || '0', 10);
-    return Number.isFinite(value) ? Math.min(Math.max(value, 0), SURCHARGE_MAX) : 0;
+    const min = clampSurcharge(localStorage.getItem(SURCHARGE_KEY));
+    const rawMax = localStorage.getItem(SURCHARGE_UPPER_KEY);
+    return { min, max: rawMax === null ? min : Math.max(min, clampSurcharge(rawMax)) };
   } catch {
-    return 0;
+    return { min: 0, max: 0 };
   }
 }
 
-function saveSurcharge(minutes) {
-  const value = Math.min(Math.max(parseInt(minutes, 10) || 0, 0), SURCHARGE_MAX);
-  try { localStorage.setItem(SURCHARGE_KEY, String(value)); } catch { /* nur Komfort */ }
-  return value;
+function saveSurcharge(min, max = min) {
+  const lo = clampSurcharge(min);
+  const range = { min: lo, max: Math.max(lo, clampSurcharge(max)) };
+  try {
+    localStorage.setItem(SURCHARGE_KEY, String(range.min));
+    localStorage.setItem(SURCHARGE_UPPER_KEY, String(range.max));
+  } catch { /* nur Komfort */ }
+  return range;
+}
+
+function surchargeIsRandom(range = loadSurchargeRange()) {
+  return range.max > range.min;
+}
+
+/** Zufallswert im Bereich (beide Grenzen eingeschlossen). */
+function rollSurcharge(range = loadSurchargeRange()) {
+  return range.min + Math.floor(Math.random() * (range.max - range.min + 1));
+}
+
+/** "5" bzw. "3–8" */
+function formatSurchargeRange(range) {
+  return range.min === range.max ? String(range.min) : `${range.min}\u2013${range.max}`;
 }
 
 /** Eine Zeile fuer die Zwischenablage; withTimes haengt Start-/Endzeit davor. */
