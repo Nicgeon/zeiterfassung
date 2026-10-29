@@ -83,6 +83,14 @@ CREATE TABLE IF NOT EXISTS active_timers (
   carry_minutes    INTEGER NOT NULL DEFAULT 0
 );
 
+-- Einstellungen fuer den Befehl "berichtsheft" (KI-Anbieter, Schluessel, Namenslisten),
+-- pro Person als verschluesselter JSON-Block.
+CREATE TABLE IF NOT EXISTS berichtsheft_settings (
+  user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  config_enc  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER,

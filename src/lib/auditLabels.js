@@ -27,6 +27,8 @@ const EVENT_LABELS = {
   data_exported: 'Eigene Daten exportiert',
   data_imported: 'Daten importiert',
   update_installed: 'Update installiert',
+  berichtsheft_generated: 'Berichtsheft-Text erzeugt',
+  berichtsheft_settings_changed: 'Berichtsheft-Einstellungen geaendert',
 };
 
 function labelFor(event) {

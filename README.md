@@ -22,6 +22,7 @@ Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
 - [Nutzung](#nutzung)
 - [Übersicht: Woche & Monat](#übersicht-woche--monat)
 - [Wochenbericht für Azubis](#wochenbericht-für-azubis)
+- [Berichtsheft-Text mit KI](#berichtsheft-text-mit-ki)
 - [Verwaltung per Kommandozeile](#verwaltung-per-kommandozeile)
 - [Logs](#logs)
 - [Backup & Wiederherstellung](#backup--wiederherstellung)
@@ -417,6 +418,64 @@ Mittwoch, 23.09.2026
 
 Tage ohne Einträge werden weggelassen. Auch hier gilt die Datentrennung:
 Azubis sehen ausschließlich ihre eigenen Einträge.
+
+## Berichtsheft-Text mit KI
+
+Der Befehl `berichtsheft` macht aus den erfassten Einträgen eines Zeitraums zwei zusammenhängende
+Textblöcke für das Berichtsheft: **„Betriebliche Tätigkeiten:“** und **„Berufsschule (Unterrichtsthemen):“**
+(zusammen 5 bis 10 Zeilen, Fließtext). Der Text wird im Terminal ausgegeben und als Textdatei
+gespeichert, auf Wunsch auch in die Zwischenablage gelegt – von dort lässt er sich ins IHK-Portal einfügen.
+
+```bash
+./berichtsheft.sh                  # macOS/Linux, letzte Kalenderwoche (Mo–So)
+berichtsheft.bat                   # Windows (Doppelklick oder in der Eingabeaufforderung)
+npm run berichtsheft -- --von 2026-10-12 --bis 2026-10-18 --kopieren
+npm run berichtsheft -- hilfe      # alle Befehle und Optionen
+```
+
+**Erste Schritte (einmalig):** `npm run berichtsheft -- einrichten` fragt nach Anbieter, Modell und
+API-Schlüssel und prüft den Schlüssel. Unterstützt werden **Claude** (Anthropic, Standardmodell
+`claude-haiku-5-5`), **ChatGPT** (OpenAI, `gpt-6.1-terra`), **Gemini** (Google, `gemini-3.8-flash`) und jede
+**OpenAI-kompatible Adresse** (z. B. ein lokales Modell über Ollama – dann verlässt gar nichts den Rechner).
+Das Modell lässt sich mit `--modell` überschreiben, `modelle` listet die verfügbaren auf (so lässt sich
+auch ein Tippfehler im Namen finden). Der Schlüssel wird verschlüsselt in der Datenbank abgelegt, alternativ
+genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI_API_KEY`.
+
+**Datenschutz – so läuft es ab:**
+
+1. Die Einträge werden lokal geladen und entschlüsselt.
+2. **Lokale Anonymisierung, bevor etwas das Gerät verlässt:** Datum, Uhrzeit, Wochentage, „KW 43“, „gestern“,
+   Links, E-Mail-, Telefon- und IP-Adressen sowie Ticketnummern werden entfernt. Personen, Kunden und Firmen
+   aus der Namensliste werden durch „ein Kollege“, „ein Kunde“ bzw. „ein Unternehmen“ ersetzt. Interne
+   Programmnamen wie *Lini* stehen auf der Erlaubnisliste und bleiben.
+3. **Namen erkennt kein Programm zuverlässig** (im Deutschen sind alle Nomen groß geschrieben). Deshalb
+   fragt der Befehl **jedes unbekannte Großbuchstaben-Wort genau einmal**: Verdächtige Muster („Herr Müller“,
+   „Acme GmbH“, „Lena Schmidt“) einzeln, alle übrigen als Liste zum Ankreuzen. Die Antwort wird gespeichert;
+   mit der Zeit erscheinen nur noch neue Wörter. Pflege per Hand: `namen`, `namen add <Begriff> --art
+   person|kunde|firma`, `namen erlauben <Begriff>`, `namen entfernen <Begriff>`.
+4. **Vorschau 1:** Sie sehen genau den anonymisierten Text, der gesendet würde, und bestätigen ihn
+   (`j`/`n`; mit `a` lässt sich noch ein Name ergänzen). Ohne Bestätigung wird nichts gesendet.
+5. Die KI ordnet die Stichpunkte Betrieb oder Berufsschule zu (Stichwörter wie „Berufsschule“ sind nur ein
+   Hinweis, die Entscheidung trifft die KI; änderbar mit `stichwoerter`) und schreibt die beiden Texte.
+   Passt die Antwort nicht (zu lang, Aufzählung), wird einmal nachgebessert.
+6. Ein **Sicherheitsnetz** prüft die Antwort noch einmal auf Namen, Daten und Ticketnummern und entfernt sie.
+7. **Vorschau 2:** Ergebnis, Zeilenzahl und die Zuordnung jedes Stichpunkts – dann Speichern, Verwerfen
+   oder neu erzeugen. Die Datei liegt unter `<Datenordner>/berichtsheft/berichtsheft_2026-KW43.txt`
+   (Pfad mit `--ausgabe` änderbar).
+
+`--ohne-ki` anonymisiert und sortiert nur lokal und sendet nichts. `--ja` beantwortet die Rückfragen
+automatisch und bricht ab, solange Wörter ungeklärt sind (Exit-Code 3).
+
+**Mehrere Konten (Docker):** Die Einstellungen (Anbieter, Schlüssel, Namensliste) gelten pro Konto, jede
+Person entscheidet also selbst, ob und mit welchem Anbieter sie die KI nutzt – ohne `einrichten` geschieht nichts.
+Aufruf: `docker compose exec -it app npm run berichtsheft -- --benutzer m.mustermann`. Wer externe KI-Dienste
+im Container grundsätzlich verbieten will, setzt `BERICHTSHEFT_KI=aus` (dann bleiben `--ohne-ki` und ein
+lokales Modell möglich).
+
+**IHK-Portal:** Eine Schnittstelle zum Eintragen gibt es nach unserem Kenntnisstand nicht (nur PDF-Export
+bzw. Eingabe von Hand). Deshalb: Text mit `--kopieren` in die Zwischenablage legen und im Portal einfügen.
+
+Tests: `npm test` (Anonymisierung, Zeitraum, Anbieter mit simulierten Servern, ganzer Ablauf).
 
 ## Verwaltung per Kommandozeile
 

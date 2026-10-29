@@ -11,9 +11,12 @@
     "dev": "node --watch src/server.js",
     "create-admin": "node src/scripts/create-user.js",
     "clear-sessions": "node src/scripts/clear-sessions.js",
-    "user": "node src/scripts/manage-user.js"
+    "user": "node src/scripts/manage-user.js",
+    "berichtsheft": "node src/scripts/berichtsheft.js",
+    "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@simplewebauthn/server": "^14.0.2",
     "argon2": "^0.41.1",
     "better-sqlite3": "^12.11.1",

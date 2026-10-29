@@ -4,6 +4,7 @@ const express = require('express');
 const { db, audit } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
 const { convertTicketLinks } = require('../../public/js/tickets');
+const { addDays, mondayOf } = require('../lib/dates');
 
 const router = express.Router();
 
@@ -111,20 +112,6 @@ function serialize(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-}
-
-function addDays(dateStr, days) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-/** Montag der Woche, in der das Datum liegt. */
-function mondayOf(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const weekday = (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7; // Mo=0 ... So=6
-  return addDays(dateStr, -weekday);
 }
 
 // --- Wochenbericht (nur fuer Azubis) ------------------------------------

@@ -25,7 +25,7 @@ const ALLOWED = [
   /^src\//,
   /^public\//,
   /^package(-lock)?\.json$/,
-  /^start-local\.(sh|bat|command)$/,
+  /^(start-local|berichtsheft)\.(sh|bat|command)$/,
   /^README\.md$/,
   /^\.env\.example$/,
   /^\.gitattributes$/,
