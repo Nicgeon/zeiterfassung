@@ -69,7 +69,7 @@ test('ganzer Ablauf mit KI: Namen klären, Vorschau, nichts Privates geht raus, 
   store.saveConfig(1, cfg);
 
   // "Müller" ist noch unbekannt, steht aber hinter "Herrn" -> Rückfrage -> person; dann senden, speichern
-  const ui = scripted(['p', '', 'j', 'j']);
+  const ui = scripted(['p', 'j', 'j']);
   const sent = [];
   const ctx = baseCtx(store, ui, {
     generate: async (opts) => { sent.push(opts); return GOOD; },
@@ -103,7 +103,7 @@ test('Abbruch bei der Vorschau: es wird nichts gesendet', async () => {
   cfg.keys.anthropic = 'k';
   cfg.names.push({ term: 'Acme', kind: 'kunde' }, { term: 'Müller', kind: 'person' });
   store.saveConfig(1, cfg);
-  const ui = scripted(['', 'n']);
+  const ui = scripted(['n']);
   const code = await runCli(baseCtx(store, ui));
   assert.equal(code, 2);
   assert.match(ui.text(), /es wurde nichts gesendet/);
@@ -114,7 +114,7 @@ test('--ohne-ki sendet nie und schreibt eine lokale Fassung', async () => {
   const cfg = store.loadConfig(1);
   cfg.names.push({ term: 'Acme', kind: 'kunde' }, { term: 'Müller', kind: 'person' });
   store.saveConfig(1, cfg);
-  const ui = scripted(['', 'j']);
+  const ui = scripted(['j']);
   const target = path.join(os.tmpdir(), `bh-out-${Date.now()}`, 'x.txt');
   const ctx = baseCtx(store, ui, { argv: ['--ohne-ki', '--ausgabe', target] });
   assert.equal(await runCli(ctx), 0, ui.text());
@@ -159,7 +159,7 @@ test('Sicherheitsnetz: Namen in der KI-Antwort werden entfernt und gemeldet', as
   cfg.names.push({ term: 'Acme', kind: 'kunde' }, { term: 'Müller', kind: 'person' });
   store.saveConfig(1, cfg);
   const leaky = JSON.stringify({ zuordnung: [], betrieb: 'Am Montag wurde Müller bei Acme geholfen. Danach wurde ITPKK-12 bearbeitet.', schule: 'Subnetting wurde behandelt.' });
-  const ui = scripted(['', 'j', 'n']);
+  const ui = scripted(['j', 'n']);
   const code = await runCli(baseCtx(store, ui, { generate: async () => leaky }));
   assert.equal(code, 2);
   const shown = ui.text();
@@ -202,7 +202,7 @@ test('unbekannte Großwörter werden einmal abgefragt, Namen daraus gelernt und 
 
   const sent = [];
   const generate = async (o) => { sent.push(o.user); return JSON.stringify({ zuordnung: [], betrieb: 'Ein Kunde wurde besucht.', schule: '' }); };
-  // Liste: 1) Besuch 2) Kloska 3) Group 4) Backup  -> 2 und 3 sind der Kunde
+  // Liste: 1) Besuch 2) Kloska 3) Group (Backup ist ein bekannter IT-Begriff) -> 2 und 3 sind der Kunde
   let ui = scripted(['2, 3', 'k', 'k', 'j', 'n']);
   assert.equal(await runCli(baseCtx(store, ui, { generate })), 2, ui.text());
   assert.match(ui.text(), /2\) Kloska/);
@@ -210,7 +210,7 @@ test('unbekannte Großwörter werden einmal abgefragt, Namen daraus gelernt und 
   assert.doesNotMatch(sent[0], /Kloska|Group/);
   const saved = store.loadConfig(1);
   assert.deepEqual(saved.names.map((n) => n.term).sort(), ['Group', 'Kloska']);
-  assert.deepEqual(saved.reviewed.sort(), ['backup', 'besuch']);
+  assert.deepEqual(saved.reviewed.sort(), ['besuch']);
 
   // zweiter Lauf: keine Rückfrage zu Wörtern mehr
   ui = scripted(['j', 'n']);

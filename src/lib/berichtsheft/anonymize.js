@@ -197,7 +197,18 @@ function findCandidates(text, vocab = {}) {
 const STOP_WORDS = new Set((
   'der die das den dem des ein eine einen einem einer und oder mit fuer für von bei nach auf in im am an zu zum zur ' +
   'ich wir es sie er kollege kunde unternehmen neu neue neuer neues alle alles erste ersten herr herrn frau tel fax ' +
-  'montag dienstag mittwoch donnerstag freitag samstag sonntag'
+  'montag dienstag mittwoch donnerstag freitag samstag sonntag ' +
+  // haeufige IT-/Buero-Begriffe, damit die Rueckfrage nach unbekannten Woertern kurz bleibt
+  'server update updates backup backups drucker passwort passwörter netzwerk switch router firewall konfiguration ' +
+  'installation einrichtung support ticket tickets rechner laptop notebook monitor software hardware datenbank ' +
+  'benutzer benutzerkonto konto konten berechtigung berechtigungen rechnung rechnungen lieferant kunden ' +
+  'dokumentation anleitung wiki schulung besprechung meeting termin projekt aufgabe aufgaben problem probleme ' +
+  'fehler fehlersuche analyse test tests wartung monitoring protokoll protokolle system systeme programm programme ' +
+  'daten datei dateien ordner verzeichnis freigabe laufwerk speicher festplatte arbeitsplatz arbeitsplätze ' +
+  'telefon smartphone tablet mail mails postfach kalender lizenz lizenzen zertifikat zertifikate skript skripte ' +
+  'webseite website anwendung anwendungen dienst dienste prozess prozesse umgebung version versionen release ' +
+  'unterricht berufsschule thema themen grundlagen lernfeld prüfung klausur hausaufgabe hausaufgaben ' +
+  'subnetting routing vlan modell netzplan protokoll adressierung verkabelung patchen'
 ).split(/\s+/));
 
 /**
