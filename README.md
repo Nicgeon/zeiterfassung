@@ -421,10 +421,23 @@ Azubis sehen ausschließlich ihre eigenen Einträge.
 
 ## Berichtsheft-Text mit KI
 
-Der Befehl `berichtsheft` macht aus den erfassten Einträgen eines Zeitraums zwei zusammenhängende
-Textblöcke für das Berichtsheft: **„Betriebliche Tätigkeiten:“** und **„Berufsschule (Unterrichtsthemen):“**
-(zusammen 5 bis 10 Zeilen, Fließtext). Der Text wird im Terminal ausgegeben und als Textdatei
-gespeichert, auf Wunsch auch in die Zwischenablage gelegt – von dort lässt er sich ins IHK-Portal einfügen.
+Aus den erfassten Einträgen einer Woche entstehen zwei zusammenhängende Textblöcke für das Berichtsheft:
+**„Betriebliche Tätigkeiten:“** und **„Berufsschule (Unterrichtsthemen):“** (zusammen 5 bis 10 Zeilen,
+Fließtext, ohne Namen, Daten und Wochentage).
+
+**In der Weboberfläche** (empfohlen):
+
+1. **Konto → Berichtsheft-KI:** Anbieter wählen, Modell und API-Schlüssel eintragen, „Verbindung testen“.
+   Unterstützt werden **Claude** (Anthropic, Standardmodell `claude-haiku-5-5`), **ChatGPT** (OpenAI,
+   `gpt-6.1-terra`), **Gemini** (Google, `gemini-3.8-flash`) und eine **OpenAI-kompatible Adresse** (z. B. ein
+   lokales Modell über Ollama – dann verlässt nichts den Rechner). Darunter pflegst du Namen (Personen,
+   Kunden, Firmen), Begriffe, die nie ersetzt werden (z. B. *Lini*), und Stichwörter für die Berufsschule.
+2. **Wochenbericht → „Berichtsheft-Text mit KI“** (sichtbar für als Azubi gekennzeichnete Konten): Woche wählen,
+   **„Vorschau erstellen“**, unbekannte Wörter einmalig kennzeichnen, die Vorschau prüfen und **„An KI senden“**.
+   Das Ergebnis erscheint in zwei Textfeldern (von Hand änderbar) mit Knöpfen zum Kopieren und als `.txt`.
+   „Nur lokal zusammenstellen“ funktioniert ganz ohne KI.
+
+**Auf der Kommandozeile** gibt es dieselbe Funktion (z. B. für Skripte):
 
 ```bash
 ./berichtsheft.sh                  # macOS/Linux, letzte Kalenderwoche (Mo–So)
@@ -433,13 +446,10 @@ npm run berichtsheft -- --von 2026-10-12 --bis 2026-10-18 --kopieren
 npm run berichtsheft -- hilfe      # alle Befehle und Optionen
 ```
 
-**Erste Schritte (einmalig):** `npm run berichtsheft -- einrichten` fragt nach Anbieter, Modell und
-API-Schlüssel und prüft den Schlüssel. Unterstützt werden **Claude** (Anthropic, Standardmodell
-`claude-haiku-5-5`), **ChatGPT** (OpenAI, `gpt-6.1-terra`), **Gemini** (Google, `gemini-3.8-flash`) und jede
-**OpenAI-kompatible Adresse** (z. B. ein lokales Modell über Ollama – dann verlässt gar nichts den Rechner).
-Das Modell lässt sich mit `--modell` überschreiben, `modelle` listet die verfügbaren auf (so lässt sich
-auch ein Tippfehler im Namen finden). Der Schlüssel wird verschlüsselt in der Datenbank abgelegt, alternativ
-genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI_API_KEY`.
+Die Einstellungen sind dieselben wie in der Weboberfläche. `npm run berichtsheft -- einrichten` fragt sie ab,
+alternativ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI_API_KEY`. Das
+Modell lässt sich mit `--modell` überschreiben, `modelle` listet die verfügbaren auf (so findet man auch einen
+Tippfehler im Namen). Der Schlüssel liegt verschlüsselt in der Datenbank und wird nie wieder angezeigt.
 
 **Datenschutz – so läuft es ab:**
 
@@ -453,8 +463,10 @@ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI
    „Acme GmbH“, „Lena Schmidt“) einzeln, alle übrigen als Liste zum Ankreuzen. Die Antwort wird gespeichert;
    mit der Zeit erscheinen nur noch neue Wörter. Pflege per Hand: `namen`, `namen add <Begriff> --art
    person|kunde|firma`, `namen erlauben <Begriff>`, `namen entfernen <Begriff>`.
-4. **Vorschau 1:** Sie sehen genau den anonymisierten Text, der gesendet würde, und bestätigen ihn
-   (`j`/`n`; mit `a` lässt sich noch ein Name ergänzen). Ohne Bestätigung wird nichts gesendet.
+4. **Vorschau 1:** Du siehst genau den anonymisierten Text, der gesendet würde, und bestätigst ihn (in der
+   Weboberfläche „An KI senden“, auf der Kommandozeile `j`; ein fehlender Name lässt sich noch ergänzen).
+   Der Server baut die Vorschau selbst aus den Einträgen auf und prüft beim Senden eine Prüfsumme –
+   gesendet wird also nur, was die Vorschau zeigte. Ohne Bestätigung geht nichts raus.
 5. Die KI ordnet die Stichpunkte Betrieb oder Berufsschule zu (Stichwörter wie „Berufsschule“ sind nur ein
    Hinweis, die Entscheidung trifft die KI; änderbar mit `stichwoerter`) und schreibt die beiden Texte.
    **Sicher** ist die Zuordnung bei Einträgen mit dem Haken **„Berufsschule“** (Eingabeformular, oder in der
@@ -469,10 +481,11 @@ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI
 automatisch und bricht ab, solange Wörter ungeklärt sind (Exit-Code 3).
 
 **Mehrere Konten (Docker):** Die Einstellungen (Anbieter, Schlüssel, Namensliste) gelten pro Konto, jede
-Person entscheidet also selbst, ob und mit welchem Anbieter sie die KI nutzt – ohne `einrichten` geschieht nichts.
-Aufruf: `docker compose exec -it app npm run berichtsheft -- --benutzer m.mustermann`. Wer externe KI-Dienste
-im Container grundsätzlich verbieten will, setzt `BERICHTSHEFT_KI=aus` (dann bleiben `--ohne-ki` und ein
-lokales Modell möglich).
+Person entscheidet also selbst, ob und mit welchem Anbieter sie die KI nutzt – ohne eigenen Schlüssel
+geschieht nichts. Die Kommandozeile läuft mit `docker compose exec -it app npm run berichtsheft -- --benutzer m.mustermann`.
+Wer externe KI-Dienste grundsätzlich verbieten will, setzt `BERICHTSHEFT_KI=aus` (dann bleibt „nur lokal
+zusammenstellen“). Eine eigene (OpenAI-kompatible) Adresse ist im Serverbetrieb gesperrt, weil der Server sonst
+interne Dienste ansprechen könnte; sie lässt sich mit `BERICHTSHEFT_ALLOW_CUSTOM_URL=true` freigeben.
 
 **IHK-Portal:** Eine Schnittstelle zum Eintragen gibt es nach unserem Kenntnisstand nicht (nur PDF-Export
 bzw. Eingabe von Hand). Deshalb: Text mit `--kopieren` in die Zwischenablage legen und im Portal einfügen.

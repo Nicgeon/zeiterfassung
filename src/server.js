@@ -9,7 +9,8 @@ const session = require('express-session');
 const { doubleCsrf } = require('csrf-csrf');
 
 const config = require('./config');
-const { db, runRetentionCleanup, SqliteSessionStore } = require('./db');
+const { db, audit, runRetentionCleanup, SqliteSessionStore } = require('./db');
+const { encryptField, decryptField } = require('./lib/crypto');
 const requireAuth = require('./middleware/requireAuth');
 const requireAdmin = require('./middleware/requireAdmin');
 const localMode = require('./localMode');
@@ -20,6 +21,7 @@ const entriesRoutes = require('./routes/entries');
 const timerRoutes = require('./routes/timer');
 const adminRoutes = require('./routes/admin');
 const updateRoutes = require('./routes/update');
+const berichtsheftRoutes = require('./routes/berichtsheft');
 const updater = require('./lib/updater');
 
 const app = express();
@@ -207,6 +209,11 @@ app.use('/api/timer', requireAuth, timerRoutes);
 app.use('/api/account', requireAuth, accountRoutes);
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/api/update', requireAuth, updateRoutes);
+app.use(
+  '/api/berichtsheft',
+  requireAuth,
+  berichtsheftRoutes.createRouter({ db, encryptField, decryptField, audit, localMode: config.localMode })
+);
 
 app.use((err, req, res, next) => {
   if (err && err.code === 'EBADCSRFTOKEN') {

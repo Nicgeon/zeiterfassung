@@ -71,6 +71,63 @@
     </div>
   </div>
 
+  <!-- Berichtsheft-KI -->
+  <div class="card" id="bhSettingsCard">
+    <div class="card__header">
+      <h2>Berichtsheft-KI</h2>
+      <span class="badge" id="bhKeyBadge">–</span>
+    </div>
+    <div id="bhSettingsError"></div>
+    <p class="text-muted text-sm">
+      Für den Berichtsheft-Text auf der Seite „Wochenbericht“. Ein KI-Anbieter formuliert aus den
+      <strong>anonymisierten</strong> Stichpunkten deiner Woche zwei Textblöcke. Die Anonymisierung läuft
+      auf diesem Rechner, vor dem Senden siehst du jedes Mal eine Vorschau. Die Einstellungen gelten nur für dein Konto.
+    </p>
+    <div class="field-row">
+      <div class="field">
+        <label for="bhProvider">Anbieter</label>
+        <select id="bhProvider"></select>
+      </div>
+      <div class="field">
+        <label for="bhModel">Modell</label>
+        <input type="text" id="bhModel" list="bhModelList" autocomplete="off" maxlength="120" />
+        <datalist id="bhModelList"></datalist>
+      </div>
+    </div>
+    <div class="field">
+      <label for="bhApiKey">API-Schlüssel</label>
+      <input type="password" id="bhApiKey" autocomplete="off" placeholder="Zum Ändern neuen Schlüssel einfügen" maxlength="400" />
+      <p class="field-hint" id="bhKeyHint"></p>
+    </div>
+    <div class="field hidden" id="bhBaseUrlField">
+      <label for="bhBaseUrl">Adresse (OpenAI-kompatibel, z. B. lokales Modell)</label>
+      <input type="text" id="bhBaseUrl" placeholder="http://localhost:11434/v1" maxlength="300" />
+    </div>
+    <div class="flex gap-sm flex-wrap mb-md">
+      <button type="button" class="btn btn--secondary btn--sm" id="bhTestBtn">Verbindung testen</button>
+      <button type="button" class="btn btn--ghost btn--sm" id="bhClearKeyBtn">Schlüssel entfernen</button>
+    </div>
+
+    <h3>Namen und Begriffe</h3>
+    <p class="field-hint">
+      Mit Komma trennen. Diese Wörter werden vor dem Senden ersetzt („ein Kollege“, „ein Kunde“, „ein Unternehmen“).
+      Unbekannte Wörter fragt der Wochenbericht beim Erzeugen einmalig ab.
+    </p>
+    <div class="field"><label for="bhPersons">Personen (Kollegen, Ausbilder …)</label><input type="text" id="bhPersons" maxlength="2000" /></div>
+    <div class="field"><label for="bhCustomers">Kunden</label><input type="text" id="bhCustomers" maxlength="2000" /></div>
+    <div class="field"><label for="bhFirms">Firmen</label><input type="text" id="bhFirms" maxlength="2000" /></div>
+    <div class="field">
+      <label for="bhAllow">Nie ersetzen (z. B. interne Programmnamen)</label>
+      <input type="text" id="bhAllow" maxlength="2000" />
+    </div>
+    <div class="field">
+      <label for="bhKeywords">Stichwörter, die auf Berufsschule hinweisen</label>
+      <input type="text" id="bhKeywords" maxlength="500" />
+      <p class="field-hint">Nur ein Hinweis für die KI. Sicher ist ein Eintrag mit dem Haken „Berufsschule“.</p>
+    </div>
+    <button type="button" class="btn" id="bhSaveBtn">Speichern</button>
+  </div>
+
   <!-- Updates (nur lokaler Betrieb) -->
   <div class="card local-only" id="updateCard">
     <div class="card__header">
@@ -211,5 +268,6 @@
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
 <script src="/js/account.js"></script>
+<script src="/js/berichtsheft.js"></script>
 </body>
 </html>

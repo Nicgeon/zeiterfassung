@@ -84,11 +84,90 @@
     <pre class="report-preview mono" id="reportPreview"></pre>
   </div>
 
+  <div class="card" id="bhCard">
+    <div class="card__header">
+      <h2>Berichtsheft-Text mit KI</h2>
+      <span class="badge" id="bhAiBadge">–</span>
+    </div>
+    <p class="text-muted text-sm">
+      Macht aus den Einträgen der gewählten Woche zwei zusammenhängende Textblöcke
+      („Betriebliche Tätigkeiten“ und „Berufsschule“) zum Einfügen ins Berichtsheft.
+      Vorher werden Namen, Daten, Ticketnummern und Links <strong>lokal entfernt</strong> – du siehst genau,
+      was gesendet wird, und bestätigst es.
+    </p>
+    <div id="bhError"></div>
+    <div class="flex gap-sm flex-wrap">
+      <button type="button" class="btn" id="bhPrepareBtn">Vorschau erstellen</button>
+      <a class="btn btn--ghost" href="/account.html#bhSettingsCard">KI-Einstellungen</a>
+    </div>
+
+    <!-- Schritt 1: unbekannte Woerter klaeren -->
+    <div id="bhReview" class="bh-step hidden">
+      <h3>1. Unbekannte Wörter prüfen</h3>
+      <p class="field-hint">
+        Namen erkennt kein Programm sicher. Bitte kennzeichne Personen, Kunden und Firmen – jedes Wort wird nur
+        ein einziges Mal gefragt. Rot markierte Wörter sehen nach einem Namen aus und brauchen eine Auswahl.
+      </p>
+      <div id="bhReviewList" class="bh-words"></div>
+      <button type="button" class="btn btn--secondary" id="bhReviewBtn">Übernehmen</button>
+    </div>
+
+    <!-- Schritt 2: Vorschau dessen, was gesendet wird -->
+    <div id="bhPreview" class="bh-step hidden">
+      <h3 id="bhPreviewTitle">2. Das wird gesendet</h3>
+      <ol id="bhItems" class="bh-items"></ol>
+      <p class="field-hint" id="bhReplaced"></p>
+      <p class="field-hint">Entfernt: Datum, Uhrzeit, Wochentage, Ticketnummern, Links, E-Mail-, Telefon- und IP-Adressen.</p>
+      <div class="bh-addname">
+        <label for="bhAddTerm">Fehlt noch ein Name?</label>
+        <div class="flex gap-sm flex-wrap">
+          <input type="text" id="bhAddTerm" placeholder="Begriff" maxlength="80" />
+          <select id="bhAddKind" aria-label="Art">
+            <option value="person">Person</option>
+            <option value="kunde">Kunde</option>
+            <option value="firma">Firma</option>
+          </select>
+          <button type="button" class="btn btn--secondary btn--sm" id="bhAddBtn">Ersetzen</button>
+        </div>
+      </div>
+      <div class="flex gap-sm flex-wrap mt-lg">
+        <button type="button" class="btn" id="bhSendBtn">An KI senden</button>
+        <button type="button" class="btn btn--secondary" id="bhLocalBtn">Nur lokal zusammenstellen (ohne KI)</button>
+      </div>
+      <p class="field-hint" id="bhSendHint"></p>
+    </div>
+
+    <!-- Ergebnis -->
+    <div id="bhResult" class="bh-step hidden">
+      <h3>3. Ergebnis</h3>
+      <div id="bhWarnings"></div>
+      <div class="field">
+        <div class="bh-result-head"><label for="bhWork">Betriebliche Tätigkeiten:</label><button type="button" class="btn btn--ghost btn--sm" data-copy="bhWork">Kopieren</button></div>
+        <textarea id="bhWork" rows="5"></textarea>
+      </div>
+      <div class="field">
+        <div class="bh-result-head"><label for="bhSchool">Berufsschule (Unterrichtsthemen):</label><button type="button" class="btn btn--ghost btn--sm" data-copy="bhSchool">Kopieren</button></div>
+        <textarea id="bhSchool" rows="3"></textarea>
+      </div>
+      <p class="field-hint" id="bhLines"></p>
+      <div class="flex gap-sm flex-wrap">
+        <button type="button" class="btn" id="bhCopyAllBtn">Beide kopieren</button>
+        <button type="button" class="btn btn--secondary" id="bhDownloadBtn">Als .txt speichern</button>
+        <button type="button" class="btn btn--ghost" id="bhAgainBtn">Neu erzeugen</button>
+      </div>
+      <details class="bh-assign">
+        <summary>Zuordnung der Stichpunkte</summary>
+        <ul id="bhAssignList"></ul>
+      </details>
+    </div>
+  </div>
+
 </div>
 
 <script src="/js/util.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
 <script src="/js/weekly.js"></script>
+<script src="/js/berichtsheft.js"></script>
 </body>
 </html>

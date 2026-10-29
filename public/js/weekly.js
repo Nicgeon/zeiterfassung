@@ -84,6 +84,8 @@
     els.reportPreview.classList.toggle('report-preview--empty', empty);
     els.copyBtn.disabled = empty;
     els.downloadBtn.disabled = empty;
+    // Die Berichtsheft-KI (berichtsheft.js) arbeitet mit derselben Woche
+    document.dispatchEvent(new CustomEvent('weekchange', { detail: { from: start, to: end } }));
   }
 
   async function loadWeek(dateStr) {
