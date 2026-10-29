@@ -457,6 +457,8 @@ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI
    (`j`/`n`; mit `a` lässt sich noch ein Name ergänzen). Ohne Bestätigung wird nichts gesendet.
 5. Die KI ordnet die Stichpunkte Betrieb oder Berufsschule zu (Stichwörter wie „Berufsschule“ sind nur ein
    Hinweis, die Entscheidung trifft die KI; änderbar mit `stichwoerter`) und schreibt die beiden Texte.
+   **Sicher** ist die Zuordnung bei Einträgen mit dem Haken **„Berufsschule“** (Eingabeformular, oder in der
+   Liste per Mützen-Symbol nachträglich setzen): Sie gehören immer in den Schulblock.
    Passt die Antwort nicht (zu lang, Aufzählung), wird einmal nachgebessert.
 6. Ein **Sicherheitsnetz** prüft die Antwort noch einmal auf Namen, Daten und Ticketnummern und entfernt sie.
 7. **Vorschau 2:** Ergebnis, Zeilenzahl und die Zuordnung jedes Stichpunkts – dann Speichern, Verwerfen

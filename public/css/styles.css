@@ -804,7 +804,7 @@ table.data-table {
   text-transform: uppercase;
   color: var(--ink-muted);
 }
-.composer__ticket input { width: 100%; }
+.composer__ticket input[type='text'] { width: 100%; }
 
 .when { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .when input[type='time'] { width: 124px; }
@@ -963,6 +963,11 @@ table.data-table {
 .transfer-dot svg { width: 13px; height: 13px; display: none; }
 .transfer-btn[aria-pressed='true'] .transfer-dot { background: var(--accent); border-color: var(--accent); }
 .transfer-btn[aria-pressed='true'] .transfer-dot svg { display: block; }
+
+/* Berufsschule-Markierung (Berichtsheft-Text) */
+.school-check { margin-top: 6px; min-height: 36px; font-size: 13px; color: var(--ink-muted); }
+.school-btn[aria-pressed='true'] { color: var(--accent); }
+.badge--school { background: var(--accent-wash); color: var(--accent); }
 
 /* --- Zusammenfassung ----------------------------------------------------- */
 

@@ -37,6 +37,7 @@
     saveMenu: $('#saveMenu'),
     description: $('#description'),
     jiraKey: $('#jiraKey'),
+    schoolDay: $('#schoolDay'),
     saveBtn: $('#saveBtn'),
     overlapHint: $('#overlapHint'),
     sortSelect: $('#sortSelect'),
@@ -295,6 +296,7 @@
       els.description.value = '';
       els.jiraKey.value = '';
     }
+    els.schoolDay.checked = false;
     setFormError(els.formError, '');
     updateDurationHint();
   }
@@ -322,6 +324,7 @@
     syncDurationFromTimes();
     els.description.value = entry.description;
     els.jiraKey.value = entry.jiraKey || '';
+    els.schoolDay.checked = !!entry.school;
     setFormError(els.formError, '');
     updateDurationHint();
     els.description.focus();
@@ -333,6 +336,7 @@
     resetFormForNewEntry();
     els.description.value = entry.description;
     els.jiraKey.value = entry.jiraKey || '';
+    els.schoolDay.checked = !!entry.school;
     // Dauer uebernehmen: Start wie bei jedem neuen Eintrag (Ende des letzten bzw. jetzt),
     // das Ende ergibt sich aus der Dauer des Vorbilds.
     // Der Vorbild-Eintrag enthaelt den Zuschlag schon; er kommt beim Speichern wieder dazu.
@@ -353,14 +357,15 @@
         <div class="entry__body">
           ${e.description
             ? `<div class="entry__desc">${escapeHtml(e.description)}</div>
-          ${e.jiraKey ? `<div class="entry__meta"><span class="jira-tag">${escapeHtml(e.jiraKey)}</span></div>` : ''}`
-            : `<div class="entry__desc mono">${escapeHtml(e.jiraKey || '')}</div>`}
+          ${e.jiraKey || e.school ? `<div class="entry__meta">${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}${e.school ? '<span class="badge badge--school">Berufsschule</span>' : ''}</div>` : ''}`
+            : `<div class="entry__desc mono">${escapeHtml(e.jiraKey || '')}</div>${e.school ? '<div class="entry__meta"><span class="badge badge--school">Berufsschule</span></div>' : ''}`}
         </div>
         <div class="entry__dur mono">${formatDurationLong(e.durationMinutes)}</div>
         <div class="entry__actions">
           <button type="button" class="icon-btn transfer-btn" aria-pressed="${e.transferred}" title="${label}" aria-label="${label}">
             <span class="transfer-dot">${ICONS.check}</span>
           </button>
+          <button type="button" class="icon-btn school-btn" aria-pressed="${!!e.school}" title="${e.school ? 'Berufsschule-Markierung entfernen' : 'Als Berufsschule markieren (für den Berichtsheft-Text)'}" aria-label="Berufsschule markieren">${ICONS.school}</button>
           <button type="button" class="icon-btn repeat-btn" title="Nochmal erfassen (Text und Ticket übernehmen)" aria-label="Nochmal erfassen">${ICONS.repeat}</button>
           <button type="button" class="icon-btn copy-btn" title="Eintrag kopieren" aria-label="Eintrag kopieren">${ICONS.copy}</button>
           <button type="button" class="icon-btn edit-btn" title="Bearbeiten" aria-label="Eintrag bearbeiten">${ICONS.edit}</button>
@@ -926,6 +931,7 @@
       end_time: endWithSurcharge,
       description,
       jira_key: jiraKey,
+      school: els.schoolDay.checked,
     };
     const merge = !state.editingId && formState.merge ? { ...formState.merge } : null;
     if (merge) {
@@ -1031,6 +1037,15 @@
       startFromEntry(entry);
     } else if (e.target.closest('.edit-btn')) {
       fillFormForEdit(entry);
+    } else if (e.target.closest('.school-btn')) {
+      const next = !entry.school;
+      try {
+        await Api.patch(`/api/entries/${id}/school`, { school: next });
+        entry.school = next;
+        renderLedger();
+      } catch (err) {
+        showToast(err.message);
+      }
     } else if (e.target.closest('.transfer-btn')) {
       const next = !entry.transferred;
       try {

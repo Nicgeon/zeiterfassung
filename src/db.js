@@ -138,6 +138,11 @@ if (!userColumns.includes('is_apprentice')) {
 }
 
 const entryColumns = db.prepare('PRAGMA table_info(entries)').all().map((c) => c.name);
+if (!entryColumns.includes('school_day')) {
+  db.exec('ALTER TABLE entries ADD COLUMN school_day INTEGER NOT NULL DEFAULT 0');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "school_day" (Berufsschule-Markierung) zur Tabelle entries hinzugefuegt.');
+}
 if (!entryColumns.includes('transferred_to_jira')) {
   db.exec('ALTER TABLE entries ADD COLUMN transferred_to_jira INTEGER NOT NULL DEFAULT 0');
   // eslint-disable-next-line no-console

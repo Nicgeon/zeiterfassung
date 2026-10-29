@@ -26,12 +26,12 @@ const getOwnStmt = db.prepare(
   'SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
 );
 const insertStmt = db.prepare(
-  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key)
-   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key)`
+  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key, school_day)
+   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key, @school_day)`
 );
 const updateStmt = db.prepare(
   `UPDATE entries SET work_date=@work_date, start_time=@start_time, end_time=@end_time,
-     duration_minutes=@duration_minutes, description_enc=@description_enc, jira_key=@jira_key,
+     duration_minutes=@duration_minutes, description_enc=@description_enc, jira_key=@jira_key, school_day=@school_day,
      updated_at=datetime('now')
    WHERE id=@id AND user_id=@user_id AND deleted_at IS NULL`
 );
@@ -41,6 +41,9 @@ const softDeleteStmt = db.prepare(
 const restoreStmt = db.prepare(
   `UPDATE entries SET deleted_at = NULL WHERE id = ? AND user_id = ?
      AND deleted_at IS NOT NULL AND deleted_at > datetime('now', '-120 seconds')`
+);
+const setSchoolStmt = db.prepare(
+  "UPDATE entries SET school_day = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
 );
 const setTransferredStmt = db.prepare(
   "UPDATE entries SET transferred_to_jira = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
@@ -96,6 +99,7 @@ function validateAndCompute(body) {
     duration_minutes: duration,
     description: text,
     jira_key: jiraKey,
+    school_day: body.school ? 1 : 0, // Berufsschule: dient dem Berichtsheft-Text als sichere Zuordnung
   };
 }
 
@@ -109,6 +113,7 @@ function serialize(row) {
     description: decryptField(row.description_enc),
     jiraKey: row.jira_key,
     transferred: !!row.transferred_to_jira,
+    school: !!row.school_day,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -268,6 +273,7 @@ router.post('/', (req, res) => {
       duration_minutes: result.duration_minutes,
       description_enc: encryptField(result.description),
       jira_key: result.jira_key,
+      school_day: result.school_day,
     });
   });
   const info = create();
@@ -293,6 +299,7 @@ router.put('/:id', (req, res) => {
     duration_minutes: result.duration_minutes,
     description_enc: encryptField(result.description),
     jira_key: result.jira_key,
+    school_day: result.school_day,
   });
   res.json({ entry: serialize(getOwnStmt.get(existing.id, req.user.id)) });
 });
@@ -301,6 +308,14 @@ router.put('/:id', (req, res) => {
 router.patch('/:id/transferred', (req, res) => {
   const value = req.body && req.body.transferred ? 1 : 0;
   const info = setTransferredStmt.run(value, req.params.id, req.user.id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  res.json({ entry: serialize(getOwnStmt.get(req.params.id, req.user.id)) });
+});
+
+/** Markierung "Berufsschule" setzen oder entfernen. */
+router.patch('/:id/school', (req, res) => {
+  const value = req.body && req.body.school ? 1 : 0;
+  const info = setSchoolStmt.run(value, req.params.id, req.user.id);
   if (info.changes === 0) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
   res.json({ entry: serialize(getOwnStmt.get(req.params.id, req.user.id)) });
 });
@@ -334,6 +349,7 @@ router.get('/export', (req, res) => {
     description: decryptField(row.description_enc),
     jiraKey: row.jira_key,
     transferred: !!row.transferred_to_jira,
+    school: !!row.school_day,
   }));
   audit(req.user.id, 'data_exported', `${entries.length} Eintraege`, req.ip);
   res.json({ format: 'zeiterfassung-export', version: 1, exportedAt: new Date().toISOString(), entries });
@@ -354,6 +370,7 @@ router.post('/import', (req, res) => {
       end_time: item.endTime,
       description: item.description,
       jira_key: item.jiraKey,
+      school: item.school,
     });
     if (result.error) {
       return res.status(400).json({ error: `Eintrag ${index + 1}: ${result.error}` });
@@ -384,6 +401,7 @@ router.post('/import', (req, res) => {
         duration_minutes: p.duration_minutes,
         description_enc: encryptField(p.description),
         jira_key: p.jira_key,
+        school_day: p.school_day,
       });
       if (p.transferred) setTransferredStmt.run(1, info.lastInsertRowid, req.user.id);
       imported += 1;
