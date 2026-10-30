@@ -53,7 +53,7 @@ Befehle:
 Optionen:
   --von JJJJ-MM-TT       Beginn des Zeitraums
   --bis JJJJ-MM-TT       Ende des Zeitraums (ohne beides: letzte Kalenderwoche)
-  --anbieter NAME        anthropic | openai | gemini | kompatibel (sonst gespeicherter Anbieter)
+  --anbieter NAME        anthropic | openai | gemini | noah | kompatibel (sonst gespeicherter Anbieter)
   --modell ID            Modell überschreiben
   --ausgabe PFAD         Textdatei (Standard: Datenordner/berichtsheft/berichtsheft_<Zeitraum>.txt)
   --kopieren             Ergebnis zusätzlich in die Zwischenablage legen
@@ -65,7 +65,7 @@ Ablauf: Einträge laden → lokal anonymisieren → Vorschau (nur das geht an di
 Vorschau des Ergebnisses → speichern. Ohne Ihre Bestätigung wird nichts gesendet.
 `;
 
-const PROVIDER_ORDER = ['anthropic', 'openai', 'gemini', 'kompatibel'];
+const PROVIDER_ORDER = ['anthropic', 'openai', 'gemini', 'noah', 'kompatibel'];
 
 function fmtDate(iso) {
   const [y, m, d] = iso.split('-');
@@ -87,7 +87,7 @@ async function cmdSetup(ctx, flags) {
   const { ui } = ctx;
   const config = ctx.store.loadConfig(ctx.userId);
   ui.print('Einrichtung der KI-Anbindung (gilt nur für dieses Konto).');
-  ui.print('Hinweis: Bei Claude, ChatGPT und Gemini verlässt der ANONYMISIERTE Text den Rechner.');
+  ui.print('Hinweis: Bei Claude, ChatGPT, Gemini und Noah AI verlässt der ANONYMISIERTE Text den Rechner.');
   ui.print('Nach der Anonymisierung zeigt der Befehl jedes Mal eine Vorschau, bevor etwas gesendet wird.\n');
   PROVIDER_ORDER.forEach((p, i) => ui.print(`  ${i + 1}) ${PROVIDERS[p].label}${config.provider === p ? '  (aktuell)' : ''}`));
   const current = PROVIDER_ORDER.indexOf(config.provider) + 1;
@@ -99,6 +99,7 @@ async function cmdSetup(ctx, flags) {
   if (!PROVIDERS[provider]) throw new Error(`Unbekannter Anbieter "${provider}".`);
   config.provider = provider;
 
+  if (PROVIDERS[provider].models) ui.print(`Verfügbare Modelle: ${PROVIDERS[provider].models.join(', ')}`);
   const defaultModel = resolveModel(config, provider);
   config.models[provider] = flags.modell || (await ui.ask(`Modell [${defaultModel || 'bitte angeben'}]: `, defaultModel));
   if (!config.models[provider]) throw new Error('Ein Modell wird benötigt.');
@@ -313,7 +314,7 @@ async function cmdRun(ctx, flags) {
     }
     ui.print('Entfernt: Datum, Uhrzeit, Wochentage, Ticketnummern, Links, E-Mails, Telefon- und IP-Adressen.');
     if (!useAi) { ui.print('Modus --ohne-ki: Es wird nichts gesendet.'); break; }
-    ui.print(`\nZiel: ${PROVIDERS[provider].label}, Modell ${model}${provider === 'kompatibel' ? ` (${config.baseUrls[provider] || 'lokal'})` : ''}`);
+    ui.print(`\nZiel: ${PROVIDERS[provider].label}, Modell ${model}${provider === 'kompatibel' ? ` (${config.baseUrls[provider] || 'lokal'})` : provider === 'noah' ? ' (ai.noahkoning.de)' : ''}`);
     if (flags.ja) break;
     const answer = await ui.choose('Genau diesen Text senden? [j]a / [n]ein / [a] Name ergänzen: ', ['j', 'n', 'a'], 'n');
     if (answer === 'j') break;

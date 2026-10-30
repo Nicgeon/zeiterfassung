@@ -53,7 +53,7 @@
       const ready = p.hasKey || p.hasEnvKey || p.id === 'kompatibel';
       els.badge.textContent = !settings.aiAllowed ? 'abgeschaltet' : ready ? 'bereit' : 'nicht eingerichtet';
       els.badge.classList.toggle('badge--success', settings.aiAllowed && ready);
-      els.modelList.innerHTML = '';
+      els.modelList.innerHTML = (p.suggestedModels || []).map((m) => `<option value="${escapeHtml(m)}"></option>`).join('');
     }
 
     function render(data) {
@@ -203,7 +203,7 @@
       els.sendHint.textContent = !prep.ai.allowed
         ? 'Externe KI-Anbieter sind auf diesem Server abgeschaltet.'
         : prep.ai.usable
-          ? `Es wird genau dieser Text an ${prep.ai.label} (Modell ${prep.ai.model}) gesendet.`
+          ? `Es wird genau dieser Text an ${prep.ai.label} (Modell ${prep.ai.model}${prep.ai.endpoint ? `, Server ${prep.ai.endpoint}` : ''}) gesendet.`
           : 'Für das Senden fehlt noch ein API-Schlüssel – siehe „KI-Einstellungen“.';
       renderBadge(prep.ai);
     }

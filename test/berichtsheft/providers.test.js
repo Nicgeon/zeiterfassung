@@ -144,3 +144,42 @@ test('listModels für alle Anbieter', async () => {
     assert.deepEqual(await listModels({ provider: 'gemini', apiKey: 'k', baseUrl }), ['gemini-a']);
   });
 });
+
+test('Noah AI: OpenAI-kompatibel, Bearer-Schlüssel, ruhige Ausgabe, <think>-Block wird entfernt', async () => {
+  await withServer(() => ({
+    json: { choices: [{ finish_reason: 'stop', message: { role: 'assistant', content: `<think>\nIch überlege ...\n</think>\n\n${ANSWER}` } }] },
+  }), async (baseUrl, requests) => {
+    const text = await generate({ ...base, provider: 'noah', apiKey: 'noah-key', model: 'Qwen3-30B-A3B-Q4_K_M', baseUrl });
+    assert.equal(text, ANSWER);
+    const r = requests[0];
+    assert.equal(r.url, '/chat/completions');
+    assert.equal(r.headers.authorization, 'Bearer noah-key');
+    assert.equal(r.body.model, 'Qwen3-30B-A3B-Q4_K_M');
+    assert.equal(r.body.response_format.type, 'json_object');
+    assert.equal(r.body.stream, false);
+    assert.equal(r.body.temperature, 0.3);
+    assert.ok(r.body.max_tokens >= 4000);
+    assert.equal(r.body.max_completion_tokens, undefined);
+    assert.match(r.body.messages[1].content, /\/no_think$/);
+  });
+});
+
+test('Noah AI: nur schließendes </think>, leere Antwort und Fehlerstatus', async () => {
+  await withServer(() => ({ json: { choices: [{ finish_reason: 'stop', message: { content: `Nachgedacht.\n</think>\n${ANSWER}` } }] } }), async (baseUrl) => {
+    assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), ANSWER);
+  });
+  await withServer(() => ({ json: { choices: [{ finish_reason: 'stop', message: { content: '<think>nur gedacht</think>' } }] } }), async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), /leere Antwort/);
+  });
+  await withServer(() => ({ status: 401, json: { error: 'Invalid or missing API key' } }), async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'falsch', model: 'm', baseUrl }), (e) => e.status === 401 && /Noah AI lehnt den API-Schlüssel ab/.test(e.message));
+  });
+});
+
+test('Noah AI: Modelle auflisten', async () => {
+  await withServer(() => ({ json: { data: [{ id: 'Qwen3-4B-Q4_K_M' }, { id: 'Qwen3-30B-A3B-Q4_K_M' }] } }), async (baseUrl, requests) => {
+    assert.deepEqual(await listModels({ provider: 'noah', apiKey: 'k', baseUrl }), ['Qwen3-4B-Q4_K_M', 'Qwen3-30B-A3B-Q4_K_M']);
+    assert.equal(requests[0].url, '/models');
+    assert.equal(requests[0].headers.authorization, 'Bearer k');
+  });
+});

@@ -35,6 +35,7 @@ function describeSettings(config, { env = process.env, aiAllowed = true, customU
         label: p.label,
         defaultModel: p.defaultModel,
         model: (config.models && config.models[id]) || '',
+        suggestedModels: p.models || [],
         hasKey: !!(config.keys && config.keys[id]),
         hasEnvKey: p.env.some((name) => !!env[name]),
         baseUrl: (config.baseUrls && config.baseUrls[id]) || '',
@@ -133,7 +134,10 @@ function providerChoice(config, env, flags = {}) {
   const model = resolveModel(config, provider);
   const apiKey = resolveKey(config, provider, env);
   const usable = aiAllowed && (provider !== 'kompatibel' || customUrlAllowed) && (!!apiKey || provider === 'kompatibel');
-  return { provider, model, apiKey, usable, label: PROVIDERS[provider].label, baseUrl: config.baseUrls[provider] };
+  const baseUrl = config.baseUrls[provider];
+  let endpoint = '';
+  try { endpoint = new URL(baseUrl || PROVIDERS[provider].baseUrl || '').host; } catch { /* Standardadresse des Anbieters */ }
+  return { provider, model, apiKey, usable, label: PROVIDERS[provider].label, baseUrl, endpoint };
 }
 
 /**
@@ -178,7 +182,7 @@ function prepare({ store, userId, from, to, env = process.env, flags = {} }) {
     replaced: [...replacedCounts].map(([k, count]) => ({ from: k.split('|')[0], kind: k.split('|')[1], count })),
     pending,
     hash,
-    ai: { provider: choice.provider, label: choice.label, model: choice.model, usable: choice.usable, hasKey: !!choice.apiKey, allowed: flags.aiAllowed !== false },
+    ai: { provider: choice.provider, label: choice.label, model: choice.model, endpoint: choice.endpoint, usable: choice.usable, hasKey: !!choice.apiKey, allowed: flags.aiAllowed !== false },
   };
 }
 

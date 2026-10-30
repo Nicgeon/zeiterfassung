@@ -8,6 +8,14 @@ const PROVIDERS = {
   anthropic: { label: 'Claude (Anthropic)', defaultModel: 'claude-haiku-5-5', env: ['ANTHROPIC_API_KEY'] },
   openai: { label: 'ChatGPT (OpenAI)', defaultModel: 'gpt-6.1-terra', env: ['OPENAI_API_KEY'] },
   gemini: { label: 'Gemini (Google)', defaultModel: 'gemini-3.8-flash', env: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'] },
+  // Fester Anbieter mit eigenen Qwen3-Modellen (OpenAI-kompatibel, https://ai.noahkoning.de/v1)
+  noah: {
+    label: 'Noah AI (Qwen3)',
+    defaultModel: 'Qwen3-30B-A3B-Q4_K_M',
+    models: ['Qwen3-30B-A3B-Q4_K_M', 'Qwen3-4B-Q4_K_M'],
+    env: ['AI_API_KEY'],
+    baseUrl: 'https://ai.noahkoning.de/v1',
+  },
   kompatibel: { label: 'OpenAI-kompatibel (z. B. lokales Modell)', defaultModel: '', env: ['BERICHTSHEFT_API_KEY'] },
 };
 

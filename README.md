@@ -429,8 +429,10 @@ Fließtext, ohne Namen, Daten und Wochentage).
 
 1. **Konto → Berichtsheft-KI:** Anbieter wählen, Modell und API-Schlüssel eintragen, „Verbindung testen“.
    Unterstützt werden **Claude** (Anthropic, Standardmodell `claude-haiku-5-5`), **ChatGPT** (OpenAI,
-   `gpt-6.1-terra`), **Gemini** (Google, `gemini-3.8-flash`) und eine **OpenAI-kompatible Adresse** (z. B. ein
-   lokales Modell über Ollama – dann verlässt nichts den Rechner). Darunter pflegst du Namen (Personen,
+   `gpt-6.1-terra`), **Gemini** (Google, `gemini-3.8-flash`), **Noah AI** (selbst gehostete Qwen3-Modelle unter
+   `https://ai.noahkoning.de/v1`, Standard `Qwen3-30B-A3B-Q4_K_M`, schneller: `Qwen3-4B-Q4_K_M`; Schlüssel auch über
+   `AI_API_KEY`) und eine **eigene OpenAI-kompatible Adresse** (z. B. ein lokales Modell über Ollama – dann
+   verlässt nichts den Rechner). Darunter pflegst du Namen (Personen,
    Kunden, Firmen), Begriffe, die nie ersetzt werden (z. B. *Lini*), und Stichwörter für die Berufsschule.
 2. **Wochenbericht → „Berichtsheft-Text mit KI“** (sichtbar für als Azubi gekennzeichnete Konten): Woche wählen,
    **„Vorschau erstellen“**, unbekannte Wörter einmalig kennzeichnen, die Vorschau prüfen und **„An KI senden“**.
@@ -447,7 +449,7 @@ npm run berichtsheft -- hilfe      # alle Befehle und Optionen
 ```
 
 Die Einstellungen sind dieselben wie in der Weboberfläche. `npm run berichtsheft -- einrichten` fragt sie ab,
-alternativ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` bzw. `GEMINI_API_KEY`. Das
+alternativ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` bzw. `AI_API_KEY` (Noah AI). Das
 Modell lässt sich mit `--modell` überschreiben, `modelle` listet die verfügbaren auf (so findet man auch einen
 Tippfehler im Namen). Der Schlüssel liegt verschlüsselt in der Datenbank und wird nie wieder angezeigt.
 

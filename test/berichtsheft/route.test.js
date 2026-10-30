@@ -185,3 +185,29 @@ test('Modelle auflisten', async () => {
     assert.equal(calls.models[0].provider, 'anthropic');
   });
 });
+
+test('Noah AI ist ein fester Anbieter: auch im Serverbetrieb nutzbar, Modelle als Vorschlag, Umgebungsschlüssel AI_API_KEY', async () => {
+  await withApp({ localMode: false, env: { AI_API_KEY: 'env-key-123456' } }, async ({ call, calls }) => {
+    const s = await call('GET', '/settings');
+    const noah = s.body.providers.find((p) => p.id === 'noah');
+    assert.ok(noah);
+    assert.equal(noah.defaultModel, 'Qwen3-30B-A3B-Q4_K_M');
+    assert.deepEqual(noah.suggestedModels, ['Qwen3-30B-A3B-Q4_K_M', 'Qwen3-4B-Q4_K_M']);
+    assert.equal(noah.hasEnvKey, true);
+    assert.equal((await call('PUT', '/settings', { provider: 'noah', baseUrl: 'http://intern' })).status, 400); // Adresse ist fest
+
+    await call('PUT', '/settings', { provider: 'noah', names: [{ term: 'Acme', kind: 'kunde' }] });
+    const p = await call('POST', '/prepare', WEEK);
+    assert.equal(p.body.ai.usable, true); // Schlüssel aus der Umgebung
+    assert.equal(p.body.ai.label, 'Noah AI (Qwen3)');
+    const g = await call('POST', '/generate', { ...WEEK, mode: 'ki', hash: p.body.hash });
+    assert.equal(g.status, 200, JSON.stringify(g.body));
+    assert.equal(calls.generate[0].provider, 'noah');
+    assert.equal(calls.generate[0].apiKey, 'env-key-123456');
+    assert.equal(calls.generate[0].model, 'Qwen3-30B-A3B-Q4_K_M');
+  });
+  await withApp({ localMode: false, env: { BERICHTSHEFT_KI: 'aus', AI_API_KEY: 'env-key-123456' } }, async ({ call }) => {
+    await call('PUT', '/settings', { provider: 'noah', names: [{ term: 'Acme', kind: 'kunde' }] });
+    assert.equal((await call('POST', '/prepare', WEEK)).body.ai.usable, false);
+  });
+});

@@ -13,6 +13,7 @@ const MAX_OUTPUT_TOKENS = 4000;
 
 const BASE_URLS = {
   openai: 'https://api.openai.com/v1',
+  noah: 'https://ai.noahkoning.de/v1',
   gemini: 'https://generativelanguage.googleapis.com/v1beta',
 };
 
@@ -25,7 +26,11 @@ class ProviderError extends Error {
   }
 }
 
-const NAMES = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', kompatibel: 'Der Anbieter' };
+const NAMES = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', noah: 'Noah AI', kompatibel: 'Der Anbieter' };
+
+// Selbst gehostete Modelle (Qwen3 ...) denken oft laut und sind langsamer: mehr Zeit und Platz, ruhigere Ausgabe.
+const LOCAL_MODEL_TIMEOUT_MS = 180_000;
+const LOCAL_MODEL_MAX_TOKENS = 8000;
 
 function explainStatus(provider, status, detail, model) {
   const name = NAMES[provider] || 'Der Anbieter';
@@ -114,28 +119,44 @@ async function callAnthropic({ apiKey, model, system, user, baseUrl, timeoutMs }
 
 // --- OpenAI und kompatible -----------------------------------------------------
 
+/** Qwen3 & Co. liefern vor der Antwort einen <think>-Block; er gehoert nicht zum Text. */
+function stripThinking(text) {
+  return String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
+}
+
 async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl }) {
-  const base = (baseUrl || BASE_URLS.openai).replace(/\/+$/, '');
+  const base = (baseUrl || BASE_URLS[provider] || BASE_URLS.openai).replace(/\/+$/, '');
   const strict = provider === 'openai';
+  const selfHosted = provider !== 'openai'; // Noah AI und "kompatibel"
+  const body = {
+    model,
+    // Qwen3: "/no_think" schaltet das laute Nachdenken aus (andere Modelle behandeln es als normalen Text)
+    messages: [{ role: 'system', content: system }, { role: 'user', content: provider === 'noah' ? `${user}\n\n/no_think` : user }],
+    response_format: strict
+      ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
+      : { type: 'json_object' },
+  };
+  if (selfHosted) {
+    body.max_tokens = LOCAL_MODEL_MAX_TOKENS;
+    body.temperature = 0.3;
+    body.stream = false;
+  } else {
+    body.max_completion_tokens = MAX_OUTPUT_TOKENS;
+  }
   const data = await httpJson(provider, `${base}/chat/completions`, {
     headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
-    timeoutMs,
+    timeoutMs: timeoutMs || (selfHosted ? LOCAL_MODEL_TIMEOUT_MS : undefined),
     model,
     fetchImpl,
-    body: {
-      model,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      max_completion_tokens: MAX_OUTPUT_TOKENS,
-      response_format: strict
-        ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
-        : { type: 'json_object' },
-    },
+    body,
   });
   const message = data && data.choices && data.choices[0] && data.choices[0].message;
   if (!message) throw new ProviderError('Die Antwort enthielt keinen Text.');
   if (message.refusal) throw new ProviderError(`Die Anfrage wurde abgelehnt: ${message.refusal}`);
   if (data.choices[0].finish_reason === 'length') throw new ProviderError('Die Antwort wurde abgeschnitten (Längenlimit).', { retryable: true });
-  return message.content || '';
+  const content = stripThinking(message.content);
+  if (!content) throw new ProviderError(`${NAMES[provider] || 'Der Anbieter'} lieferte eine leere Antwort.`, { retryable: true });
+  return content;
 }
 
 // --- Gemini ----------------------------------------------------------------------
@@ -171,6 +192,7 @@ async function generate(opts) {
   switch (opts.provider) {
     case 'anthropic': return callAnthropic(opts);
     case 'openai':
+    case 'noah':
     case 'kompatibel': return callOpenAi(opts);
     case 'gemini': return callGemini(opts);
     default: throw new ProviderError(`Unbekannter Anbieter "${opts.provider}".`);
@@ -196,7 +218,7 @@ async function listModels({ provider, apiKey, baseUrl, timeoutMs = 20_000, fetch
       .filter((m) => !m.supportedGenerationMethods || m.supportedGenerationMethods.includes('generateContent'))
       .map((m) => String(m.name).replace(/^models\//, ''));
   }
-  const base = (baseUrl || BASE_URLS.openai).replace(/\/+$/, '');
+  const base = (baseUrl || BASE_URLS[provider] || BASE_URLS.openai).replace(/\/+$/, '');
   const data = await httpJson(provider, `${base}/models`, { method: 'GET', headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {}, timeoutMs, fetchImpl });
   return ((data && data.data) || []).map((m) => m.id);
 }
