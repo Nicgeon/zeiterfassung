@@ -284,6 +284,10 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
 
 async function oneSelfHostedAttempt({ provider, url, headers, body, timeoutMs, model, fetchImpl }) {
   const started = Date.now();
+  // Genau das, was gesendet wird (ohne Schlüssel): Parameter immer ab Stufe 1, komplett mit Texten ab Stufe "voll"
+  const { messages, ...params } = body;
+  log(1, `Anfrage-Parameter: ${JSON.stringify(params)} | Nachrichten: ${messages.map((m) => `${m.role} ${m.content.length} Zeichen`).join(', ')}`);
+  log(2, `Vollständiger Anfrage-Body (ohne Schlüssel):\n${JSON.stringify(body, null, 1)}`);
   const res = await rawFetch(provider, url, { headers, body, timeoutMs, fetchImpl });
   log(1, `Antwortkopf nach ${secs(Date.now() - started)}: HTTP ${res.status}, ${res.headers.get('content-type') || 'ohne Inhaltstyp'}`);
   if (!res.ok) {

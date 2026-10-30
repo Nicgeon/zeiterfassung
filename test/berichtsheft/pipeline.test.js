@@ -315,3 +315,12 @@ test('Prompts verlangen abwechslungsreichen Satzbau und verbieten Wochentage', (
   }
   assert.ok(systemPrompt({ compact: true }).length < 1700);
 });
+
+test('Formatfehler nennen, was stattdessen kam (Array mit Zahlen, falsches Objekt)', () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  const nums = JSON.stringify(Array.from({ length: 86 }, (_, i) => i + 1));
+  assert.throws(() => parseAnswer(nums, items), /Erhalten: ein Array mit 86 Zahlen\./);
+  assert.throws(() => parseAnswer('{"foo":1,"bar":2}', items), /Erhalten: ein Objekt mit den Schlüsseln foo, bar\./);
+  assert.throws(() => parseAnswer('[]', items), /Erhalten: ein leeres Array\./);
+  assert.throws(() => parseAnswer('"nur Text"', items), /Erhalten: ein einzelner Wert \(string\)\./);
+});

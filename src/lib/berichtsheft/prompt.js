@@ -104,6 +104,17 @@ function extractJson(text) {
   }
 }
 
+/** Kurze Beschreibung der Form einer Antwort für Fehlermeldungen ("Array mit 86 Zahlen"). */
+function describeShape(value) {
+  if (Array.isArray(value)) {
+    if (!value.length) return 'ein leeres Array';
+    const kinds = [...new Set(value.map((v) => (v === null ? 'null' : Array.isArray(v) ? 'Arrays' : typeof v === 'object' ? 'Objekte' : typeof v === 'number' ? 'Zahlen' : 'Texte')))];
+    return `ein Array mit ${value.length} ${kinds.join('/')}`;
+  }
+  if (value && typeof value === 'object') return `ein Objekt mit den Schlüsseln ${Object.keys(value).slice(0, 8).join(', ') || '(keine)'}`;
+  return `ein einzelner Wert (${typeof value})`;
+}
+
 /**
  * Macht aus kleinen Abweichungen der Modelle das erwartete Objekt:
  *  - Array mit einem oder mehreren Objekten ([{...}] bzw. [{"schule_ids":..},{"betrieb":..}]) -> ein Objekt
@@ -137,7 +148,7 @@ function parseAnswer(raw, items) {
   const hasList = data && Array.isArray(data.zuordnung);
   const hasIds = data && Array.isArray(data.schule_ids);
   if (!data || typeof data.betrieb !== 'string' || typeof data.schule !== 'string' || !(hasList || hasIds)) {
-    throw new Error('Die Antwort hat nicht das erwartete Format (zuordnung oder schule_ids, betrieb, schule).');
+    throw new Error(`Die Antwort hat nicht das erwartete Format (zuordnung oder schule_ids, betrieb, schule). Erhalten: ${describeShape(data)}.`);
   }
   const assignment = new Map();
   if (hasList) {

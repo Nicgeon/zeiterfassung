@@ -352,3 +352,33 @@ test('format "text": keine JSON-Vorgabe, eigenes max_tokens (Noah AI)', async ()
     assert.equal(requests[0].body.max_tokens, 600);
   });
 });
+
+test('Diagnose zeigt bei jedem Versuch die Anfrage-Parameter (response_format ...) und mit "voll" den ganzen Body ohne Schlüssel', async () => {
+  const lines = [];
+  const orig = console.error;
+  console.error = (m) => lines.push(String(m));
+  const prev = process.env.BERICHTSHEFT_DEBUG;
+  try {
+    await withStreamServer(({ res }) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: ANSWER } }] }));
+    }, async (baseUrl) => {
+      process.env.BERICHTSHEFT_DEBUG = '1';
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl, stream: false });
+      const out1 = lines.join('\n');
+      assert.match(out1, /Anfrage-Parameter: \{"model":"m","response_format":\{"type":"json_object"\},"max_tokens":\d+,"temperature":0\.3,"stream":false\}/);
+      assert.doesNotMatch(out1, /Vollständiger Anfrage-Body/);
+      lines.length = 0;
+      process.env.BERICHTSHEFT_DEBUG = 'voll';
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl, stream: false });
+      const out2 = lines.join('\n');
+      assert.match(out2, /Vollständiger Anfrage-Body \(ohne Schlüssel\):\n\{/);
+      assert.match(out2, /"response_format": \{\s*"type": "json_object"\s*\}/);
+      assert.match(out2, /"messages"/);
+      assert.ok(!out2.includes('GEHEIMER-SCHLUESSEL'));
+    });
+  } finally {
+    console.error = orig;
+    process.env.BERICHTSHEFT_DEBUG = prev === undefined ? 'aus' : prev;
+  }
+});
