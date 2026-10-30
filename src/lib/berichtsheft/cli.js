@@ -13,7 +13,7 @@ const { EndOfInput } = require('./ui');
 const { isoWeek } = require('../dates');
 
 const FLAGS_WITH_VALUE = new Set(['von', 'bis', 'benutzer', 'anbieter', 'modell', 'ausgabe', 'art']);
-const BOOLEAN_FLAGS = new Set(['kopieren', 'ohne-ki', 'ja', 'hilfe', 'lokal']);
+const BOOLEAN_FLAGS = new Set(['kopieren', 'ohne-ki', 'ja', 'hilfe', 'lokal', 'debug', 'debug-voll', 'kein-stream']);
 
 function parseArgs(argv) {
   const flags = {};
@@ -60,6 +60,9 @@ Optionen:
   --ohne-ki              Nichts senden: nur lokal anonymisieren und grob zusammenstellen
   --ja                   Rückfragen mit "Ja" beantworten (bricht ab, wenn Namen unklar sind)
   --benutzer NAME        Konto (nur nötig, wenn mehrere Konten existieren)
+  --debug                Diagnose-Ausgaben (Anfrage, Antwortstatus, Zeiten, Datenstrom) auf stderr
+  --debug-voll           zusätzlich kompletter Prompt und Rohantwort (anonymisierter Text, nie der Schlüssel)
+  --kein-stream          Noah AI/eigene Adresse: nie als Datenstrom anfragen (sonst erst Datenstrom, bei Fehler ohne)
 
 Ablauf: Einträge laden → lokal anonymisieren → Vorschau (nur das geht an die KI) → KI →
 Vorschau des Ergebnisses → speichern. Ohne Ihre Bestätigung wird nichts gesendet.
@@ -382,6 +385,9 @@ async function runCli(ctx) {
     return 1;
   }
   const { flags, positional } = parsed;
+  if (flags['debug-voll']) process.env.BERICHTSHEFT_DEBUG = 'voll';
+  else if (flags.debug) process.env.BERICHTSHEFT_DEBUG = '1';
+  if (flags['kein-stream']) process.env.BERICHTSHEFT_STREAM = 'aus';
   const [command, ...rest] = positional;
   try {
     if (flags.hilfe || command === 'hilfe' || command === 'help') { ctx.ui.print(HELP); return 0; }
@@ -394,6 +400,11 @@ async function runCli(ctx) {
   } catch (err) {
     if (err instanceof EndOfInput) { ctx.ui.print('Abgebrochen.'); return 2; }
     ctx.ui.print(`Fehler: ${err.message}`);
+    if (err.trace && err.trace.length) {
+      ctx.ui.print('Verlauf der Versuche:');
+      for (const line of err.trace) ctx.ui.print(`  - ${line}`);
+      ctx.ui.print('Mehr Einzelheiten: mit --debug erneut ausführen (--debug-voll zeigt auch Prompt und Rohantwort).');
+    }
     return 1;
   }
 }

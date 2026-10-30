@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.BERICHTSHEFT_DEBUG = 'aus'; // Tests ohne Diagnose-Ausgabe
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -259,4 +261,85 @@ test('Datenstrom: Längenlimit, Fehler im Strom, Abbruch und Gateway-Timeout wer
   }, async (baseUrl) => {
     await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl, timeoutMs: 200 }), /Zeitüberschreitung/);
   });
+});
+
+test('Datenstrom schlägt fehl (504, leerer Strom, abgebrochener Strom) -> zweiter Versuch ohne Datenstrom', async () => {
+  const jsonOk = (res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: ANSWER } }] })); };
+  for (const brokenStream of [
+    (res) => { res.writeHead(504, { 'content-type': 'text/html' }); res.end('Gateway Time-out'); },
+    (res) => { res.writeHead(200, { 'content-type': 'text/event-stream' }); res.end('data: [DONE]\n\n'); }, // nichts geliefert
+    (res) => { res.writeHead(200, { 'content-type': 'text/event-stream' }); res.end(sse({ content: '{"a"' })); }, // ohne Abschluss
+  ]) {
+    await withStreamServer(({ res, body }) => (body.stream ? brokenStream(res) : jsonOk(res)), async (baseUrl, requests) => {
+      assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), ANSWER);
+      assert.deepEqual(requests.map((r) => r.body.stream), [true, false]);
+    });
+  }
+});
+
+test('kein zweiter Versuch bei falschem Schlüssel, unbekanntem Modell, Kontingent und Verweigerung; Verlauf hängt am Fehler', async () => {
+  for (const status of [401, 404, 429]) {
+    await withStreamServer(({ res }) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end('{"error":"nein"}'); }, async (baseUrl, requests) => {
+      await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), (e) => e.status === status && e.trace.length === 1 && /Versuch mit Datenstrom/.test(e.trace[0]));
+      assert.equal(requests.length, 1);
+    });
+  }
+  // beide Versuche scheitern: Verlauf nennt beide
+  await withStreamServer(({ res }) => { res.writeHead(502, { 'content-type': 'text/html' }); res.end('bad gateway'); }, async (baseUrl, requests) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), (e) => {
+      assert.equal(e.trace.length, 2);
+      assert.match(e.trace[0], /^Versuch mit Datenstrom: Fehler/);
+      assert.match(e.trace[1], /^Versuch ohne Datenstrom: Fehler/);
+      return true;
+    });
+    assert.equal(requests.length, 2);
+  });
+});
+
+test('BERICHTSHEFT_STREAM=aus und stream:false: nur ein Versuch ohne Datenstrom', async () => {
+  await withStreamServer(({ res }) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: ANSWER } }] })); }, async (baseUrl, requests) => {
+    assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl, stream: false }), ANSWER);
+    process.env.BERICHTSHEFT_STREAM = 'aus';
+    try { await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }); } finally { delete process.env.BERICHTSHEFT_STREAM; }
+    assert.deepEqual(requests.map((r) => r.body.stream), [false, false]);
+  });
+});
+
+test('Diagnose-Ausgabe: Stufen, kein Schlüssel im Text', async () => {
+  const lines = [];
+  const orig = console.error;
+  console.error = (m) => lines.push(String(m));
+  const prev = process.env.BERICHTSHEFT_DEBUG;
+  try {
+    await withStreamServer(({ res }) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end(sse({ content: ANSWER }, 'stop') + 'data: [DONE]\n\n');
+    }, async (baseUrl) => {
+      process.env.BERICHTSHEFT_DEBUG = '1';
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl });
+      const level1 = lines.join('\n');
+      assert.match(level1, /POST .*\/chat\/completions \| Modell m/);
+      assert.match(level1, /Antwortkopf nach .*HTTP 200, text\/event-stream/);
+      assert.match(level1, /Datenstrom beendet nach .* Blöcke/);
+      assert.match(level1, /m: ok nach/);
+      assert.doesNotMatch(level1, /System-Prompt:/);
+      lines.length = 0;
+      process.env.BERICHTSHEFT_DEBUG = 'voll';
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl });
+      assert.match(lines.join('\n'), /System-Prompt:\nSYS/);
+      assert.match(lines.join('\n'), /Rohantwort:/);
+      process.env.BERICHTSHEFT_DEBUG = '0';
+      lines.length = 0;
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl });
+      assert.equal(lines.length, 1); // nur die Zusammenfassung
+      process.env.BERICHTSHEFT_DEBUG = 'aus';
+      lines.length = 0;
+      await generate({ ...base, provider: 'noah', apiKey: 'GEHEIMER-SCHLUESSEL', model: 'm', baseUrl });
+      assert.equal(lines.length, 0);
+    });
+    assert.ok(!lines.some((l) => l.includes('GEHEIMER-SCHLUESSEL')));
+  } finally {
+    console.error = orig;
+    process.env.BERICHTSHEFT_DEBUG = prev === undefined ? 'aus' : prev;
+  }
 });

@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.BERICHTSHEFT_DEBUG = 'aus'; // Tests ohne Diagnose-Ausgabe
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
@@ -173,6 +175,7 @@ test('fehlender Schlüssel, Zeitraum ohne Einträge, ungültiges Datum, Anbieter
     const g = await call('POST', '/generate', { ...WEEK, mode: 'ki', hash: p.body.hash });
     assert.equal(g.status, 502);
     assert.match(g.body.error, /Schlüssel/);
+    assert.deepEqual(g.body.details, []);
   });
 });
 

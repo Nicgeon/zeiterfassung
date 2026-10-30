@@ -5,6 +5,7 @@
 const { anonymizeText } = require('./anonymize');
 const { systemPrompt, userMessage, parseAnswer, checkLimits } = require('./prompt');
 const { generate } = require('./providers');
+const { log, snippet } = require('./debug');
 
 const COMPACT_PROVIDERS = new Set(['noah', 'kompatibel']);
 const TICKET_ONLY_TEXT = 'Bearbeitung eines Tickets';
@@ -75,7 +76,9 @@ async function aiReport({ items, provider, model, apiKey, baseUrl, lineWidth = 9
       ({ problems } = checkLimits(parsed, { lineWidth, hasSchool, hasBetrieb: hasBetrieb && [...parsed.assignment.values()].includes('betrieb') }));
     } catch (err) {
       problems = [{ hard: true, text: err.message }];
+      log(0, `Antwort nicht lesbar (Versuch ${attempt}): ${err.message} | Anfang der Antwort: ${snippet(raw, 300)}`);
     }
+    if (problems.length) log(attempt === 1 ? 0 : 1, `Prüfung der Antwort (Versuch ${attempt}): ${problems.map((p) => `${p.hard ? 'HART' : 'weich'}: ${p.text}`).join(' | ')}`);
     last = { parsed, problems };
     const hard = problems.filter((p) => p.hard);
     if (!hard.length) break;

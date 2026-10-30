@@ -7,6 +7,7 @@
 
 const Anthropic = require('@anthropic-ai/sdk');
 const { SCHEMA } = require('./prompt');
+const { log, level, snippet, secs } = require('./debug');
 
 const DEFAULT_TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_TOKENS = 4000;
@@ -18,11 +19,13 @@ const BASE_URLS = {
 };
 
 class ProviderError extends Error {
-  constructor(message, { status, retryable } = {}) {
+  constructor(message, { status, retryable, final } = {}) {
     super(message);
     this.name = 'ProviderError';
     this.status = status;
     this.retryable = !!retryable;
+    this.final = !!final; // ein weiterer Versuch (ohne Datenstrom) wuerde nichts aendern
+    this.trace = [];
   }
 }
 
@@ -116,6 +119,7 @@ function mapAnthropicError(err, model) {
 }
 
 async function callAnthropic({ apiKey, model, system, user, baseUrl, timeoutMs }) {
+  log(1, `Claude-Anfrage | Modell ${model} | System ${system.length} + Nutzer ${user.length} Zeichen`);
   const client = anthropicClient({ apiKey, baseUrl, timeoutMs });
   const outputConfig = { format: { type: 'json_schema', schema: SCHEMA } };
   if (supportsEffort(model)) outputConfig.effort = 'low';
@@ -131,6 +135,7 @@ async function callAnthropic({ apiKey, model, system, user, baseUrl, timeoutMs }
   } catch (err) {
     throw mapAnthropicError(err, model);
   }
+  log(1, `Claude-Antwort: Ende ${response.stop_reason}, Tokens ein ${response.usage && response.usage.input_tokens} / aus ${response.usage && response.usage.output_tokens}`);
   if (response.stop_reason === 'refusal') throw new ProviderError('Claude hat die Anfrage abgelehnt (Sicherheitsfilter).');
   if (response.stop_reason === 'max_tokens') throw new ProviderError('Die Antwort wurde abgeschnitten (max_tokens erreicht).', { retryable: true });
   return response.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
@@ -148,17 +153,22 @@ async function readEventStream(provider, res, timeoutMs) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  const out = { content: '', finish: null, refusal: null };
+  const started = Date.now();
+  const out = { content: '', finish: null, refusal: null, done: false, chunks: 0, bytes: 0, firstTokenMs: null };
   const handle = (line) => {
     if (!line.startsWith('data:')) return;
     const payload = line.slice(5).trim();
-    if (!payload || payload === '[DONE]') return;
+    if (payload === '[DONE]') { out.done = true; return; }
+    if (!payload) return;
     const json = parseJson(payload);
     if (!json) return;
     if (json.error) throw new ProviderError(`${NAMES[provider]}: ${typeof json.error === 'string' ? json.error : json.error.message || 'Fehler im Datenstrom'}`, { retryable: true });
     const choice = json.choices && json.choices[0];
     if (!choice) return;
-    if (choice.delta && typeof choice.delta.content === 'string') out.content += choice.delta.content;
+    if (choice.delta && typeof choice.delta.content === 'string' && choice.delta.content) {
+      if (out.firstTokenMs === null) out.firstTokenMs = Date.now() - started;
+      out.content += choice.delta.content;
+    }
     if (choice.delta && choice.delta.refusal) out.refusal = choice.delta.refusal;
     if (choice.finish_reason) out.finish = choice.finish_reason;
   };
@@ -166,6 +176,9 @@ async function readEventStream(provider, res, timeoutMs) {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
+      out.chunks += 1;
+      out.bytes += value.length;
+      if (out.chunks === 1) log(1, `Datenstrom: erster Block nach ${secs(Date.now() - started)}`);
       buffer += decoder.decode(value, { stream: true });
       let nl;
       while ((nl = buffer.indexOf('\n')) >= 0) {
@@ -175,22 +188,36 @@ async function readEventStream(provider, res, timeoutMs) {
     }
     handle(buffer.trim());
   } catch (err) {
+    log(0, `Datenstrom abgebrochen nach ${secs(Date.now() - started)} (${out.chunks} Blöcke, ${out.bytes} Bytes, ${out.content.length} Zeichen Text): ${err.message}`);
     throw mapNetworkError(provider, err, timeoutMs);
+  }
+  log(1, `Datenstrom beendet nach ${secs(Date.now() - started)}: ${out.chunks} Blöcke, ${out.bytes} Bytes, ${out.content.length} Zeichen Text, erstes Token nach ${out.firstTokenMs === null ? '-' : secs(out.firstTokenMs)}, [DONE]: ${out.done ? 'ja' : 'nein'}`);
+  if (!out.done && !out.finish) {
+    throw new ProviderError('Der Datenstrom wurde vorzeitig beendet (kein Abschluss vom Server).', { retryable: true });
   }
   return out;
 }
 
 function finishOpenAi(provider, { content, finish, refusal }) {
-  if (refusal) throw new ProviderError(`Die Anfrage wurde abgelehnt: ${refusal}`);
+  if (refusal) throw new ProviderError(`Die Anfrage wurde abgelehnt: ${refusal}`, { final: true });
   if (finish === 'length') {
-    throw new ProviderError('Die Antwort wurde abgeschnitten (Längenlimit erreicht – das Modell hat zu lange "nachgedacht" oder zu viel geschrieben).', { retryable: true });
+    throw new ProviderError('Die Antwort wurde abgeschnitten (Längenlimit erreicht – das Modell hat zu lange "nachgedacht" oder zu viel geschrieben).', { retryable: true, final: true });
   }
   const text = stripThinking(content);
+  const stripped = String(content || '').length - text.length;
+  log(1, `Antwort: ${String(content || '').length} Zeichen roh, davon ${stripped} Zeichen <think>-Block entfernt, Ende: ${finish || 'unbekannt'}`);
+  log(2, `Rohantwort:\n${content}`);
   if (!text) throw new ProviderError(`${NAMES[provider] || 'Der Anbieter'} lieferte eine leere Antwort.`, { retryable: true });
   return text;
 }
 
-async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl }) {
+/** Wann lohnt nach einem fehlgeschlagenen Streaming-Versuch ein zweiter ohne Datenstrom? */
+function worthRetryWithoutStream(err) {
+  if (err.final) return false;
+  return ![401, 402, 403, 404, 429].includes(err.status);
+}
+
+async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl, stream }) {
   const base = (baseUrl || BASE_URLS[provider] || BASE_URLS.openai).replace(/\/+$/, '');
   const strict = provider === 'openai';
   const selfHosted = provider !== 'openai'; // Noah AI und "kompatibel"
@@ -205,6 +232,9 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
       ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
       : { type: 'json_object' },
   };
+  log(1, `POST ${url} | Modell ${model} | System ${system.length} + Nutzer ${body.messages[1].content.length} Zeichen | Antwortformat ${body.response_format.type}`);
+  log(2, `System-Prompt:\n${system}\n--- Nutzernachricht:\n${body.messages[1].content}`);
+
   if (!selfHosted) {
     body.max_completion_tokens = MAX_OUTPUT_TOKENS;
     const data = await httpJson(provider, url, { headers, timeoutMs: limit, model, fetchImpl, body });
@@ -213,24 +243,58 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
 
   body.max_tokens = LOCAL_MODEL_MAX_TOKENS;
   body.temperature = 0.3;
-  body.stream = true;
-  let res = await rawFetch(provider, url, { headers, body, timeoutMs: limit, fetchImpl });
-  if (!res.ok && [400, 422, 501].includes(res.status)) {
-    // Der Server kann (dieses) Streaming nicht: einmal ohne wiederholen
-    await res.text().catch(() => '');
-    body.stream = false;
-    res = await rawFetch(provider, url, { headers, body, timeoutMs: limit, fetchImpl });
+
+  // Erst als Datenstrom; scheitert das aus anderem Grund als Schluessel/Modell/Kontingent, einmal ohne.
+  const streamingWanted = stream !== false && !['aus', '0', 'false', 'nein'].includes(String(process.env.BERICHTSHEFT_STREAM || '').toLowerCase());
+  if (!streamingWanted) log(0, 'Datenstrom ist abgeschaltet (BERICHTSHEFT_STREAM=aus bzw. --kein-stream): nur ein Versuch ohne Datenstrom.');
+  const modes = streamingWanted ? [true, false] : [false];
+  const deadline = Date.now() + limit;
+  const trace = [];
+  let lastError;
+  for (let i = 0; i < modes.length; i++) {
+    const useStream = modes[i];
+    const remaining = deadline - Date.now();
+    if (i > 0 && remaining < Math.min(30_000, limit * 0.2)) {
+      trace.push(`Zweiter Versuch ausgelassen: nur noch ${secs(remaining)} Gesamtzeit übrig.`);
+      break;
+    }
+    const label = useStream ? 'Versuch mit Datenstrom' : 'Versuch ohne Datenstrom';
+    const started = Date.now();
+    log(1, `${label} (max_tokens ${body.max_tokens}, Zeitlimit ${secs(remaining)})`);
+    try {
+      const text = await oneSelfHostedAttempt({ provider, url, headers, body: { ...body, stream: useStream }, timeoutMs: remaining, model, fetchImpl });
+      trace.push(`${label}: ok nach ${secs(Date.now() - started)}`);
+      return text;
+    } catch (err) {
+      const reason = err && err.message ? err.message : String(err);
+      trace.push(`${label}: Fehler nach ${secs(Date.now() - started)} – ${reason}`);
+      log(0, `${label} fehlgeschlagen nach ${secs(Date.now() - started)}: ${reason}`);
+      lastError = err;
+      if (!(err instanceof ProviderError)) break;
+      if (!useStream || i === modes.length - 1 || !worthRetryWithoutStream(err)) break;
+      log(0, 'Datenstrom hat nicht funktioniert – neuer Versuch ohne Datenstrom …');
+    }
   }
+  if (lastError && typeof lastError === 'object') lastError.trace = trace;
+  throw lastError;
+}
+
+async function oneSelfHostedAttempt({ provider, url, headers, body, timeoutMs, model, fetchImpl }) {
+  const started = Date.now();
+  const res = await rawFetch(provider, url, { headers, body, timeoutMs, fetchImpl });
+  log(1, `Antwortkopf nach ${secs(Date.now() - started)}: HTTP ${res.status}, ${res.headers.get('content-type') || 'ohne Inhaltstyp'}`);
   if (!res.ok) {
     let text = '';
     try { text = await res.text(); } catch { /* egal */ }
+    log(1, `Fehlerantwort: ${snippet(text)}`);
     throw failFromResponse(provider, res, text, model);
   }
   if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
-    return finishOpenAi(provider, await readEventStream(provider, res, limit));
+    return finishOpenAi(provider, await readEventStream(provider, res, timeoutMs));
   }
   let text;
-  try { text = await res.text(); } catch (err) { throw mapNetworkError(provider, err, limit); }
+  try { text = await res.text(); } catch (err) { throw mapNetworkError(provider, err, timeoutMs); }
+  log(1, `Antwort ohne Datenstrom nach ${secs(Date.now() - started)}: ${text.length} Zeichen`);
   return readCompletion(provider, parseJson(text));
 }
 
@@ -245,6 +309,7 @@ function readCompletion(provider, data) {
 
 async function callGemini({ apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl }) {
   const base = (baseUrl || BASE_URLS.gemini).replace(/\/+$/, '');
+  log(1, `Gemini-Anfrage | Modell ${model} | System ${system.length} + Nutzer ${user.length} Zeichen`);
   const data = await httpJson('gemini', `${base}/models/${encodeURIComponent(model)}:generateContent`, {
     headers: { 'x-goog-api-key': apiKey },
     timeoutMs,
@@ -271,13 +336,25 @@ async function callGemini({ apiKey, model, system, user, baseUrl, timeoutMs, fet
  * @param {{provider: string, apiKey?: string, model: string, system: string, user: string, baseUrl?: string, timeoutMs?: number, fetchImpl?: Function}} opts
  */
 async function generate(opts) {
-  switch (opts.provider) {
-    case 'anthropic': return callAnthropic(opts);
-    case 'openai':
-    case 'noah':
-    case 'kompatibel': return callOpenAi(opts);
-    case 'gemini': return callGemini(opts);
-    default: throw new ProviderError(`Unbekannter Anbieter "${opts.provider}".`);
+  const started = Date.now();
+  const tag = `${opts.provider}/${opts.model}`;
+  try {
+    let text;
+    switch (opts.provider) {
+      case 'anthropic': text = await callAnthropic(opts); break;
+      case 'openai':
+      case 'noah':
+      case 'kompatibel': text = await callOpenAi(opts); break;
+      case 'gemini': text = await callGemini(opts); break;
+      default: throw new ProviderError(`Unbekannter Anbieter "${opts.provider}".`);
+    }
+    log(0, `${tag}: ok nach ${secs(Date.now() - started)}, ${text.length} Zeichen Antwort`);
+    log(1, `Antwort (Anfang): ${snippet(text, 300)}`);
+    return text;
+  } catch (err) {
+    log(0, `${tag}: FEHLER nach ${secs(Date.now() - started)} – ${err.message}`);
+    if (level() >= 1 && err.trace && err.trace.length) log(1, `Verlauf:\n  ${err.trace.join('\n  ')}`);
+    throw err;
   }
 }
 

@@ -42,7 +42,11 @@ function createRouter(deps) {
       await fn(req, res);
     } catch (err) {
       if (err instanceof service.ServiceError) return res.status(err.status).json({ error: err.message, ...err.extra });
-      if (err && err.name === 'ProviderError') return res.status(502).json({ error: err.message });
+      if (err && err.name === 'ProviderError') {
+        // eslint-disable-next-line no-console
+        console.error(`[berichtsheft] Anbieterfehler: ${err.message}`);
+        return res.status(502).json({ error: err.message, details: err.trace || [] });
+      }
       if (err && /Datum|Zeitraum|JJJJ|--von|--bis/.test(err.message || '')) return res.status(400).json({ error: err.message });
       // eslint-disable-next-line no-console
       console.error('[berichtsheft]', err && err.message);

@@ -1,5 +1,7 @@
 'use strict';
 
+process.env.BERICHTSHEFT_DEBUG = 'aus'; // Tests ohne Diagnose-Ausgabe
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -216,4 +218,28 @@ test('unbekannte Großwörter werden einmal abgefragt, Namen daraus gelernt und 
   ui = scripted(['j', 'n']);
   await runCli(baseCtx(store, ui, { generate }));
   assert.doesNotMatch(ui.text(), /noch nicht kenne/);
+});
+
+test('Fehler des Anbieters: Verlauf der Versuche wird im Terminal gezeigt, --debug setzt die Diagnose', async () => {
+  const { ProviderError } = require('../../src/lib/berichtsheft/providers');
+  const store = setup([['2026-10-19', 'Backup geprüft', '']]);
+  const cfg = store.loadConfig(1);
+  cfg.provider = 'noah';
+  cfg.keys.noah = 'k';
+  store.saveConfig(1, cfg);
+  const failing = async () => {
+    const err = new ProviderError('Noah AI: Zeitüberschreitung auf dem Server (504)', { status: 504, retryable: true });
+    err.trace = ['Versuch mit Datenstrom: Fehler nach 120.1 s – 504', 'Versuch ohne Datenstrom: Fehler nach 119.8 s – 504'];
+    throw err;
+  };
+  const ui = scripted(['j']);
+  const prev = process.env.BERICHTSHEFT_DEBUG;
+  const code = await runCli(baseCtx(store, ui, { generate: failing, argv: ['--debug', '--kein-stream'] }));
+  assert.equal(code, 1);
+  assert.equal(process.env.BERICHTSHEFT_DEBUG, '1');
+  assert.equal(process.env.BERICHTSHEFT_STREAM, 'aus');
+  assert.match(ui.text(), /Verlauf der Versuche:\n  - Versuch mit Datenstrom: Fehler nach 120\.1 s/);
+  assert.match(ui.text(), /mit --debug erneut ausführen/);
+  process.env.BERICHTSHEFT_DEBUG = prev === undefined ? 'aus' : prev;
+  delete process.env.BERICHTSHEFT_STREAM;
 });

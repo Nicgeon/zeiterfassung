@@ -489,6 +489,18 @@ schnellere Modell `Qwen3-4B-Q4_K_M`.
 `--ohne-ki` anonymisiert und sortiert nur lokal und sendet nichts. `--ja` beantwortet die Rückfragen
 automatisch und bricht ab, solange Wörter ungeklärt sind (Exit-Code 3).
 
+**Fehlersuche:** Jede Anfrage schreibt eine Zeile ins Terminal (bei der Weboberfläche: das Fenster, in dem die
+Zeiterfassung läuft; bei der Kommandozeile: stderr), z. B. `noah/Qwen3-30B…: ok nach 94.2 s, 1234 Zeichen`
+oder `FEHLER nach …`. Mehr Einzelheiten – Anfrage-Eckdaten, Antwortstatus, Zeit bis zum Antwortkopf und zum
+ersten Token, Größe des Datenstroms, entfernter `<think>`-Block, Prüfergebnis der Antwort – gibt es mit
+`BERICHTSHEFT_DEBUG=1` (Umgebungsvariable, z. B. `BERICHTSHEFT_DEBUG=1 ./start-local.sh`) bzw. `--debug`
+auf der Kommandozeile; `voll`/`--debug-voll` zeigt zusätzlich den kompletten Prompt und die Rohantwort (der
+API-Schlüssel erscheint nie). Schlägt etwas fehl, nennt die Fehlermeldung den **Verlauf der Versuche**
+(Kommandozeile: „Verlauf der Versuche“, Weboberfläche: „Technische Details“). Noah AI und eigene Adressen
+fragen zuerst als Datenstrom an und wiederholen bei einem Fehler (außer falscher Schlüssel, unbekanntes Modell,
+Kontingent) **automatisch einmal ohne Datenstrom**; `BERICHTSHEFT_STREAM=aus` bzw. `--kein-stream` schaltet den
+Datenstrom ganz ab. `BERICHTSHEFT_DEBUG=aus` unterdrückt alle Ausgaben.
+
 **Mehrere Konten (Docker):** Die Einstellungen (Anbieter, Schlüssel, Namensliste) gelten pro Konto, jede
 Person entscheidet also selbst, ob und mit welchem Anbieter sie die KI nutzt – ohne eigenen Schlüssel
 geschieht nichts. Die Kommandozeile läuft mit `docker compose exec -it app npm run berichtsheft -- --benutzer m.mustermann`.

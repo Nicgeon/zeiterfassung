@@ -226,7 +226,17 @@
     async function run(button, fn) {
       button.disabled = true;
       setFormError(els.error, '');
-      try { await fn(); } catch (err) { setFormError(els.error, err.message); } finally { button.disabled = false; }
+      try {
+        await fn();
+      } catch (err) {
+        setFormError(els.error, err.message);
+        // technischer Verlauf (z. B. "Versuch mit Datenstrom: ... / Versuch ohne Datenstrom: ...") zum Weitergeben
+        const details = err.data && Array.isArray(err.data.details) ? err.data.details : [];
+        if (details.length) {
+          els.error.firstElementChild.insertAdjacentHTML('beforeend',
+            `<details class="bh-details"><summary>Technische Details</summary><pre>${escapeHtml(details.join('\n'))}</pre></details>`);
+        }
+      } finally { button.disabled = false; }
     }
 
     els.prepare.addEventListener('click', () => run(els.prepare, async () => {
