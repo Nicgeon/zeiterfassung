@@ -283,7 +283,7 @@
       if (mode === 'ki') {
         tick();
         timer = setInterval(tick, 1000);
-        els.sendHint.textContent = 'Das Modell schreibt gerade. Bei Noah AI kann das mehrere Minuten dauern – bitte die Seite offen lassen.';
+        els.sendHint.textContent = 'Das Modell schreibt gerade. Bei Noah AI arbeitet es in drei Schritten (einordnen, Betrieb, Schule) und braucht oft mehrere Minuten – bitte die Seite offen lassen.';
       }
       try {
         await run(button, async () => {

@@ -3,7 +3,10 @@
 // Von den Eintraegen zu anonymisierten Stichpunkten und zurueck zum fertigen Text.
 
 const { anonymizeText } = require('./anonymize');
-const { systemPrompt, userMessage, parseAnswer, checkLimits } = require('./prompt');
+const {
+  systemPrompt, userMessage, parseAnswer, checkLimits, MAX_LINES,
+  classifyPrompt, writePrompt, parseIdList, cleanProse, truncateToLines,
+} = require('./prompt');
 const { generate } = require('./providers');
 const { log, snippet } = require('./debug');
 
@@ -60,9 +63,82 @@ function localReport(items) {
  * Fragt den Anbieter und prüft die Antwort; bei harten Verstößen (zu lang, Aufzählung ...) gibt es
  * genau einen weiteren Versuch mit Rückmeldung.
  */
-async function aiReport({ items, provider, model, apiKey, baseUrl, lineWidth = 95, generateImpl = generate, onRetry }) {
-  // Kleine, selbst gehostete Modelle bekommen den kurzen Prompt (schneller, weniger Ausgabe)
-  const system = systemPrompt({ lineWidth, compact: COMPACT_PROVIDERS.has(provider) });
+/**
+ * Kleine Modelle (Noah AI, eigene Adressen) bekommen keine "JSON mit allem"-Aufgabe, sondern drei
+ * einfache: (1) Nummern der Schul-Stichpunkte nennen, (2) Fließtext Betrieb, (3) Fließtext Schule.
+ * Beide Texte sind freie Antworten (kein JSON) und werden nur aufgeräumt, nicht "geparst".
+ */
+async function stepwiseReport({ items, provider, model, apiKey, baseUrl, lineWidth = 95, generateImpl = generate, onRetry, onStep }) {
+  const call = (system, user, maxTokens) => generateImpl({ provider, model, apiKey, baseUrl, system, user, format: 'text', maxTokens });
+  const step = (text) => (onStep ? onStep(text) : log(0, text));
+  const problems = [];
+
+  // 1) Einordnung (kurze Antwort: nur Nummern). Unbrauchbar -> Markierung und Stichwörter entscheiden.
+  const hinted = new Set(items.filter((i) => i.school || i.keyword).map((i) => i.id));
+  let schoolIds;
+  step(`Schritt 1/3: ${items.length} Stichpunkte einordnen (Berufsschule oder Betrieb) …`);
+  const rawIds = await call(classifyPrompt(), userMessage(items), 600);
+  const ids = parseIdList(stripForParse(rawIds), items);
+  if (ids === null) {
+    log(0, `Einordnung nicht lesbar, Antwort: ${snippet(rawIds, 200)} – verwende Markierungen und Stichwörter.`);
+    problems.push({ hard: false, text: 'Die KI konnte die Stichpunkte nicht einordnen; es zählen nur Haken „Berufsschule“ und Stichwörter.' });
+    schoolIds = hinted;
+  } else {
+    schoolIds = new Set(ids);
+  }
+  for (const it of items) if (it.school) schoolIds.add(it.id);
+
+  const schoolItems = items.filter((i) => schoolIds.has(i.id));
+  const workItems = items.filter((i) => !schoolIds.has(i.id));
+  const assignment = new Map(items.map((i) => [i.id, schoolIds.has(i.id) ? 'schule' : 'betrieb']));
+
+  // Zeilenbudget: zusammen höchstens 10 Zeilen, die Schule bekommt 2 bis 4 davon
+  const both = schoolItems.length > 0 && workItems.length > 0;
+  const schoolLines = both ? Math.min(4, Math.max(2, Math.round((MAX_LINES * schoolItems.length) / items.length))) : MAX_LINES;
+  const workLines = both ? MAX_LINES - schoolLines : MAX_LINES;
+
+  async function write(section, list, maxLines, label) {
+    if (!list.length) return '';
+    // ohne Hinweis-Markierungen und mit neu durchnummeriert: nur der Inhalt zählt
+    const plain = list.map((it, i) => ({ ...it, id: i + 1, school: false, keyword: false }));
+    const system = writePrompt(section, { maxLines, lineWidth });
+    let user = userMessage(plain);
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      step(`${label}: Text für ${list.length} Stichpunkt${list.length === 1 ? '' : 'e'} schreiben${attempt > 1 ? ' (zweiter Versuch)' : ''} …`);
+      const raw = await call(system, user, 6000);
+      const text = cleanProse(raw);
+      log(1, `Rohtext (${section}): ${snippet(raw, 300)}`);
+      if (text) {
+        const cut = truncateToLines(text, maxLines, lineWidth);
+        if (cut.cut) problems.push({ hard: false, text: `Der Text „${SECTION_NAME[section]}“ war zu lang und wurde auf ${maxLines} Zeilen gekürzt.` });
+        return cut.text;
+      }
+      if (attempt === 1) {
+        if (onRetry) onRetry(['Die Antwort war leer.']);
+        user = `${userMessage(plain)}\n\nDeine letzte Antwort war leer. Bitte schreibe den Fließtext.`;
+      }
+    }
+    throw new Error(`Die KI hat für „${SECTION_NAME[section]}“ keinen Text geliefert.`);
+  }
+
+  const betrieb = await write('betrieb', workItems, workLines, 'Schritt 2/3');
+  const schule = await write('schule', schoolItems, schoolLines, 'Schritt 3/3');
+  const { problems: limits } = checkLimits({ betrieb, schule }, { lineWidth, hasSchool: schoolItems.length > 0, hasBetrieb: workItems.length > 0 });
+  return { betrieb, schule, assignment, problems: [...problems, ...limits] };
+}
+
+const SECTION_NAME = { betrieb: 'Betriebliche Tätigkeiten', schule: 'Berufsschule' };
+
+/** Denkblock und Anführungszeichen weg, bevor Nummern gelesen werden (die Einordnung ist reiner Text). */
+function stripForParse(text) {
+  return String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
+
+async function aiReport({ items, provider, model, apiKey, baseUrl, lineWidth = 95, generateImpl = generate, onRetry, onStep }) {
+  if (COMPACT_PROVIDERS.has(provider)) {
+    return stepwiseReport({ items, provider, model, apiKey, baseUrl, lineWidth, generateImpl, onRetry, onStep });
+  }
+  const system = systemPrompt({ lineWidth });
   let user = userMessage(items);
   const hasSchool = items.some((i) => i.school);
   const hasBetrieb = items.some((i) => !i.school);

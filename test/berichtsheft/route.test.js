@@ -189,8 +189,11 @@ test('Modelle auflisten', async () => {
   });
 });
 
+const calls0 = [];
 test('Noah AI ist ein fester Anbieter: auch im Serverbetrieb nutzbar, Modelle als Vorschlag, Umgebungsschlüssel AI_API_KEY', async () => {
-  await withApp({ localMode: false, env: { AI_API_KEY: 'env-key-123456' } }, async ({ call, calls }) => {
+  const stepFake = async (o) => (o.system.startsWith('Du ordnest') ? '2' : /Unterrichtsthemen/.test(o.system) ? 'Es wurde etwas gelernt.' : 'Es wurde etwas getan.');
+  await withApp({ localMode: false, env: { AI_API_KEY: 'env-key-123456' }, generate: async (o) => { calls0.push(o); return stepFake(o); } }, async ({ call }) => {
+    const calls = { generate: calls0 };
     const s = await call('GET', '/settings');
     const noah = s.body.providers.find((p) => p.id === 'noah');
     assert.ok(noah);
@@ -205,9 +208,9 @@ test('Noah AI ist ein fester Anbieter: auch im Serverbetrieb nutzbar, Modelle al
     assert.equal(p.body.ai.label, 'Noah AI (Qwen3)');
     const g = await call('POST', '/generate', { ...WEEK, mode: 'ki', hash: p.body.hash });
     assert.equal(g.status, 200, JSON.stringify(g.body));
-    assert.equal(calls.generate[0].provider, 'noah');
-    assert.equal(calls.generate[0].apiKey, 'env-key-123456');
-    assert.equal(calls.generate[0].model, 'Qwen3-30B-A3B-Q4_K_M');
+    assert.equal(calls.generate.length, 3); // Einordnen, Betrieb, Schule
+    assert.ok(calls.generate.every((c) => c.provider === 'noah' && c.apiKey === 'env-key-123456' && c.model === 'Qwen3-30B-A3B-Q4_K_M' && c.format === 'text'));
+    assert.match(g.body.text, /Betriebliche Tätigkeiten:\nEs wurde etwas getan\./);
   });
   await withApp({ localMode: false, env: { BERICHTSHEFT_KI: 'aus', AI_API_KEY: 'env-key-123456' } }, async ({ call }) => {
     await call('PUT', '/settings', { provider: 'noah', names: [{ term: 'Acme', kind: 'kunde' }] });

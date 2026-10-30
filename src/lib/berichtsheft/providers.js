@@ -217,7 +217,7 @@ function worthRetryWithoutStream(err) {
   return ![401, 402, 403, 404, 429].includes(err.status);
 }
 
-async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl, stream }) {
+async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl, stream, format = 'json', maxTokens }) {
   const base = (baseUrl || BASE_URLS[provider] || BASE_URLS.openai).replace(/\/+$/, '');
   const strict = provider === 'openai';
   const selfHosted = provider !== 'openai'; // Noah AI und "kompatibel"
@@ -228,11 +228,14 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
     model,
     // Qwen3: "/no_think" schaltet das laute Nachdenken aus (andere Modelle behandeln es als normalen Text)
     messages: [{ role: 'system', content: system }, { role: 'user', content: provider === 'noah' ? `${user}\n\n/no_think` : user }],
-    response_format: strict
-      ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
-      : { type: 'json_object' },
   };
-  log(1, `POST ${url} | Modell ${model} | System ${system.length} + Nutzer ${body.messages[1].content.length} Zeichen | Antwortformat ${body.response_format.type}`);
+  // format "text": freie Antwort ohne JSON-Zwang (kleine Modelle halten sich dabei besser an die Aufgabe)
+  if (format !== 'text') {
+    body.response_format = strict
+      ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
+      : { type: 'json_object' };
+  }
+  log(1, `POST ${url} | Modell ${model} | System ${system.length} + Nutzer ${body.messages[1].content.length} Zeichen | Antwortformat ${body.response_format ? body.response_format.type : 'text'}`);
   log(2, `System-Prompt:\n${system}\n--- Nutzernachricht:\n${body.messages[1].content}`);
 
   if (!selfHosted) {
@@ -241,7 +244,7 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
     return readCompletion(provider, data);
   }
 
-  body.max_tokens = LOCAL_MODEL_MAX_TOKENS;
+  body.max_tokens = maxTokens || LOCAL_MODEL_MAX_TOKENS;
   body.temperature = 0.3;
 
   // Erst als Datenstrom; scheitert das aus anderem Grund als Schluessel/Modell/Kontingent, einmal ohne.

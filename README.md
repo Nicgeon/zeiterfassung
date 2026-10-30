@@ -451,8 +451,11 @@ npm run berichtsheft -- hilfe      # alle Befehle und Optionen
 Die Einstellungen sind dieselben wie in der Weboberfläche. `npm run berichtsheft -- einrichten` fragt sie ab,
 alternativ genügt die Umgebungsvariable `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` bzw. `AI_API_KEY` (Noah AI). Das
 Modell lässt sich mit `--modell` überschreiben, `modelle` listet die verfügbaren auf (so findet man auch einen
-Tippfehler im Namen). Der Schlüssel liegt verschlüsselt in der Datenbank und wird nie wieder angezeigt. **Langsame Modelle (Noah AI, eigene Adressen):** Sie bekommen einen
-kürzeren Prompt (nur Nummern der Schul-Stichpunkte statt einer Zuordnungsliste), bis zu 16 000 Ausgabe-Tokens
+Tippfehler im Namen). Der Schlüssel liegt verschlüsselt in der Datenbank und wird nie wieder angezeigt. **Kleine Modelle (Noah AI, eigene Adressen)** arbeiten in **drei einfachen Schritten statt einer großen
+JSON-Aufgabe**: (1) „Welche Stichpunkte sind Berufsschule?“ – Antwort nur Nummern, (2) Fließtext Betrieb,
+(3) Fließtext Schule – beide als freier Text ohne JSON (Überschriften, Aufzählungszeichen und Anführungszeichen
+werden entfernt, zu lange Texte am Satzende gekürzt). Ist die Einordnung unbrauchbar (z. B. „1, 2, 3, … 86“),
+entscheiden Haken „Berufsschule“ und Stichwörter, mit Hinweis. Sie bekommen bis zu 16 000 Ausgabe-Tokens
 und bis zu 15 Minuten Zeit. Die Antwort wird als Datenstrom gelesen, damit Zwischenstationen die Verbindung nicht
 nach „120 Sekunden ohne Daten“ kappen; kann der Server das nicht, wird einmal ohne Datenstrom wiederholt. Die
 Oberfläche zeigt die Wartezeit an. Läuft die App hinter einem eigenen Proxy (z. B. nginx), muss dessen

@@ -152,17 +152,112 @@ test('Store: Einstellungen verschlüsselt speichern und laden, Schlüssel aus de
   assert.equal(list[0].school, false);
 });
 
-test('Kleine Modelle (Noah AI, kompatibel) bekommen den kurzen Prompt, große den ausführlichen', async () => {
+/** Fake-Modell für die schrittweise Arbeitsweise: erkennt die Aufgabe am System-Prompt. */
+function stepModel({ classify = '3', work = 'Es wurde ein Backup für ein Kunde geprüft. Außerdem wurde ein Update von Lini eingespielt.', school = 'Im Unterricht wurde Subnetting behandelt.' } = {}) {
+  const calls = [];
+  const fn = async (o) => {
+    calls.push(o);
+    if (o.system.startsWith('Du ordnest')) return typeof classify === 'function' ? classify(o) : classify;
+    if (/Unterrichtsthemen in der Berufsschule/.test(o.system)) return typeof school === 'function' ? school(o, calls) : school;
+    return typeof work === 'function' ? work(o, calls) : work;
+  };
+  fn.calls = calls;
+  return fn;
+}
+
+test('Noah AI und kompatibel arbeiten in einfachen Schritten: Einordnung, dann je ein freier Text', async () => {
   const { items } = buildItems(entries, vocab, keywords);
-  const seen = {};
-  const answer = JSON.stringify({ schule_ids: [3, 5], betrieb: 'wort '.repeat(60).trim(), schule: 'Subnetting und Routing wurden behandelt.' });
-  for (const provider of ['noah', 'kompatibel', 'anthropic']) {
-    await aiReport({ items, provider, model: 'm', apiKey: 'k', generateImpl: async (o) => { seen[provider] = o.system; return answer; } });
+  for (const provider of ['noah', 'kompatibel']) {
+    const gen = stepModel({ classify: '3' });
+    const steps = [];
+    const r = await aiReport({ items, provider, model: 'm', apiKey: 'k', generateImpl: gen, onStep: (t) => steps.push(t) });
+    assert.equal(gen.calls.length, 3);
+    assert.ok(gen.calls.every((c) => c.format === 'text'), 'kein JSON-Zwang');
+    assert.match(gen.calls[0].user, /^Stichpunkte der Woche:\n1\. Backup/);
+    assert.match(gen.calls[0].user, /\[Stichwort Schule\]/);
+    // Schreibschritte sehen nur ihre Stichpunkte, ohne Hinweise, neu nummeriert
+    assert.doesNotMatch(gen.calls[1].user, /Subnetting|Stichwort|Schule:/);
+    assert.match(gen.calls[1].user, /^Stichpunkte der Woche:\n1\. Backup geprüft für ein Kunde \(2x erfasst\)\n2\. Lini Update/);
+    assert.match(gen.calls[2].user, /^Stichpunkte der Woche:\n1\. (Berufsschule: Subnetting|Routing)/);
+    assert.equal(gen.calls[2].system.includes('höchstens 2 Zeilen') || gen.calls[2].system.includes('höchstens 3 Zeilen') || gen.calls[2].system.includes('höchstens 4 Zeilen'), true);
+    assert.equal(r.assignment.get(3), 'schule');
+    assert.equal(r.assignment.get(5), 'schule'); // markiert
+    assert.equal(r.assignment.get(1), 'betrieb');
+    assert.match(r.betrieb, /^Es wurde ein Backup/);
+    assert.equal(r.schule, 'Im Unterricht wurde Subnetting behandelt.');
+    assert.equal(steps.length, 3);
   }
-  assert.ok(seen.noah.length < 1300 && seen.noah.includes('schule_ids'));
-  assert.equal(seen.kompatibel, seen.noah);
-  assert.ok(seen.anthropic.length > 1800 && !seen.anthropic.includes('schule_ids'));
-  assert.ok(seen.noah.length < seen.anthropic.length / 1.5);
+  // große Modelle bleiben bei der JSON-Antwort in einem Schritt
+  const seen = [];
+  await aiReport({ items, provider: 'anthropic', model: 'm', apiKey: 'k', generateImpl: async (o) => { seen.push(o); return JSON.stringify({ zuordnung: [], betrieb: 'wort '.repeat(60).trim(), schule: 'Subnetting.' }); } });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].format, undefined);
+});
+
+test('Einordnung unbrauchbar (z. B. "1, 2, 3 … 86"): Markierungen und Stichwörter entscheiden, mit Hinweis', async () => {
+  const many = Array.from({ length: 86 }, (_, i) => ({ date: '2026-10-19', description: `Aufgabe ${i + 1}`, jiraKey: '', minutes: 10, school: i === 85 }));
+  many[10].description = 'Berufsschule Thema';
+  const { items } = buildItems(many, { names: [], allow: [] }, ['Berufsschule']);
+  const garbage = '[\n ' + Array.from({ length: 86 }, (_, i) => i + 1).join(',\n ') + '\n]';
+  const gen = stepModel({ classify: garbage });
+  const r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: gen });
+  assert.ok(r.problems.some((p) => /nicht einordnen/.test(p.text) && !p.hard));
+  const schoolIds = [...r.assignment].filter(([, b]) => b === 'schule').map(([id]) => id);
+  assert.deepEqual(schoolIds.sort((a, b) => a - b), [11, 86]); // Stichwort + Markierung
+  assert.equal(gen.calls.length, 3);
+});
+
+test('keine Schul-Stichpunkte: nur zwei Anfragen, Betrieb bekommt alle 10 Zeilen', async () => {
+  const noSchool = entries.filter((e) => !/Schule|Routing/.test(e.description) && !e.school);
+  const { items } = buildItems(noSchool, vocab, ['Berufsschule']);
+  const gen = stepModel({ classify: 'keine' });
+  const r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: gen });
+  assert.equal(gen.calls.length, 2);
+  assert.match(gen.calls[1].system, /höchstens 10 Zeilen/);
+  assert.equal(r.schule, '');
+});
+
+test('Texte werden aufgeräumt (Überschrift, Aufzählung, JSON, Anführungszeichen), zu lange gekürzt, leere wiederholt', async () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  const messy = stepModel({
+    classify: 'Die Nummern: 3',
+    work: '**Betriebliche Tätigkeiten:**\n- Backup geprüft\n- Lini Update eingespielt',
+    school: '{"schule": "Subnetting wurde behandelt."}',
+  });
+  let r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: messy });
+  assert.equal(r.betrieb, 'Backup geprüft. Lini Update eingespielt.');
+  assert.equal(r.schule, 'Subnetting wurde behandelt.');
+
+  const long = stepModel({ work: 'Das ist ein Satz mit einigen Wörtern darin. '.repeat(40).trim() });
+  r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: long });
+  assert.ok(r.problems.some((p) => /gekürzt/.test(p.text)));
+  assert.ok(countLines(r.betrieb, 95) <= 8);
+  assert.match(r.betrieb, /\.$/);
+
+  let n = 0;
+  const flaky = stepModel({ work: () => (n++ === 0 ? '   ' : 'Es wurde gearbeitet.') });
+  const retries = [];
+  r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: flaky, onRetry: (p) => retries.push(p) });
+  assert.equal(r.betrieb, 'Es wurde gearbeitet.');
+  assert.equal(retries.length, 1);
+  await assert.rejects(aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: stepModel({ work: '' }) }), /keinen Text/);
+});
+
+test('parseIdList und cleanProse', () => {
+  const { parseIdList, cleanProse, truncateToLines } = require('../../src/lib/berichtsheft/prompt');
+  const items10 = Array.from({ length: 10 }, (_, i) => ({ id: i + 1 }));
+  assert.deepEqual(parseIdList('4, 7 und 12', items10), [4, 7]); // 12 gibt es nicht
+  assert.deepEqual(parseIdList('keine', items10), []);
+  assert.deepEqual(parseIdList('Keine Schul-Stichpunkte.', items10), []);
+  assert.equal(parseIdList('', items10), null);
+  assert.equal(parseIdList('Ich weiß nicht', items10), null);
+  assert.equal(parseIdList('1,2,3,4,5,6,7,8,9,10', items10), null); // alles genannt = nicht verstanden
+  assert.deepEqual(parseIdList('[3]', items10), [3]);
+  assert.equal(cleanProse('"Es wurde geprüft."'), 'Es wurde geprüft.');
+  assert.equal(cleanProse('["Satz eins.", "Satz zwei."]'), 'Satz eins. Satz zwei.');
+  assert.equal(cleanProse('Betriebliche Tätigkeiten: Es wurde geprüft.'), 'Es wurde geprüft.');
+  assert.equal(cleanProse('```\nText.\n```'), 'Text.');
+  assert.equal(truncateToLines('Kurz.', 3).cut, false);
 });
 
 test('parseAnswer versteht die Kurzform schule_ids', () => {

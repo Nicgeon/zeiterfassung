@@ -343,3 +343,12 @@ test('Diagnose-Ausgabe: Stufen, kein Schlüssel im Text', async () => {
     process.env.BERICHTSHEFT_DEBUG = prev === undefined ? 'aus' : prev;
   }
 });
+
+test('format "text": keine JSON-Vorgabe, eigenes max_tokens (Noah AI)', async () => {
+  await withServer(() => ({ json: { choices: [{ finish_reason: 'stop', message: { content: '4, 7' } }] } }), async (baseUrl, requests) => {
+    const text = await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl, format: 'text', maxTokens: 600, stream: false });
+    assert.equal(text, '4, 7');
+    assert.equal(requests[0].body.response_format, undefined);
+    assert.equal(requests[0].body.max_tokens, 600);
+  });
+});

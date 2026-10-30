@@ -172,3 +172,93 @@ function checkLimits({ betrieb, schule }, { lineWidth = 95, hasSchool, hasBetrie
 }
 
 module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, compactPrompt, userMessage, countLines, extractJson, normalizeAnswer, parseAnswer, checkLimits };
+
+// ---------------------------------------------------------------------------------------------
+// Schrittweise Aufgaben fuer kleine Modelle (Noah AI, eigene Adressen): statt EINER Anfrage mit
+// JSON-Antwort mehrere kleine Anfragen mit einfacher Antwort - (1) welche Stichpunkte sind Schule,
+// (2) Fliesstext Betrieb, (3) Fliesstext Schule. Freie Texte lassen sich nicht "im falschen Format"
+// liefern, und jede Aufgabe ist fuer sich klein genug.
+// ---------------------------------------------------------------------------------------------
+
+function classifyPrompt() {
+  return `Du ordnest Stichpunkte eines IT-Azubis ein. Nenne die Nummern der Stichpunkte, die zur Berufsschule gehören (Unterricht, Lernfelder, Schulthemen, Klassenarbeiten). [Schule: sicher] gehört immer dazu, [Stichwort Schule] nur, wenn es wirklich um Unterricht geht. Alle anderen Stichpunkte sind betriebliche Tätigkeiten und werden NICHT genannt.
+
+Antworte NUR mit den Nummern, durch Komma getrennt (zum Beispiel: 4, 7, 12). Gibt es keinen Schul-Stichpunkt, antworte mit: keine`;
+}
+
+const SECTIONS = {
+  betrieb: { title: 'Betriebliche Tätigkeiten', what: 'die betrieblichen Tätigkeiten der Woche' },
+  schule: { title: 'Berufsschule (Unterrichtsthemen)', what: 'die behandelten Unterrichtsthemen in der Berufsschule' },
+};
+
+/** Prompt für einen Textabschnitt; maxLines = Zeilenbudget dieses Abschnitts. */
+function writePrompt(section, { maxLines = MAX_LINES, lineWidth = 95 } = {}) {
+  const s = SECTIONS[section];
+  return `Du schreibst einen Abschnitt des wöchentlichen Ausbildungsnachweises eines IT-Azubis: ${s.what}. Du bekommst nummerierte, anonymisierte Stichpunkte ("ein Kunde", "ein Kollege", "ein Unternehmen" sind Platzhalter für Namen).
+
+Schreibe daraus EINEN zusammenhängenden Fließtext aus vollständigen, gut lesbaren Sätzen (jeder Satz mit Subjekt und Verb) in der Vergangenheit, ohne "ich", ohne Aufzählung. Wechsle den Satzbau ab (nicht jeden Satz mit "wurde/wurden" beginnen, Sätze mit "außerdem", "anschließend", "dabei" verbinden, Aktiv und Passiv mischen). Fasse Gleiches zusammen, nenne Wichtiges zuerst, erfinde nichts. Keine Namen, Daten, Wochentage, Uhrzeiten ("Am Montag", "letzte Woche") oder Ticketnummern. Programmnamen (z. B. Lini) unverändert lassen.
+
+Umfang: höchstens ${maxLines} Zeilen zu je etwa ${lineWidth} Zeichen (also höchstens etwa ${maxLines * lineWidth} Zeichen). Bei vielen Stichpunkten fasse stark zusammen.
+
+Antworte NUR mit dem Text: ohne Überschrift, ohne Anführungszeichen, ohne Nummerierung, ohne JSON.`;
+}
+
+/** Nummern aus der Antwort des Einordnungsschritts; null = Antwort unbrauchbar. */
+function parseIdList(text, items) {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  if (/^\W*(keine|kein|none|nichts|niemand)\b/i.test(t) && !/\d/.test(t)) return [];
+  const known = new Set(items.map((i) => i.id));
+  const ids = [...new Set((t.match(/\d+/g) || []).map(Number).filter((n) => known.has(n)))];
+  if (!ids.length) return /keine/i.test(t) ? [] : null;
+  // Wer (fast) alles nennt, hat die Aufgabe nicht verstanden (z. B. einfach "1, 2, 3, ... 86")
+  if (items.length >= 4 && ids.length > items.length * 0.8) return null;
+  return ids;
+}
+
+/**
+ * Bringt eine freie Modellantwort in die Form "ein Absatz Fliesstext": entfernt Code-Zaeune,
+ * Anfuehrungszeichen, Ueberschriften ("Betriebliche Tätigkeiten:"), Aufzaehlungszeichen und
+ * packt versehentliches JSON aus ({"betrieb":"..."} bzw. ["...","..."]).
+ */
+function cleanProse(raw) {
+  let t = String(raw || '').trim();
+  t = t.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
+  if (/^[[{]/.test(t)) {
+    try {
+      const strings = [];
+      const walk = (v) => {
+        if (typeof v === 'string') strings.push(v);
+        else if (Array.isArray(v)) v.forEach(walk);
+        else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+      };
+      walk(JSON.parse(t));
+      if (strings.length) t = strings.join(' ');
+    } catch { /* kein JSON: Text so lassen */ }
+  }
+  const lines = t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    .filter((l) => !/^(?:#+\s*)?(?:\*\*)?(Betriebliche T(?:ä|ae)tigkeiten|Berufsschule(?: \(Unterrichtsthemen\))?|Betrieb|Schule)(?:\*\*)?:?$/i.test(l))
+    .map((l) => l.replace(/^(?:[-*•]|\d+[.)])\s+/, '').replace(/^\*\*|\*\*$/g, '').replace(/^["„“'»«]+|["“”'»«]+$/g, '').trim())
+    .map((l) => (/[.!?:;]$/.test(l) ? l : `${l}.`));
+  t = lines.join(' ')
+    .replace(/^(?:Betriebliche T(?:ä|ae)tigkeiten|Berufsschule(?: \(Unterrichtsthemen\))?)\s*:\s*/i, '')
+    .replace(/^["„“'»«]+|["“”'»«]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return t;
+}
+
+/** Kuerzt am Satzende, bis der Text in maxLines Zeilen passt (mindestens ein Satz bleibt). */
+function truncateToLines(text, maxLines, width = 95) {
+  if (countLines(text, width) <= maxLines) return { text, cut: false };
+  const sentences = String(text).match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [text];
+  const kept = [...sentences];
+  while (kept.length > 1 && countLines(kept.join('').trim(), width) > maxLines) kept.pop();
+  return { text: kept.join('').trim(), cut: true };
+}
+
+module.exports.classifyPrompt = classifyPrompt;
+module.exports.writePrompt = writePrompt;
+module.exports.parseIdList = parseIdList;
+module.exports.cleanProse = cleanProse;
+module.exports.truncateToLines = truncateToLines;

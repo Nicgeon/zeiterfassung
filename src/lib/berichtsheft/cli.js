@@ -340,6 +340,7 @@ async function cmdRun(ctx, flags) {
         items: built.items, provider, model, apiKey, baseUrl: config.baseUrls[provider], lineWidth: config.lineWidth,
         generateImpl: ctx.generate,
         onRetry: (problems) => ui.print(`  Antwort nachbessern lassen (${problems.join(' ')})`),
+        onStep: (text) => ui.print(`  ${text}`),
       });
     } else {
       result = { ...localReport(built.items), problems: [] };
