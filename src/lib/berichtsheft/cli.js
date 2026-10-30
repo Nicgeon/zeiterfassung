@@ -332,7 +332,7 @@ async function cmdRun(ctx, flags) {
   for (;;) {
     let result;
     if (useAi) {
-      ui.print('\nSende an die KI …');
+      ui.print(`\nSende an die KI … ${provider === 'noah' || provider === 'kompatibel' ? '(kann bei diesem Anbieter mehrere Minuten dauern)' : ''}`.trimEnd());
       result = await aiReport({
         items: built.items, provider, model, apiKey, baseUrl: config.baseUrls[provider], lineWidth: config.lineWidth,
         generateImpl: ctx.generate,

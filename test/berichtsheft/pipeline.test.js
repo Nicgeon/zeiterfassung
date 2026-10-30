@@ -149,3 +149,26 @@ test('Store: Einstellungen verschlüsselt speichern und laden, Schlüssel aus de
   assert.deepEqual(list.map((e) => e.description), ['Aufgabe A']);
   assert.equal(list[0].school, false);
 });
+
+test('Kleine Modelle (Noah AI, kompatibel) bekommen den kurzen Prompt, große den ausführlichen', async () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  const seen = {};
+  const answer = JSON.stringify({ schule_ids: [3, 5], betrieb: 'wort '.repeat(60).trim(), schule: 'Subnetting und Routing wurden behandelt.' });
+  for (const provider of ['noah', 'kompatibel', 'anthropic']) {
+    await aiReport({ items, provider, model: 'm', apiKey: 'k', generateImpl: async (o) => { seen[provider] = o.system; return answer; } });
+  }
+  assert.ok(seen.noah.length < 1300 && seen.noah.includes('schule_ids'));
+  assert.equal(seen.kompatibel, seen.noah);
+  assert.ok(seen.anthropic.length > 1800 && !seen.anthropic.includes('schule_ids'));
+  assert.ok(seen.noah.length < seen.anthropic.length / 1.5);
+});
+
+test('parseAnswer versteht die Kurzform schule_ids', () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  const r = parseAnswer({ schule_ids: [3, '4', 99], betrieb: 'A', schule: 'B' }, items);
+  assert.equal(r.assignment.get(3), 'schule');
+  assert.equal(r.assignment.get(4), 'schule');
+  assert.equal(r.assignment.get(1), 'betrieb');
+  assert.equal(r.assignment.get(5), 'schule'); // markiert -> immer Schule
+  assert.throws(() => parseAnswer({ betrieb: 'A', schule: 'B' }, items), /Format/);
+});

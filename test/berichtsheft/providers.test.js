@@ -156,9 +156,9 @@ test('Noah AI: OpenAI-kompatibel, Bearer-Schlüssel, ruhige Ausgabe, <think>-Blo
     assert.equal(r.headers.authorization, 'Bearer noah-key');
     assert.equal(r.body.model, 'Qwen3-30B-A3B-Q4_K_M');
     assert.equal(r.body.response_format.type, 'json_object');
-    assert.equal(r.body.stream, false);
+    assert.equal(r.body.stream, true);
     assert.equal(r.body.temperature, 0.3);
-    assert.ok(r.body.max_tokens >= 4000);
+    assert.ok(r.body.max_tokens >= 12000);
     assert.equal(r.body.max_completion_tokens, undefined);
     assert.match(r.body.messages[1].content, /\/no_think$/);
   });
@@ -181,5 +181,82 @@ test('Noah AI: Modelle auflisten', async () => {
     assert.deepEqual(await listModels({ provider: 'noah', apiKey: 'k', baseUrl }), ['Qwen3-4B-Q4_K_M', 'Qwen3-30B-A3B-Q4_K_M']);
     assert.equal(requests[0].url, '/models');
     assert.equal(requests[0].headers.authorization, 'Bearer k');
+  });
+});
+
+/** Fake-Server, der Datenstrom (SSE) liefert; chunks werden einzeln mit kleiner Pause geschrieben. */
+async function withStreamServer(handler, fn) {
+  const requests = [];
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', async () => {
+      const parsed = body ? JSON.parse(body) : null;
+      requests.push({ url: req.url, body: parsed });
+      await handler({ req, res, body: parsed, count: requests.length });
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try { await fn(`http://127.0.0.1:${server.address().port}`, requests); } finally { server.closeAllConnections(); server.close(); }
+}
+
+const sse = (delta, finish = null) => `data: ${JSON.stringify({ choices: [{ delta, finish_reason: finish }] })}\n\n`;
+
+test('Noah AI: Antwort als Datenstrom wird zusammengesetzt (auch mit <think> und zerstückelten Zeilen)', async () => {
+  await withStreamServer(async ({ res }) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const whole = sse({ content: '<think>hm</think>' }) + sse({ content: ANSWER.slice(0, 20) }) + sse({ content: ANSWER.slice(20) }, 'stop') + 'data: [DONE]\n\n';
+    for (let i = 0; i < whole.length; i += 37) { res.write(whole.slice(i, i + 37)); await new Promise((r) => setTimeout(r, 2)); }
+    res.end();
+  }, async (baseUrl, requests) => {
+    assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), ANSWER);
+    assert.equal(requests[0].body.stream, true);
+  });
+});
+
+test('Noah AI: antwortet der Server trotz stream:true mit JSON, wird das normal gelesen', async () => {
+  await withStreamServer(({ res }) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: ANSWER } }] }));
+  }, async (baseUrl) => {
+    assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), ANSWER);
+  });
+});
+
+test('Noah AI: kann der Server nicht streamen (400), wird einmal ohne Datenstrom wiederholt', async () => {
+  await withStreamServer(({ res, body }) => {
+    if (body.stream) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'stream not supported' })); }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: ANSWER } }] }));
+  }, async (baseUrl, requests) => {
+    assert.equal(await generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), ANSWER);
+    assert.deepEqual(requests.map((r) => r.body.stream), [true, false]);
+  });
+});
+
+test('Datenstrom: Längenlimit, Fehler im Strom, Abbruch und Gateway-Timeout werden verständlich gemeldet', async () => {
+  await withStreamServer(({ res }) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(sse({ content: '{"a":' }, 'length'));
+  }, async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), /Längenlimit/);
+  });
+  await withStreamServer(({ res }) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(`data: ${JSON.stringify({ error: { message: 'Modell überlastet' } })}\n\n`);
+  }, async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), /Modell überlastet/);
+  });
+  await withStreamServer(({ res }) => {
+    res.writeHead(504, { 'content-type': 'text/html' });
+    res.end('<html>504 Gateway Time-out</html>');
+  }, async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl }), (e) => e.status === 504 && /Zeitüberschreitung auf dem Server/.test(e.message) && e.retryable);
+  });
+  await withStreamServer(async ({ res }) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.write(sse({ content: 'x' })); // und dann nichts mehr
+  }, async (baseUrl) => {
+    await assert.rejects(generate({ ...base, provider: 'noah', apiKey: 'k', model: 'm', baseUrl, timeoutMs: 200 }), /Zeitüberschreitung/);
   });
 });

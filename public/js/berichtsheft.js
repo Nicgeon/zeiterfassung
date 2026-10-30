@@ -262,9 +262,28 @@
     }
 
     async function generate(button, mode) {
-      await run(button, async () => {
-        showResult(await Api.post('/api/berichtsheft/generate', { ...week, hash: prep.hash, mode }));
-      });
+      // Langsame Modelle brauchen Minuten: Wartezeit sichtbar machen
+      const original = button.textContent;
+      const started = Date.now();
+      const tick = () => {
+        const s = Math.floor((Date.now() - started) / 1000);
+        button.textContent = `Warte auf die KI … ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      };
+      let timer = null;
+      if (mode === 'ki') {
+        tick();
+        timer = setInterval(tick, 1000);
+        els.sendHint.textContent = 'Das Modell schreibt gerade. Bei Noah AI kann das mehrere Minuten dauern – bitte die Seite offen lassen.';
+      }
+      try {
+        await run(button, async () => {
+          showResult(await Api.post('/api/berichtsheft/generate', { ...week, hash: prep.hash, mode }));
+        });
+      } finally {
+        if (timer) clearInterval(timer);
+        button.textContent = original;
+        if (prep) renderPreview();
+      }
     }
     els.send.addEventListener('click', () => generate(els.send, 'ki'));
     els.again.addEventListener('click', () => generate(els.again, 'ki'));

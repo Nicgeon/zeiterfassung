@@ -28,9 +28,11 @@ class ProviderError extends Error {
 
 const NAMES = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', noah: 'Noah AI', kompatibel: 'Der Anbieter' };
 
-// Selbst gehostete Modelle (Qwen3 ...) denken oft laut und sind langsamer: mehr Zeit und Platz, ruhigere Ausgabe.
-const LOCAL_MODEL_TIMEOUT_MS = 180_000;
-const LOCAL_MODEL_MAX_TOKENS = 8000;
+// Selbst gehostete Modelle (Qwen3 ...) sind langsam und denken oft laut: viel Zeit, viel Platz, ruhige
+// Ausgabe. Die Antwort wird als Datenstrom gelesen, damit Proxys zwischen hier und dem Modell die
+// Verbindung nicht wegen "keine Daten seit 120 s" kappen.
+const LOCAL_MODEL_TIMEOUT_MS = 900_000;
+const LOCAL_MODEL_MAX_TOKENS = 16000;
 
 function explainStatus(provider, status, detail, model) {
   const name = NAMES[provider] || 'Der Anbieter';
@@ -39,37 +41,54 @@ function explainStatus(provider, status, detail, model) {
   if (status === 404) return `${name} kennt das Modell "${model}" nicht oder es ist für diesen Schlüssel nicht freigeschaltet. "berichtsheft modelle" zeigt die verfügbaren Modelle${tail}.`;
   if (status === 429) return `${name}: Zu viele Anfragen oder das Guthaben/Kontingent ist aufgebraucht (429). Später erneut versuchen${tail}.`;
   if (status === 402) return `${name}: Abrechnungsproblem (402). Bitte das Konto des Anbieters prüfen${tail}.`;
+  if (status === 408 || status === 504 || status === 502) {
+    return `${name}: Zeitüberschreitung auf dem Server (${status}) – die Anfrage hat zu lange gedauert. Bitte das schnellere Modell wählen oder es später erneut versuchen${tail}.`;
+  }
   if (status >= 500) return `${name} ist gerade gestört (${status}). Später erneut versuchen${tail}.`;
   return `${name} meldet einen Fehler (${status})${tail}.`;
 }
 
-async function httpJson(provider, url, { method = 'POST', headers = {}, body, timeoutMs = DEFAULT_TIMEOUT_MS, model, fetchImpl = fetch }) {
-  let res;
+async function rawFetch(provider, url, { method = 'POST', headers = {}, body, timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch }) {
   try {
-    res = await fetchImpl(url, {
+    return await fetchImpl(url, {
       method,
       headers: { 'content-type': 'application/json', ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    const timedOut = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
-    throw new ProviderError(
-      timedOut ? `${NAMES[provider]}: Zeitüberschreitung nach ${Math.round(timeoutMs / 1000)} s.` : `${NAMES[provider]} nicht erreichbar: ${err.message}`,
-      { retryable: true }
-    );
+    throw mapNetworkError(provider, err, timeoutMs);
   }
-  const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { /* kein JSON */ }
-  if (!res.ok) {
-    const detail = (data && (data.error && (data.error.message || data.error))) || text;
-    throw new ProviderError(explainStatus(provider, res.status, typeof detail === 'string' ? detail : JSON.stringify(detail), model), {
-      status: res.status,
-      retryable: res.status === 429 || res.status >= 500,
-    });
-  }
-  return data;
+}
+
+function mapNetworkError(provider, err, timeoutMs) {
+  if (err instanceof ProviderError) return err;
+  const timedOut = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+  return new ProviderError(
+    timedOut ? `${NAMES[provider]}: Zeitüberschreitung nach ${Math.round(timeoutMs / 1000)} s.` : `${NAMES[provider]} nicht erreichbar: ${err.message}`,
+    { retryable: true }
+  );
+}
+
+function parseJson(text) {
+  try { return text ? JSON.parse(text) : null; } catch { return null; }
+}
+
+function failFromResponse(provider, res, text, model) {
+  const data = parseJson(text);
+  const detail = (data && (data.error && (data.error.message || data.error))) || text;
+  return new ProviderError(explainStatus(provider, res.status, typeof detail === 'string' ? detail : JSON.stringify(detail), model), {
+    status: res.status,
+    retryable: res.status === 429 || res.status >= 500,
+  });
+}
+
+async function httpJson(provider, url, opts) {
+  const res = await rawFetch(provider, url, opts);
+  let text;
+  try { text = await res.text(); } catch (err) { throw mapNetworkError(provider, err, opts.timeoutMs || DEFAULT_TIMEOUT_MS); }
+  if (!res.ok) throw failFromResponse(provider, res, text, opts.model);
+  return parseJson(text);
 }
 
 // --- Claude (offizielles SDK) -------------------------------------------------
@@ -124,10 +143,60 @@ function stripThinking(text) {
   return String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*?<\/think>/i, '').trim();
 }
 
+/** Liest eine "text/event-stream"-Antwort (OpenAI-Format) und sammelt den Text. */
+async function readEventStream(provider, res, timeoutMs) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const out = { content: '', finish: null, refusal: null };
+  const handle = (line) => {
+    if (!line.startsWith('data:')) return;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') return;
+    const json = parseJson(payload);
+    if (!json) return;
+    if (json.error) throw new ProviderError(`${NAMES[provider]}: ${typeof json.error === 'string' ? json.error : json.error.message || 'Fehler im Datenstrom'}`, { retryable: true });
+    const choice = json.choices && json.choices[0];
+    if (!choice) return;
+    if (choice.delta && typeof choice.delta.content === 'string') out.content += choice.delta.content;
+    if (choice.delta && choice.delta.refusal) out.refusal = choice.delta.refusal;
+    if (choice.finish_reason) out.finish = choice.finish_reason;
+  };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        handle(buffer.slice(0, nl).trim());
+        buffer = buffer.slice(nl + 1);
+      }
+    }
+    handle(buffer.trim());
+  } catch (err) {
+    throw mapNetworkError(provider, err, timeoutMs);
+  }
+  return out;
+}
+
+function finishOpenAi(provider, { content, finish, refusal }) {
+  if (refusal) throw new ProviderError(`Die Anfrage wurde abgelehnt: ${refusal}`);
+  if (finish === 'length') {
+    throw new ProviderError('Die Antwort wurde abgeschnitten (Längenlimit erreicht – das Modell hat zu lange "nachgedacht" oder zu viel geschrieben).', { retryable: true });
+  }
+  const text = stripThinking(content);
+  if (!text) throw new ProviderError(`${NAMES[provider] || 'Der Anbieter'} lieferte eine leere Antwort.`, { retryable: true });
+  return text;
+}
+
 async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, timeoutMs, fetchImpl }) {
   const base = (baseUrl || BASE_URLS[provider] || BASE_URLS.openai).replace(/\/+$/, '');
   const strict = provider === 'openai';
   const selfHosted = provider !== 'openai'; // Noah AI und "kompatibel"
+  const url = `${base}/chat/completions`;
+  const headers = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
+  const limit = timeoutMs || (selfHosted ? LOCAL_MODEL_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
   const body = {
     model,
     // Qwen3: "/no_think" schaltet das laute Nachdenken aus (andere Modelle behandeln es als normalen Text)
@@ -136,27 +205,40 @@ async function callOpenAi({ provider, apiKey, model, system, user, baseUrl, time
       ? { type: 'json_schema', json_schema: { name: 'berichtsheft', strict: true, schema: SCHEMA } }
       : { type: 'json_object' },
   };
-  if (selfHosted) {
-    body.max_tokens = LOCAL_MODEL_MAX_TOKENS;
-    body.temperature = 0.3;
-    body.stream = false;
-  } else {
+  if (!selfHosted) {
     body.max_completion_tokens = MAX_OUTPUT_TOKENS;
+    const data = await httpJson(provider, url, { headers, timeoutMs: limit, model, fetchImpl, body });
+    return readCompletion(provider, data);
   }
-  const data = await httpJson(provider, `${base}/chat/completions`, {
-    headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
-    timeoutMs: timeoutMs || (selfHosted ? LOCAL_MODEL_TIMEOUT_MS : undefined),
-    model,
-    fetchImpl,
-    body,
-  });
-  const message = data && data.choices && data.choices[0] && data.choices[0].message;
+
+  body.max_tokens = LOCAL_MODEL_MAX_TOKENS;
+  body.temperature = 0.3;
+  body.stream = true;
+  let res = await rawFetch(provider, url, { headers, body, timeoutMs: limit, fetchImpl });
+  if (!res.ok && [400, 422, 501].includes(res.status)) {
+    // Der Server kann (dieses) Streaming nicht: einmal ohne wiederholen
+    await res.text().catch(() => '');
+    body.stream = false;
+    res = await rawFetch(provider, url, { headers, body, timeoutMs: limit, fetchImpl });
+  }
+  if (!res.ok) {
+    let text = '';
+    try { text = await res.text(); } catch { /* egal */ }
+    throw failFromResponse(provider, res, text, model);
+  }
+  if ((res.headers.get('content-type') || '').includes('text/event-stream')) {
+    return finishOpenAi(provider, await readEventStream(provider, res, limit));
+  }
+  let text;
+  try { text = await res.text(); } catch (err) { throw mapNetworkError(provider, err, limit); }
+  return readCompletion(provider, parseJson(text));
+}
+
+function readCompletion(provider, data) {
+  const choice = data && data.choices && data.choices[0];
+  const message = choice && choice.message;
   if (!message) throw new ProviderError('Die Antwort enthielt keinen Text.');
-  if (message.refusal) throw new ProviderError(`Die Anfrage wurde abgelehnt: ${message.refusal}`);
-  if (data.choices[0].finish_reason === 'length') throw new ProviderError('Die Antwort wurde abgeschnitten (Längenlimit).', { retryable: true });
-  const content = stripThinking(message.content);
-  if (!content) throw new ProviderError(`${NAMES[provider] || 'Der Anbieter'} lieferte eine leere Antwort.`, { retryable: true });
-  return content;
+  return finishOpenAi(provider, { content: message.content, finish: choice.finish_reason, refusal: message.refusal });
 }
 
 // --- Gemini ----------------------------------------------------------------------

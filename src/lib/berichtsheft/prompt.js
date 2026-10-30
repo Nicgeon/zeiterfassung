@@ -24,7 +24,19 @@ const SCHEMA = {
 const MAX_LINES = 10;
 const MIN_LINES = 5;
 
-function systemPrompt({ lineWidth = 95 } = {}) {
+/** Kurzfassung für kleine/langsame Modelle: weniger Eingabe, weniger Ausgabe (nur Nummern statt Zuordnungsliste). */
+function compactPrompt({ lineWidth = 95 } = {}) {
+  return `Du schreibst den wöchentlichen Ausbildungsnachweis eines IT-Azubis. Du bekommst nummerierte, anonymisierte Stichpunkte ("ein Kunde", "ein Kollege", "ein Unternehmen" sind Platzhalter für Namen).
+
+1. "schule_ids": Nummern der Stichpunkte, die zur Berufsschule gehören ([Schule: sicher] immer, [Stichwort Schule] nur wenn es passt). Alle anderen sind betrieblich.
+2. "betrieb" und "schule": je ein Fließtext in ganzen Sätzen, Vergangenheit, ohne "ich", keine Aufzählung. Rechtschreibung korrigieren, Gleiches nur einmal nennen, nichts erfinden, keine Namen, Daten oder Ticketnummern. Programmnamen (z. B. Lini) unverändert lassen.
+3. Zusammen ${MIN_LINES} bis ${MAX_LINES} Zeilen (je ca. ${lineWidth} Zeichen, höchstens etwa ${MAX_LINES * lineWidth} Zeichen). Wenig Material: lieber kürzer. Keine Schul-Stichpunkte: "schule" ist "".
+
+Antworte nur mit JSON: {"schule_ids":[],"betrieb":"","schule":""}`;
+}
+
+function systemPrompt({ lineWidth = 95, compact = false } = {}) {
+  if (compact) return compactPrompt({ lineWidth });
   return `Du hilfst einem Auszubildenden in der Informatik beim Schreiben des wöchentlichen Ausbildungsnachweises (Berichtsheft). Du bekommst nummerierte Stichpunkte einer Woche. Sie sind bereits anonymisiert: Platzhalter wie "ein Kollege", "ein Kunde" und "ein Unternehmen" stehen für Namen.
 
 Aufgabe 1 – Zuordnung: Ordne jeden Stichpunkt einem Block zu.
@@ -95,12 +107,20 @@ function extractJson(text) {
 /** Prüft Form und Zuordnung der Antwort; wirft bei unbrauchbarer Struktur. */
 function parseAnswer(raw, items) {
   const data = typeof raw === 'string' ? extractJson(raw) : raw;
-  if (!data || typeof data.betrieb !== 'string' || typeof data.schule !== 'string' || !Array.isArray(data.zuordnung)) {
-    throw new Error('Die Antwort hat nicht das erwartete Format (zuordnung, betrieb, schule).');
+  const hasList = data && Array.isArray(data.zuordnung);
+  const hasIds = data && Array.isArray(data.schule_ids);
+  if (!data || typeof data.betrieb !== 'string' || typeof data.schule !== 'string' || !(hasList || hasIds)) {
+    throw new Error('Die Antwort hat nicht das erwartete Format (zuordnung oder schule_ids, betrieb, schule).');
   }
   const assignment = new Map();
-  for (const z of data.zuordnung) {
-    if (z && Number.isInteger(z.id) && (z.block === 'betrieb' || z.block === 'schule')) assignment.set(z.id, z.block);
+  if (hasList) {
+    for (const z of data.zuordnung) {
+      if (z && Number.isInteger(z.id) && (z.block === 'betrieb' || z.block === 'schule')) assignment.set(z.id, z.block);
+    }
+  } else {
+    // Kurzform: genannte Nummern = Schule, alle anderen Betrieb
+    const school = new Set(data.schule_ids.map(Number).filter(Number.isInteger));
+    for (const it of items) assignment.set(it.id, school.has(it.id) ? 'schule' : 'betrieb');
   }
   // Sichere Schul-Markierungen gelten immer; fehlende Zuordnungen fallen auf "betrieb".
   for (const it of items) {
@@ -124,4 +144,4 @@ function checkLimits({ betrieb, schule }, { lineWidth = 95, hasSchool, hasBetrie
   return { lines, problems };
 }
 
-module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, userMessage, countLines, extractJson, parseAnswer, checkLimits };
+module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, compactPrompt, userMessage, countLines, extractJson, parseAnswer, checkLimits };

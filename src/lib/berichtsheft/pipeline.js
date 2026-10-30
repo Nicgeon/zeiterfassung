@@ -6,6 +6,7 @@ const { anonymizeText } = require('./anonymize');
 const { systemPrompt, userMessage, parseAnswer, checkLimits } = require('./prompt');
 const { generate } = require('./providers');
 
+const COMPACT_PROVIDERS = new Set(['noah', 'kompatibel']);
 const TICKET_ONLY_TEXT = 'Bearbeitung eines Tickets';
 
 function matchesKeyword(text, keywords) {
@@ -59,7 +60,8 @@ function localReport(items) {
  * genau einen weiteren Versuch mit Rückmeldung.
  */
 async function aiReport({ items, provider, model, apiKey, baseUrl, lineWidth = 95, generateImpl = generate, onRetry }) {
-  const system = systemPrompt({ lineWidth });
+  // Kleine, selbst gehostete Modelle bekommen den kurzen Prompt (schneller, weniger Ausgabe)
+  const system = systemPrompt({ lineWidth, compact: COMPACT_PROVIDERS.has(provider) });
   let user = userMessage(items);
   const hasSchool = items.some((i) => i.school);
   const hasBetrieb = items.some((i) => !i.school);
