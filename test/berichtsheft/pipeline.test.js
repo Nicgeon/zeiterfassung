@@ -174,3 +174,39 @@ test('parseAnswer versteht die Kurzform schule_ids', () => {
   assert.equal(r.assignment.get(5), 'schule'); // markiert -> immer Schule
   assert.throws(() => parseAnswer({ betrieb: 'A', schule: 'B' }, items), /Format/);
 });
+
+test('parseAnswer: Array um das Objekt (so antwortet Qwen3 bei Noah AI) wird ausgepackt', () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  const text = 'Es wurden Sicherungen geprüft.';
+  // Originalform aus dem Protokoll: Array mit einem Objekt, schule leer
+  const real = '[\n {\n    "schule_ids": [4],\n    "betrieb": "' + text + '",\n    "schule": ""\n  }\n]';
+  const r = parseAnswer(real, items);
+  assert.equal(r.betrieb, text);
+  assert.equal(r.schule, '');
+  assert.equal(r.assignment.get(4), 'schule');
+  assert.equal(r.assignment.get(1), 'betrieb');
+  // mehrere Teilobjekte werden zusammengeführt, schule fehlt -> ""
+  const split = parseAnswer('[{"schule_ids":[3]},{"betrieb":"B."},{"schule":"S."}]', items);
+  assert.deepEqual([split.betrieb, split.schule], ['B.', 'S.']);
+  assert.equal(split.assignment.get(3), 'schule');
+  // schule fehlt oder null
+  assert.equal(parseAnswer('{"schule_ids":[],"betrieb":"B."}', items).schule, '');
+  assert.equal(parseAnswer('{"schule_ids":[],"betrieb":"B.","schule":null}', items).schule, '');
+  // schule_ids als Text oder Zahl
+  assert.equal(parseAnswer('{"schule_ids":"3, 4","betrieb":"B.","schule":"S."}', items).assignment.get(4), 'schule');
+  assert.equal(parseAnswer('{"schule_ids":3,"betrieb":"B.","schule":"S."}', items).assignment.get(3), 'schule');
+  // Text um ein Array herum
+  assert.equal(parseAnswer('Hier: [{"schule_ids":[],"betrieb":"B.","schule":""}] Fertig', items).betrieb, 'B.');
+});
+
+test('parseAnswer: weiterhin abgelehnt werden fehlendes betrieb, falsche Typen und fremde Schlüssel', () => {
+  const { items } = buildItems(entries, vocab, keywords);
+  for (const bad of ['[]', '[1,2]', '{"schule":"S."}', '{"schule_ids":[],"betrieb":["a"],"schule":""}', '{"ergebnis":{"schule_ids":[],"betrieb":"B.","schule":""}}', '{"schule_ids":"abc","betrieb":"B.","schule":""}']) {
+    assert.throws(() => parseAnswer(bad, items), /Format/, bad);
+  }
+});
+
+test('der kompakte Prompt verlangt ausdrücklich ein einzelnes Objekt', () => {
+  const p = require('../../src/lib/berichtsheft/prompt').compactPrompt();
+  assert.match(p, /einzelnen JSON-Objekt \(kein Array/);
+});

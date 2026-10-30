@@ -48,7 +48,9 @@ const FIRST_NAMES = new Set((
   'Nina Oliver Pascal Patrick Paul Peter Petra Philipp Rainer Ralf Rene René Robert Roland Sabine ' +
   'Sandra Sarah Sascha Sebastian Silke Simon Sina Sonja Stefan Stefanie Stephan Susanne Sven Sophie ' +
   'Svenja Thomas Thorsten Tim Timo Tobias Tom Torsten Ulrich Ursula Uwe Vanessa Verena Viktoria ' +
-  'Volker Walter Werner Wolfgang Yvonne'
+  'Volker Walter Werner Wolfgang Yvonne ' +
+  'Noah Elias Finn Luca Mia Sophia Lea Leonie Emilia Ella Mila Nele Lara Jule Mats Mika Theo Henry Liam Matteo ' +
+  'Anton Oskar Max Leo Moritz Lennard Jannis Jakob Marlon Tjark Hendrik Lukas Mohamed Ali Emre Can'
 ).split(/\s+/));
 
 const MONTHS = 'Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember';

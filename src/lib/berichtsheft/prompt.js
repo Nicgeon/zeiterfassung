@@ -32,7 +32,7 @@ function compactPrompt({ lineWidth = 95 } = {}) {
 2. "betrieb" und "schule": je ein Fließtext in ganzen Sätzen, Vergangenheit, ohne "ich", keine Aufzählung. Rechtschreibung korrigieren, Gleiches nur einmal nennen, nichts erfinden, keine Namen, Daten oder Ticketnummern. Programmnamen (z. B. Lini) unverändert lassen.
 3. Zusammen ${MIN_LINES} bis ${MAX_LINES} Zeilen (je ca. ${lineWidth} Zeichen, höchstens etwa ${MAX_LINES * lineWidth} Zeichen). Wenig Material: lieber kürzer. Keine Schul-Stichpunkte: "schule" ist "".
 
-Antworte nur mit JSON: {"schule_ids":[],"betrieb":"","schule":""}`;
+Antworte nur mit einem einzelnen JSON-Objekt (kein Array, kein weiterer Text), genau in dieser Form: {"schule_ids":[],"betrieb":"","schule":""}`;
 }
 
 function systemPrompt({ lineWidth = 95, compact = false } = {}) {
@@ -97,16 +97,43 @@ function extractJson(text) {
   try {
     return JSON.parse(t);
   } catch {
-    const a = t.indexOf('{');
-    const b = t.lastIndexOf('}');
+    const a = t.search(/[{[]/);
+    const b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
     if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
     throw new Error('Die Antwort enthielt kein lesbares JSON.');
   }
 }
 
+/**
+ * Macht aus kleinen Abweichungen der Modelle das erwartete Objekt:
+ *  - Array mit einem oder mehreren Objekten ([{...}] bzw. [{"schule_ids":..},{"betrieb":..}]) -> ein Objekt
+ *  - fehlendes oder leeres ("null") "schule" -> ""  (so steht es im Prompt für "keine Schul-Stichpunkte")
+ *  - "schule_ids" als Zahl oder Text ("3" bzw. "3, 4") -> Liste
+ * Alles andere bleibt unverändert und wird von parseAnswer abgelehnt.
+ */
+function normalizeAnswer(data) {
+  let obj = data;
+  if (Array.isArray(obj)) {
+    const parts = obj.filter((x) => x && typeof x === 'object' && !Array.isArray(x));
+    obj = parts.length ? Object.assign({}, ...parts) : obj;
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const out = { ...obj };
+  if (out.schule === undefined || out.schule === null) {
+    if (typeof out.betrieb === 'string' && (Array.isArray(out.zuordnung) || out.schule_ids !== undefined)) out.schule = '';
+  }
+  if (out.schule_ids !== undefined && !Array.isArray(out.schule_ids)) {
+    if (typeof out.schule_ids === 'number') out.schule_ids = [out.schule_ids];
+    else if (typeof out.schule_ids === 'string' && /^[\d\s,;]*$/.test(out.schule_ids)) {
+      out.schule_ids = out.schule_ids.split(/[\s,;]+/).filter(Boolean).map(Number);
+    }
+  }
+  return out;
+}
+
 /** Prüft Form und Zuordnung der Antwort; wirft bei unbrauchbarer Struktur. */
 function parseAnswer(raw, items) {
-  const data = typeof raw === 'string' ? extractJson(raw) : raw;
+  const data = normalizeAnswer(typeof raw === 'string' ? extractJson(raw) : raw);
   const hasList = data && Array.isArray(data.zuordnung);
   const hasIds = data && Array.isArray(data.schule_ids);
   if (!data || typeof data.betrieb !== 'string' || typeof data.schule !== 'string' || !(hasList || hasIds)) {
@@ -144,4 +171,4 @@ function checkLimits({ betrieb, schule }, { lineWidth = 95, hasSchool, hasBetrie
   return { lines, problems };
 }
 
-module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, compactPrompt, userMessage, countLines, extractJson, parseAnswer, checkLimits };
+module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, compactPrompt, userMessage, countLines, extractJson, normalizeAnswer, parseAnswer, checkLimits };
