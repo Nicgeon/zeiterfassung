@@ -83,3 +83,15 @@ test('scrubOutput lässt saubere Texte unverändert', () => {
   const r = scrubOutput('Es wurde ein Kunde beim Einrichten von Lini unterstützt.', vocab);
   assert.equal(r.changed, false);
 });
+
+test('scrubOutput: nach dem Entfernen von "Am Montag" bleiben ganze Sätze mit großem Anfang übrig', () => {
+  const r = scrubOutput('Am Montag wurden die täglichen Aufgaben besprochen. Am Dienstag wurde ein Update eingespielt. Außerdem wurden Termine geprüft.', vocab);
+  assert.equal(r.changed, true);
+  assert.equal(r.text, 'Es wurden die täglichen Aufgaben besprochen. Es wurde ein Update eingespielt. Außerdem wurden Termine geprüft.');
+});
+
+test('polishSentences: Satzanfang groß, aber nicht nach Abkürzungen', () => {
+  const { polishSentences } = require('../../src/lib/berichtsheft/anonymize');
+  assert.equal(polishSentences('wurden Mails gelesen. emails wurden geprüft, z. B. das Postfach, ca. zehn Stück.'), 'Es wurden Mails gelesen. Emails wurden geprüft, z. B. das Postfach, ca. zehn Stück.');
+  assert.equal(polishSentences('Saubere Sätze bleiben. So wie sie sind.'), 'Saubere Sätze bleiben. So wie sie sind.');
+});

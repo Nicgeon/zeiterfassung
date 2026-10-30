@@ -210,3 +210,13 @@ test('der kompakte Prompt verlangt ausdrücklich ein einzelnes Objekt', () => {
   const p = require('../../src/lib/berichtsheft/prompt').compactPrompt();
   assert.match(p, /einzelnen JSON-Objekt \(kein Array/);
 });
+
+test('Prompts verlangen abwechslungsreichen Satzbau und verbieten Wochentage', () => {
+  const { systemPrompt } = require('../../src/lib/berichtsheft/prompt');
+  for (const compact of [true, false]) {
+    const p = systemPrompt({ compact });
+    assert.match(p, /nicht (?:jeden|jeder) Satz mit "wurde\/wurden"/);
+    assert.match(p, /Wochentag/);
+  }
+  assert.ok(systemPrompt({ compact: true }).length < 1700);
+});

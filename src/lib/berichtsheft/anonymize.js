@@ -244,12 +244,34 @@ function scrubOutput(text, vocab = {}) {
   const lines = String(text || '').split('\n').map((line) => {
     const r = anonymizeText(line, vocab);
     if (r.changed) changed = true;
-    return r.text;
+    return polishSentences(r.text);
   });
   return { text: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim(), changed };
 }
 
+// Abkuerzungen, nach denen ein Punkt keinen Satz beendet
+const ABBREVIATIONS = new Set(['z', 'b', 'd', 'h', 'u', 'a', 'o', 'ä', 'ca', 'bzw', 'usw', 'ggf', 'evtl', 'inkl', 'vgl', 'etc', 'sog', 'bspw', 'tel', 'nr', 'str', 'ab', 'bis']);
+
+/**
+ * Raeumt Satzanfaenge auf, die nach dem Entfernen von "Am Montag ..." uebrig bleiben:
+ * "Am Montag wurden die Aufgaben besprochen." -> "wurden die Aufgaben besprochen." -> "Es wurden die Aufgaben besprochen."
+ * und setzt Satzanfaenge gross.
+ */
+function polishSentences(text) {
+  let t = String(text || '');
+  // Satz beginnt mit der Verbform "wurde(n)" (davor stand eine Zeitangabe): "Es" ergaenzen
+  t = t.replace(/(^|[.!?]\s+)(wurde|wurden)(?=\s)/giu, (m, lead, verb) => `${lead}Es ${verb.toLowerCase()}`);
+  // Satzanfang gross (nicht nach Abkuerzungen wie "z. B.")
+  t = t.replace(/^(\p{Ll})/u, (m) => m.toUpperCase());
+  t = t.replace(/(\p{L}+)([.!?])(\s+)(\p{Ll})/gu, (m, word, punct, space, next) => {
+    if (punct === '.' && (word.length <= 1 || ABBREVIATIONS.has(word.toLowerCase()))) return m;
+    return `${word}${punct}${space}${next.toUpperCase()}`;
+  });
+  return t;
+}
+
 module.exports = {
+  polishSentences,
   KIND_PHRASE,
   KINDS,
   anonymizeText,

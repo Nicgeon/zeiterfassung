@@ -29,7 +29,7 @@ function compactPrompt({ lineWidth = 95 } = {}) {
   return `Du schreibst den wöchentlichen Ausbildungsnachweis eines IT-Azubis. Du bekommst nummerierte, anonymisierte Stichpunkte ("ein Kunde", "ein Kollege", "ein Unternehmen" sind Platzhalter für Namen).
 
 1. "schule_ids": Nummern der Stichpunkte, die zur Berufsschule gehören ([Schule: sicher] immer, [Stichwort Schule] nur wenn es passt). Alle anderen sind betrieblich.
-2. "betrieb" und "schule": je ein Fließtext in ganzen Sätzen, Vergangenheit, ohne "ich", keine Aufzählung. Rechtschreibung korrigieren, Gleiches nur einmal nennen, nichts erfinden, keine Namen, Daten oder Ticketnummern. Programmnamen (z. B. Lini) unverändert lassen.
+2. "betrieb" und "schule": je ein Fließtext aus vollständigen, gut lesbaren Sätzen (jeder Satz mit Subjekt und Verb), Vergangenheit, ohne "ich", keine Aufzählung. Satzbau abwechseln: nicht jeden Satz mit "wurde/wurden" beginnen, Sätze mit "außerdem", "anschließend", "dabei" verbinden, Aktiv und Passiv mischen. Rechtschreibung korrigieren, Gleiches nur einmal nennen, nichts erfinden. Keine Namen, Daten, Wochentage, Uhrzeiten ("Am Montag", "letzte Woche") oder Ticketnummern. Programmnamen (z. B. Lini) unverändert lassen.
 3. Zusammen ${MIN_LINES} bis ${MAX_LINES} Zeilen (je ca. ${lineWidth} Zeichen, höchstens etwa ${MAX_LINES * lineWidth} Zeichen). Wenig Material: lieber kürzer. Keine Schul-Stichpunkte: "schule" ist "".
 
 Antworte nur mit einem einzelnen JSON-Objekt (kein Array, kein weiterer Text), genau in dieser Form: {"schule_ids":[],"betrieb":"","schule":""}`;
@@ -46,7 +46,7 @@ Hinweise in eckigen Klammern: [Schule: sicher] heißt, der Nutzer hat den Eintra
 
 Aufgabe 2 – Texte: Schreibe je Block einen zusammenhängenden Fließtext.
 - Fließtext in ganzen Sätzen, KEINE Aufzählung, keine Spiegelstriche, keine Nummerierung, keine Zwischenüberschriften.
-- Sachlicher Berichtsstil in der Vergangenheit, ohne "ich".
+- Sachlicher Berichtsstil in der Vergangenheit, ohne "ich". Abwechslungsreicher Satzbau: nicht jeder Satz mit "wurde/wurden", Sätze mit "außerdem", "anschließend", "dabei", "darüber hinaus" verbinden, Aktiv und Passiv mischen (z. B. "Zu den Aufgaben gehörten …", "Unterstützt wurde …").
 - Korrigiere Rechtschreibung und Grammatik.
 - Fasse gleiche oder ähnliche Tätigkeiten zusammen. Füllwörter und Wiederholungen wie "dokumentiert", "aufgeräumt", "erledigt", "diverse" nennst du höchstens einmal.
 - Keine Datums-, Uhrzeit- oder Wochentagsangaben, keine Ticketnummern.
