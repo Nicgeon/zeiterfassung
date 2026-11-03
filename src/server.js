@@ -22,6 +22,7 @@ const timerRoutes = require('./routes/timer');
 const adminRoutes = require('./routes/admin');
 const updateRoutes = require('./routes/update');
 const berichtsheftRoutes = require('./routes/berichtsheft');
+const appMode = require('./lib/appMode');
 const updater = require('./lib/updater');
 
 const app = express();
@@ -209,6 +210,22 @@ app.use('/api/timer', requireAuth, timerRoutes);
 app.use('/api/account', requireAuth, accountRoutes);
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/api/update', requireAuth, updateRoutes);
+if (config.localMode) {
+  // Programm-Modus: Fenster-Ping, Leerlauf-Ende und "Beenden" (nur lokal). ZEIT_APP_MODE=1 setzt der Starter.
+  const appModeOn = process.env.ZEIT_APP_MODE === '1';
+  const monitor = appModeOn
+    ? appMode.createIdleMonitor({
+      idleMs: Number(process.env.ZEIT_IDLE_MS) || 150_000,
+      closingMs: Number(process.env.ZEIT_CLOSING_MS) || 10_000,
+      onIdle: () => {
+        // eslint-disable-next-line no-console
+        console.log('Das Fenster wurde geschlossen - Zeiterfassung wird beendet.');
+        process.exit(0);
+      },
+    })
+    : null;
+  app.use('/api/app', requireAuth, appMode.createRouter({ monitor, appMode: appModeOn, quit: () => process.exit(0) }));
+}
 app.use(
   '/api/berichtsheft',
   requireAuth,

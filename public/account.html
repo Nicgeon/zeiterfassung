@@ -6,7 +6,10 @@
 <title>Konto – Zeiterfassung</title>
 <link rel="stylesheet" href="/css/fonts.css" />
 <link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
 <script src="/js/theme.js"></script>
+<script src="/js/appmode.js" defer></script>
 </head>
 <body>
 
@@ -126,6 +129,16 @@
       <p class="field-hint">Nur ein Hinweis für die KI. Sicher ist ein Eintrag mit dem Haken „Berufsschule“.</p>
     </div>
     <button type="button" class="btn" id="bhSaveBtn">Speichern</button>
+  </div>
+
+  <!-- Programm beenden (nur lokaler Betrieb) -->
+  <div class="card local-only" id="quitCard">
+    <div class="card__header"><h2>Programm</h2></div>
+    <p class="text-muted text-sm">
+      Die Zeiterfassung läuft im Hintergrund und beendet sich, sobald dieses Fenster geschlossen wird.
+      Hier lässt sie sich auch gezielt beenden.
+    </p>
+    <button type="button" class="btn btn--secondary" id="quitBtn">Zeiterfassung beenden</button>
   </div>
 
   <!-- Updates (nur lokaler Betrieb) -->

@@ -25,7 +25,9 @@ const ALLOWED = [
   /^src\//,
   /^public\//,
   /^package(-lock)?\.json$/,
-  /^(start-local|berichtsheft)\.(sh|bat|command)$/,
+  /^(start-local|berichtsheft|start-app)\.(sh|bat|command)$/,
+  /^(Zeiterfassung|app-verknuepfung-erstellen)\.vbs$/,
+  /^Zeiterfassung\.app\//,
   /^README\.md$/,
   /^\.env\.example$/,
   /^\.gitattributes$/,
@@ -35,7 +37,7 @@ const ALLOWED = [
   /^docker-compose\.yml$/,
 ];
 const SAFE_PATH = /^[A-Za-z0-9._\-/]+$/;
-const TEXT_FILE = /(\.(js|json|html|css|md|txt|sh|bat|yml|yaml|svg|example)|(^|\/)(Dockerfile|\.gitignore|\.dockerignore|\.gitattributes))$/;
+const TEXT_FILE = /(\.(js|json|html|css|md|txt|sh|bat|vbs|plist|yml|yaml|svg|example)|(^|\/)(Dockerfile|\.gitignore|\.dockerignore|\.gitattributes)|Zeiterfassung\.app\/Contents\/MacOS\/[^/]+)$/;
 const DEPENDENCY_FILES = new Set(['package.json', 'package-lock.json']);
 
 function isUpdatablePath(p) {

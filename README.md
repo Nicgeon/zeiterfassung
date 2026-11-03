@@ -586,6 +586,14 @@ Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Doc
 
 Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automatisch erzeugt und der Browser geoeffnet (`http://localhost:4711`). Beenden: Fenster schliessen oder Strg+C.
 
+**Als Programm starten (empfohlen):** Statt Konsolenfenster und Browser-Tab läuft die Zeiterfassung unsichtbar im Hintergrund und öffnet sich in einem **eigenen App-Fenster** (Edge bzw. Chrome ohne Tabs und Adressleiste, mit eigenem Browser-Profil und eigenem Symbol in der Taskleiste). Dadurch landen Links aus anderen Programmen nie in diesem Fenster, und es lässt sich z. B. auf einem dritten Monitor ablegen (Größe und Position merkt sich der Browser).
+- **Windows:** Doppelklick auf **`Zeiterfassung.vbs`**. Einmalig `app-verknuepfung-erstellen.vbs` ausführen, dann liegt „Zeiterfassung“ mit Symbol auf dem Desktop. Der Starter nutzt Edge (auf Windows 10/11 immer vorhanden) oder Chrome/Brave.
+- **macOS:** Doppelklick auf **`Zeiterfassung.app`** (im Programmordner; Chrome, Edge oder Brave nötig). Beim ersten Mal blockiert macOS ggf. („nicht verifizierter Entwickler“): Rechtsklick → *Öffnen*, oder einmalig `xattr -dr com.apple.quarantine .` im Programmordner. Das Programm darf aus dem Ordner in den Dock gezogen werden, solange die Datei dort bleibt, wo sie ist.
+- **Linux:** `./start-app.sh`.
+- **Beenden:** Fenster schließen – nach wenigen Sekunden beendet sich auch der Hintergrundprozess (ein laufender Timer ist davon nicht betroffen, er steht in der Datenbank). Alternativ unter *Konto → Programm → Zeiterfassung beenden*. Ein zweiter Start, solange die Zeiterfassung läuft, öffnet nur ein weiteres Fenster.
+- **Updates** funktionieren wie bisher; nach der Installation startet der Starter den Server neu, das Fenster bleibt offen. Beim ersten Start (oder nach Updates, die Pakete ändern) erscheint kurz ein Installationsfenster.
+- **Fehlersuche:** Ausgaben stehen in `zeiterfassung.log` im Datenordner. Fehler beim Start (Node fehlt, Port belegt, Installation fehlgeschlagen) erscheinen als Hinweisfenster. Mit `ZEIT_BROWSER=<Programm>` lässt sich ein bestimmter Chromium-Browser vorgeben. Findet sich keiner, öffnet der Starter den Standardbrowser; das Programm läuft dann weiter, bis „Beenden“ gewählt wird. `start-local.*` bleibt unverändert nutzbar (Konsole + Browser-Tab).
+
 **Node.js-Version gewechselt?** Das native Modul `better-sqlite3` gilt nur für die Node-Version, mit der es installiert wurde (Fehler `NODE_MODULE_VERSION … requires …`). Die Startskripte erkennen das und bauen es automatisch neu. Von Hand: `npm rebuild better-sqlite3`, notfalls den Ordner `node_modules` löschen und `npm install --omit=dev` ausführen. Die Daten sind davon nicht betroffen.
 
 **macOS**

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Startprogramm des macOS-Programms: wechselt in den Projektordner (…/Zeiterfassung.app/Contents/MacOS -> drei Ebenen hoch).
+cd "$(dirname "$0")/../../.." || exit 1
+exec bash ./start-app.sh

@@ -77,7 +77,9 @@ function announce() {
   // eslint-disable-next-line no-console
   console.log(
     `\nZeiterfassung laeuft lokal: ${url}\nDaten: ${config.dataDir}\n` +
-      'Zum Beenden dieses Fenster schliessen oder Strg+C druecken.\n'
+      (process.env.ZEIT_APP_MODE === '1'
+        ? 'Programm-Modus: Das Programm beendet sich, wenn das Fenster geschlossen wird.\n'
+        : 'Zum Beenden dieses Fenster schliessen oder Strg+C druecken.\n')
   );
   if (process.env.OPEN_BROWSER === '1') openBrowser(url);
   return true;
