@@ -1420,3 +1420,10 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini .mini-icon-btn .btn__label { display: none; }
 .mini .mini-icon-btn { flex: 0 0 auto !important; min-width: 44px; padding: 0 10px !important; }
 .mini #timerStopBtn { gap: 6px; }
+
+/* Knopf "Grosses Fenster" nur im Mini-Fenster */
+.mini-only { display: none; }
+.mini .mini-only { display: inline-flex; }
+.mini .composer__head { flex-wrap: nowrap; }
+.mini .composer__head h2 { margin-right: auto; }
+.mini .composer--timer .composer__head .mini-only { order: 3; margin-left: 8px; }

@@ -30,11 +30,12 @@ function createIdleMonitor({ idleMs = 150_000, closingMs = 10_000, onIdle, setTi
 
 /**
  * GET  /api/app/ping?state=open|closing|probe   -> { appMode }
+ * POST /api/app/window {kind:'main'|'mini'}      -> weiteres App-Fenster oeffnen (Starter) -> { opened }
  * POST /api/app/quit                            -> beendet die Zeiterfassung
  * Ping ist ein GET (die Seite nutzt beim Verlassen fetch mit keepalive), darum prueft er den Herkunfts-
  * Header: Eine fremde Webseite darf den Server nicht per Link/Bild beenden koennen.
  */
-function createRouter({ monitor, appMode, quit, setTimer = setTimeout }) {
+function createRouter({ monitor, appMode, quit, openWindow, setTimer = setTimeout }) {
   const router = express.Router();
   router.get('/ping', (req, res) => {
     const site = req.get('sec-fetch-site');
@@ -46,6 +47,13 @@ function createRouter({ monitor, appMode, quit, setTimer = setTimeout }) {
     }
     res.set('Cache-Control', 'no-store');
     res.json({ appMode: !!appMode });
+  });
+  // Weiteres Programmfenster ("main" = gross, "mini") ueber den Starter oeffnen. Ohne Starter (Browser-Tab):
+  // opened:false, die Seite oeffnet dann selbst ein Popup.
+  router.post('/window', (req, res) => {
+    const kind = req.body && req.body.kind;
+    if (!['main', 'mini'].includes(kind)) return res.status(400).json({ error: 'Ungültige Angabe.' });
+    res.json({ opened: !!(openWindow && openWindow(kind)) });
   });
   router.post('/quit', (req, res) => {
     res.json({ status: 'ok' });

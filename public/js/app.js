@@ -24,6 +24,7 @@
     endTime: $('#endTime'),
     nowBtn: $('#nowBtn'),
     miniBtn: $('#miniBtn'),
+    miniMainBtn: $('#miniMainBtn'),
     durationHint: $('#durationHint'),
     duration: $('#duration'),
     durationChips: document.querySelector('.duration-chips'),
@@ -1143,10 +1144,28 @@
 
   const isMini = document.documentElement.classList.contains('mini');
 
-  els.miniBtn.addEventListener('click', () => {
+  /** Im Programm-Modus oeffnet der Starter ein eigenes App-Fenster (unabhaengig von diesem); sonst false. */
+  async function openViaLauncher(kind) {
+    try {
+      const r = await Api.post('/api/app/window', { kind });
+      return !!(r && r.opened);
+    } catch { return false; }
+  }
+
+  els.miniBtn.addEventListener('click', async () => {
+    if (await openViaLauncher('mini')) return;
     const w = window.open('/index.html?mini=1', 'zeit-mini', 'popup=yes,width=460,height=400');
     if (!w) return showToast('Das Mini-Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
     w.focus();
+  });
+
+  // Mini -> gross: das grosse Fenster oeffnen (oder in den Vordergrund holen), dieses Mini-Fenster schliesst sich
+  els.miniMainBtn.addEventListener('click', async () => {
+    if (!(await openViaLauncher('main'))) {
+      const w = window.open('/index.html', 'zeit-main');
+      if (!w) return showToast('Das Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
+    }
+    setTimeout(() => window.close(), 700);
   });
 
   /** Fenstergröße an den Inhalt anpassen (nur im Mini-Fenster; der Browser darf das bei eigenen Fenstern). */

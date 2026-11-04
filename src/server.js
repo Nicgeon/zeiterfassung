@@ -224,7 +224,13 @@ if (config.localMode) {
       },
     })
     : null;
-  app.use('/api/app', requireAuth, appMode.createRouter({ monitor, appMode: appModeOn, quit: () => process.exit(0) }));
+  app.use('/api/app', requireAuth, appMode.createRouter({
+    monitor,
+    appMode: appModeOn,
+    quit: () => process.exit(0),
+    // Der Starter (Elternprozess) oeffnet das Fenster; nur vorhanden, wenn er den Server mit Nachrichtenkanal startet
+    openWindow: appModeOn && typeof process.send === 'function' ? (kind) => { process.send({ type: 'open-window', kind }); return true; } : null,
+  }));
 }
 app.use(
   '/api/berichtsheft',

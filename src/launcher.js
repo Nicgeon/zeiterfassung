@@ -30,8 +30,10 @@ const NO_WINDOW = process.argv.includes('--kein-fenster') || process.env.ZEIT_NO
 const PORT = parseInt(process.env.PORT || '4711', 10);
 const URL_LOCAL = `http://localhost:${PORT}`;
 const MINI = process.argv.includes('--mini');
-const WINDOW_URL = MINI ? `${URL_LOCAL}/index.html?mini=1` : URL_LOCAL;
-const WINDOW_SIZE = MINI ? [460, 400] : null;
+const MINI_URL = `${URL_LOCAL}/index.html?mini=1`;
+const MINI_SIZE = [460, 400];
+const windowFor = (kind) => (kind === 'mini' ? { url: MINI_URL, size: MINI_SIZE } : { url: URL_LOCAL, size: null });
+const START_KIND = MINI ? 'mini' : 'main';
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
 const PROFILE_DIR = path.join(DATA_DIR, 'browser-profil');
@@ -150,10 +152,17 @@ function runServerOnce() {
     server = spawn(process.execPath, [path.join(ROOT, 'src', 'server.js')], {
       cwd: ROOT,
       env: { ...process.env, LOCAL_MODE: 'true', ZEIT_SUPERVISED: '1', ZEIT_APP_MODE: windowMode ? '1' : '0', OPEN_BROWSER: '0' },
-      stdio: ['ignore', logFd, logFd],
+      stdio: ['ignore', logFd, logFd, 'ipc'], // IPC: der Server kann weitere Fenster anfordern (Mini <-> gross)
       windowsHide: true,
     });
     log(`Server gestartet (PID ${server.pid}).`);
+    server.on('message', (msg) => {
+      if (msg && msg.type === 'open-window' && ['main', 'mini'].includes(msg.kind) && !NO_WINDOW) {
+        log(`Fenster angefordert: ${msg.kind}`);
+        const w = windowFor(msg.kind);
+        openWindow(w.url, { watchClose: false, size: w.size });
+      }
+    });
     server.on('exit', (code, signal) => { log(`Server beendet (Code ${code}, Signal ${signal}).`); resolve(code); });
     server.on('error', (err) => { log(`Server konnte nicht gestartet werden: ${err.message}`); resolve(1); });
   });
@@ -185,7 +194,7 @@ function openDefaultBrowser(url) {
 /**
  * Oeffnet das App-Fenster. watchClose: Schliesst die Person das Fenster, endet das Programm.
  */
-function openWindow(url, { watchClose }) {
+function openWindow(url, { watchClose, size = null }) {
   const exe = BROWSER;
   if (!exe) {
     log('Kein Chrome/Edge gefunden - öffne den Standardbrowser (Das Programm läuft dann weiter, bis „Beenden“ gewählt wird).');
@@ -195,7 +204,7 @@ function openWindow(url, { watchClose }) {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`App-Fenster: ${exe}`);
   const started = Date.now();
-  const child = spawn(exe, appWindowArgs(url, PROFILE_DIR, { size: WINDOW_SIZE }), { stdio: 'ignore', detached: false });
+  const child = spawn(exe, appWindowArgs(url, PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
   child.on('error', (err) => { log(`Browser konnte nicht gestartet werden: ${err.message}`); openDefaultBrowser(url); });
   child.on('exit', (code) => {
     const lived = Date.now() - started;
@@ -217,7 +226,7 @@ async function main() {
   if (await portInUse()) {
     if (await probe()) {
       log('Zeiterfassung läuft bereits - öffne nur das Fenster.');
-      if (!NO_WINDOW) openWindow(WINDOW_URL, { watchClose: false });
+      if (!NO_WINDOW) openWindow(windowFor(START_KIND).url, { watchClose: false, size: windowFor(START_KIND).size });
       setTimeout(() => process.exit(0), 1500);
       return;
     }
@@ -235,7 +244,7 @@ async function main() {
 
   if (!NO_WINDOW) {
     if (await waitForServer(120_000)) {
-      openWindow(WINDOW_URL, { watchClose: true });
+      openWindow(windowFor(START_KIND).url, { watchClose: true, size: windowFor(START_KIND).size });
     } else {
       notify('Zeiterfassung', 'Der Server ist nicht rechtzeitig gestartet. Einzelheiten stehen in zeiterfassung.log (im Datenordner).');
     }

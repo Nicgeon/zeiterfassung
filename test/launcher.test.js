@@ -44,10 +44,12 @@ test('Leerlauf-Wächter: erst nach dem ersten Ping aktiv, Seitenwechsel hebt die
 
 // --- Routen -----------------------------------------------------------------------------------------------
 
+const windows = [];
 async function withRouter(opts, fn) {
   const calls = [];
   const monitor = { ping: () => calls.push('ping'), closing: () => calls.push('closing') };
   const app = express();
+  app.use(express.json());
   app.use('/api/app', createRouter({ monitor, quit: () => calls.push('quit'), setTimer: (f) => { f(); return null; }, ...opts }));
   const server = http.createServer(app);
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -69,6 +71,16 @@ test('Ping-Route: Zustände, Herkunftsprüfung, nur im Programm-Modus wirksam', 
     assert.deepEqual(calls, ['ping', 'closing', 'ping']);
     await fetch(`${base}/quit`, { method: 'POST' });
     assert.equal(calls.at(-1), 'quit');
+  });
+  await withRouter({ appMode: true, openWindow: (kind) => { windows.push(kind); return true; } }, async (base) => {
+    const post = (body) => fetch(`${base}/window`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.deepEqual(await (await post({ kind: 'mini' })).json(), { opened: true });
+    assert.equal((await post({ kind: 'xyz' })).status, 400);
+    assert.deepEqual(windows, ['mini']);
+  });
+  await withRouter({ appMode: false }, async (base) => {
+    const r = await fetch(`${base}/window`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'main' }) });
+    assert.deepEqual(await r.json(), { opened: false }); // ohne Starter: die Seite oeffnet selbst ein Popup
   });
   await withRouter({ appMode: false }, async (base, calls) => {
     assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: false });
@@ -228,4 +240,40 @@ test('Starter mit --mini: öffnet nur das kleine Fenster mit fester Größe', as
 test('appWindowArgs: Größe nur auf Wunsch', () => {
   assert.ok(!appWindowArgs('http://x', '/p').some((a) => a.startsWith('--window-size')));
   assert.ok(appWindowArgs('http://x', '/p', { size: [480, 420] }).includes('--window-size=480,420'));
+});
+
+test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster beim Starter an (Mini und groß)', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher5-'));
+  const port = await freePort();
+  const fake = path.join(dir, 'fake-browser.sh');
+  fs.writeFileSync(fake, `#!/bin/sh\necho "$@" >> "${dir}/browser-calls"\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
+  delete env.ENCRYPTION_KEY;
+  const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js')], { env, stdio: 'ignore' });
+  const calls = () => (fs.existsSync(path.join(dir, 'browser-calls')) ? fs.readFileSync(path.join(dir, 'browser-calls'), 'utf8').trim().split('\n') : []);
+  try {
+    await until(() => calls().length >= 1);
+    assert.match(calls()[0], new RegExp(`--app=http://localhost:${port}(?!/index)`)); // erstes Fenster: gross
+    const tokenRes = await fetch(`http://127.0.0.1:${port}/api/csrf-token`);
+    const cookies = tokenRes.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const { csrfToken } = await tokenRes.json();
+    const post = (body) => fetch(`http://127.0.0.1:${port}/api/app/window`, { method: 'POST', headers: { cookie: cookies, 'x-csrf-token': csrfToken, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+    const mini = await post({ kind: 'mini' });
+    assert.deepEqual(await mini.json(), { opened: true });
+    await until(() => calls().length >= 2);
+    assert.match(calls()[1], new RegExp(`--app=http://localhost:${port}/index\\.html\\?mini=1`));
+    assert.match(calls()[1], /--window-size=460,400/);
+
+    assert.deepEqual(await (await post({ kind: 'main' })).json(), { opened: true });
+    await until(() => calls().length >= 3);
+    assert.match(calls()[2], new RegExp(`--app=http://localhost:${port} `)); // grosses Fenster, ohne feste Größe
+    assert.doesNotMatch(calls()[2], /--window-size/);
+
+    assert.equal((await post({ kind: 'quatsch' })).status, 400);
+    assert.equal(calls().length, 3);
+  } finally {
+    fs.writeFileSync(path.join(dir, 'close'), '');
+    launcher.kill();
+  }
 });
