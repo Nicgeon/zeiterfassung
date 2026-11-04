@@ -205,3 +205,27 @@ test('Starter: Beenden-Route der Seite beendet Server und Starter', async () => 
     launcher.kill();
   }
 });
+
+test('Starter mit --mini: öffnet nur das kleine Fenster mit fester Größe', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher4-'));
+  const port = await freePort();
+  const fake = path.join(dir, 'fake-browser.sh');
+  fs.writeFileSync(fake, `#!/bin/sh\necho "$@" > "${dir}/browser-args"\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
+  delete env.ENCRYPTION_KEY;
+  const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js'), '--mini'], { env, stdio: 'ignore' });
+  try {
+    await until(() => fs.existsSync(path.join(dir, 'browser-args')));
+    const args = fs.readFileSync(path.join(dir, 'browser-args'), 'utf8');
+    assert.match(args, new RegExp(`--app=http://localhost:${port}/index\\.html\\?mini=1`));
+    assert.match(args, /--window-size=480,420/);
+  } finally {
+    fs.writeFileSync(path.join(dir, 'close'), '');
+    launcher.kill();
+  }
+});
+
+test('appWindowArgs: Größe nur auf Wunsch', () => {
+  assert.ok(!appWindowArgs('http://x', '/p').some((a) => a.startsWith('--window-size')));
+  assert.ok(appWindowArgs('http://x', '/p', { size: [480, 420] }).includes('--window-size=480,420'));
+});

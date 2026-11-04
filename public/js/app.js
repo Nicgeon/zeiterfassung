@@ -23,6 +23,7 @@
     startTime: $('#startTime'),
     endTime: $('#endTime'),
     nowBtn: $('#nowBtn'),
+    miniBtn: $('#miniBtn'),
     durationHint: $('#durationHint'),
     duration: $('#duration'),
     durationChips: document.querySelector('.duration-chips'),
@@ -1136,5 +1137,52 @@
     window.location.href = '/login.html';
   });
 
-  init();
+  // --- Mini-Fenster und Abgleich zwischen Fenstern ------------------------------------------------
+  // Das Mini-Fenster ist dieselbe Seite im Kompaktmodus (index.html?mini=1): Timer, Zuschlag, Zusammenführen
+  // usw. funktionieren damit genauso. Beide Fenster gleichen sich beim Zurückkehren mit dem Server ab.
+
+  const isMini = document.documentElement.classList.contains('mini');
+
+  els.miniBtn.addEventListener('click', () => {
+    const w = window.open('/index.html?mini=1', 'zeit-mini', 'popup=yes,width=480,height=420');
+    if (!w) return showToast('Das Mini-Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
+    w.focus();
+  });
+
+  /** Fenstergröße an den Inhalt anpassen (nur im Mini-Fenster; der Browser darf das bei eigenen Fenstern). */
+  let fitTimer = null;
+  function fitMini() {
+    if (!isMini) return;
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(() => {
+      try {
+        const wanted = Math.ceil(els.composer.getBoundingClientRect().bottom + window.scrollY + 12);
+        if (Math.abs(window.innerHeight - wanted) > 3) window.resizeTo(window.outerWidth, wanted + (window.outerHeight - window.innerHeight));
+      } catch { /* nur Komfort */ }
+    }, 120);
+  }
+  if (isMini && typeof ResizeObserver === 'function') new ResizeObserver(fitMini).observe(els.composer);
+
+  let syncing = false;
+  let lastSync = 0;
+  /** Eintraege und Timer neu laden (z. B. wenn im anderen Fenster etwas gespeichert wurde), ohne Eingaben zu verlieren. */
+  async function syncFromServer() {
+    if (syncing || document.hidden || Date.now() - lastSync < 1500) return;
+    syncing = true;
+    try {
+      const [entries, timer] = await Promise.all([Api.get(`/api/entries?date=${state.viewDate}`), Api.get('/api/timer')]);
+      state.entries = entries.entries;
+      renderLedger();
+      renderTimer(timer.timer);
+      // Noch nichts eingegeben: Formular mit frischen Vorgaben (z. B. Start = Ende des letzten Eintrags)
+      if (!state.editingId && !state.timer && !els.description.value.trim() && !els.jiraKey.value.trim()) resetFormForNewEntry();
+    } catch { /* offline o. ae.: beim naechsten Mal */ } finally {
+      lastSync = Date.now();
+      syncing = false;
+    }
+  }
+  window.addEventListener('focus', syncFromServer);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromServer(); });
+
+  init().then(fitMini);
 })();

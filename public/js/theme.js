@@ -44,6 +44,9 @@
   }
 
   // Auswahlmenue statt Durchschalten: Knopf mit aktuellem Schema, darunter die Liste.
+  // Mini-Fenster (index.html?mini=1): nur Aufgabe und Zeit, siehe styles.css ".mini"
+  if (/[?&]mini=1(&|$)/.test(location.search)) document.documentElement.classList.add('mini');
+
   document.addEventListener('DOMContentLoaded', () => {
     const wrap = document.createElement('div');
     wrap.className = 'theme-menu';

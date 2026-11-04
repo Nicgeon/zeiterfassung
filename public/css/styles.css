@@ -1371,3 +1371,38 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 
 .bh-details { margin-top: 8px; font-size: 13px; }
 .bh-details pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); }
+
+/* --- Mini-Fenster (index.html?mini=1) -------------------------------------------------------
+   Nur das Eintragsformular mit Aufgabe, Zeit und Knoepfen; alles andere ist ausgeblendet. */
+
+.mini .topbar,
+.mini .page-head,
+.mini .page-side,
+.mini #resumeBar,
+.mini .page-main > .card--flush,
+.mini .theme-menu--floating,
+.mini #mergeBanner,
+.mini .composer__ticket,
+.mini .hint-line,
+.mini .composer__footer .field-hint,
+.mini .timer-note,
+.mini #timerWarning { display: none !important; }
+
+.mini body { background: var(--bg) !important; padding: 0; }
+.mini body::before,
+.mini body::after { display: none !important; }
+.mini .shell { padding: 10px; max-width: none; }
+.mini .page-grid { display: block; }
+.mini .page-main { gap: 0; }
+.mini .card { padding: 14px; box-shadow: none; }
+.mini .composer__head { margin-bottom: 8px; }
+.mini .composer__head h2 { font-size: 16px; }
+.mini .composer__text textarea { min-height: 62px; font-size: 15px; }
+.mini .composer__meta { grid-template-columns: minmax(0, 1fr); margin-top: 10px; gap: 8px; }
+.mini .chip { min-height: 30px; padding: 0 10px; }
+.mini .composer__footer { margin-top: 12px; padding-top: 12px; justify-content: flex-end; }
+.mini .composer__actions { width: 100%; flex-wrap: nowrap; }
+.mini .composer__actions > .btn,
+.mini .composer__actions > .split { flex: 1 1 0; }
+.mini .composer__actions .split__main { flex: 1 1 auto; }
+.mini .composer__actions .btn { padding: 0 10px; font-size: 13px; white-space: nowrap; letter-spacing: 0.01em; text-transform: none; }

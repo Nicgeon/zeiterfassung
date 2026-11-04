@@ -1,13 +1,20 @@
 Option Explicit
-' Legt auf dem Desktop die Verknuepfung "Zeiterfassung" an (startet Zeiterfassung.vbs, mit Symbol).
-Dim sh, fso, dir, lnk
+' Legt auf dem Desktop die Verknuepfungen "Zeiterfassung" und "Zeiterfassung Mini" an (mit Symbol).
+Dim sh, fso, dir
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 dir = fso.GetParentFolderName(WScript.ScriptFullName)
-Set lnk = sh.CreateShortcut(sh.SpecialFolders("Desktop") & "\Zeiterfassung.lnk")
-lnk.TargetPath = dir & "\Zeiterfassung.vbs"
-lnk.WorkingDirectory = dir
-lnk.IconLocation = dir & "\public\favicon.ico"
-lnk.Description = "Zeiterfassung starten"
-lnk.Save
-MsgBox "Die Verknuepfung ""Zeiterfassung"" liegt jetzt auf dem Desktop.", 64, "Zeiterfassung"
+
+Sub MakeLink(name, target, text)
+  Dim lnk
+  Set lnk = sh.CreateShortcut(sh.SpecialFolders("Desktop") & "\" & name & ".lnk")
+  lnk.TargetPath = dir & "\" & target
+  lnk.WorkingDirectory = dir
+  lnk.IconLocation = dir & "\public\favicon.ico"
+  lnk.Description = text
+  lnk.Save
+End Sub
+
+MakeLink "Zeiterfassung", "Zeiterfassung.vbs", "Zeiterfassung starten"
+MakeLink "Zeiterfassung Mini", "Zeiterfassung-Mini.vbs", "Zeiterfassung als kleines Fenster starten"
+MsgBox "Die Verknuepfungen ""Zeiterfassung"" und ""Zeiterfassung Mini"" liegen jetzt auf dem Desktop.", 64, "Zeiterfassung"

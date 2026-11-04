@@ -5,6 +5,7 @@
 // Links aus anderen Programmen landen dadurch nie in diesem Fenster).
 //
 //   node src/launcher.js              Server (unsichtbar) + App-Fenster; Ende, sobald das Fenster zu ist
+//   node src/launcher.js --mini       statt des grossen Fensters nur das Mini-Fenster (Aufgabe + Zeit)
 //   node src/launcher.js --kein-fenster   nur den Server beaufsichtigen (z. B. fuer Tests)
 //
 // Gestartet wird es ueber Zeiterfassung.vbs (Windows), Zeiterfassung.app (macOS) bzw. start-app.sh.
@@ -28,6 +29,9 @@ const MIN_WINDOW_MS = Number(process.env.ZEIT_MIN_WINDOW_MS) || 10_000; // kuerz
 const NO_WINDOW = process.argv.includes('--kein-fenster') || process.env.ZEIT_NO_WINDOW === '1';
 const PORT = parseInt(process.env.PORT || '4711', 10);
 const URL_LOCAL = `http://localhost:${PORT}`;
+const MINI = process.argv.includes('--mini');
+const WINDOW_URL = MINI ? `${URL_LOCAL}/index.html?mini=1` : URL_LOCAL;
+const WINDOW_SIZE = MINI ? [480, 420] : null;
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
 const PROFILE_DIR = path.join(DATA_DIR, 'browser-profil');
@@ -191,7 +195,7 @@ function openWindow(url, { watchClose }) {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`App-Fenster: ${exe}`);
   const started = Date.now();
-  const child = spawn(exe, appWindowArgs(url, PROFILE_DIR), { stdio: 'ignore', detached: false });
+  const child = spawn(exe, appWindowArgs(url, PROFILE_DIR, { size: WINDOW_SIZE }), { stdio: 'ignore', detached: false });
   child.on('error', (err) => { log(`Browser konnte nicht gestartet werden: ${err.message}`); openDefaultBrowser(url); });
   child.on('exit', (code) => {
     const lived = Date.now() - started;
@@ -213,7 +217,7 @@ async function main() {
   if (await portInUse()) {
     if (await probe()) {
       log('Zeiterfassung läuft bereits - öffne nur das Fenster.');
-      if (!NO_WINDOW) openWindow(URL_LOCAL, { watchClose: false });
+      if (!NO_WINDOW) openWindow(WINDOW_URL, { watchClose: false });
       setTimeout(() => process.exit(0), 1500);
       return;
     }
@@ -231,7 +235,7 @@ async function main() {
 
   if (!NO_WINDOW) {
     if (await waitForServer(120_000)) {
-      openWindow(URL_LOCAL, { watchClose: true });
+      openWindow(WINDOW_URL, { watchClose: true });
     } else {
       notify('Zeiterfassung', 'Der Server ist nicht rechtzeitig gestartet. Einzelheiten stehen in zeiterfassung.log (im Datenordner).');
     }

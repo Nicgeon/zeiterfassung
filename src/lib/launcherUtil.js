@@ -48,10 +48,11 @@ function findBrowser({ platform = process.platform, env = process.env, home = ''
 }
 
 /** Argumente fuer das App-Fenster: eigenes Profil = eigene Browser-Instanz, getrennt vom Alltags-Browser. */
-function appWindowArgs(url, profileDir) {
+function appWindowArgs(url, profileDir, { size } = {}) {
   return [
     `--app=${url}`,
     `--user-data-dir=${profileDir}`,
+    ...(size ? [`--window-size=${size[0]},${size[1]}`] : []),
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-features=Translate',
