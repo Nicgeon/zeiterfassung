@@ -31,7 +31,7 @@ const PORT = parseInt(process.env.PORT || '4711', 10);
 const URL_LOCAL = `http://localhost:${PORT}`;
 const MINI = process.argv.includes('--mini');
 const WINDOW_URL = MINI ? `${URL_LOCAL}/index.html?mini=1` : URL_LOCAL;
-const WINDOW_SIZE = MINI ? [480, 420] : null;
+const WINDOW_SIZE = MINI ? [460, 400] : null;
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
 const PROFILE_DIR = path.join(DATA_DIR, 'browser-profil');

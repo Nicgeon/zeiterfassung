@@ -218,7 +218,7 @@ test('Starter mit --mini: öffnet nur das kleine Fenster mit fester Größe', as
     await until(() => fs.existsSync(path.join(dir, 'browser-args')));
     const args = fs.readFileSync(path.join(dir, 'browser-args'), 'utf8');
     assert.match(args, new RegExp(`--app=http://localhost:${port}/index\\.html\\?mini=1`));
-    assert.match(args, /--window-size=480,420/);
+    assert.match(args, /--window-size=460,400/);
   } finally {
     fs.writeFileSync(path.join(dir, 'close'), '');
     launcher.kill();

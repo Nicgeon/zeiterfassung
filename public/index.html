@@ -145,9 +145,19 @@
                 </div>
               </div>
               <!-- mit laufendem Timer -->
-              <button type="button" class="btn btn--ghost timer-only" id="timerDiscardBtn">Verwerfen</button>
-              <button type="button" class="btn btn--secondary timer-only" id="timerPauseBtn" title="Bis jetzt eintragen und die Aufgabe zum Weitermachen merken">Unterbrechen</button>
-              <button type="button" class="btn timer-only" id="timerStopBtn">Stoppen &amp; eintragen</button>
+              <!-- Im Mini-Fenster (html.mini) zeigen Verwerfen und Unterbrechen nur das Symbol -->
+              <button type="button" class="btn btn--ghost timer-only mini-icon-btn" id="timerDiscardBtn" title="Verwerfen: Timer beenden, ohne einen Eintrag anzulegen" aria-label="Verwerfen">
+                <svg class="mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+                <span class="btn__label">Verwerfen</span>
+              </button>
+              <button type="button" class="btn btn--secondary timer-only mini-icon-btn" id="timerPauseBtn" title="Unterbrechen: bis jetzt eintragen und die Aufgabe zum Weitermachen merken" aria-label="Unterbrechen">
+                <svg class="mini-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+                <span class="btn__label">Unterbrechen</span>
+              </button>
+              <button type="button" class="btn timer-only" id="timerStopBtn">
+                <svg class="mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                <span class="btn__label">Stoppen &amp; eintragen</span>
+              </button>
             </div>
           </div>
         </form>

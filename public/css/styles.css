@@ -1382,12 +1382,12 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini .page-main > .card--flush,
 .mini .theme-menu--floating,
 .mini #mergeBanner,
-.mini .composer__ticket,
 .mini .hint-line,
 .mini .composer__footer .field-hint,
 .mini .timer-note,
 .mini #timerWarning { display: none !important; }
 
+.mini { zoom: 0.9; } /* etwas kleiner als das Hauptfenster */
 .mini body { background: var(--bg) !important; padding: 0; }
 .mini body::before,
 .mini body::after { display: none !important; }
@@ -1406,3 +1406,17 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini .composer__actions > .split { flex: 1 1 0; }
 .mini .composer__actions .split__main { flex: 1 1 auto; }
 .mini .composer__actions .btn { padding: 0 10px; font-size: 13px; white-space: nowrap; letter-spacing: 0.01em; text-transform: none; }
+
+/* Mini-Fenster: Ticket als schmale Zeile ohne sichtbare Beschriftung, Symbole statt Texte im Timer */
+.mini .composer__ticket .fieldblock__label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+.mini .composer__text textarea { min-height: 56px; }
+.mini input[type='text'], .mini input[type='time'], .mini input[type='number'] { min-height: 40px; }
+.mini .btn { min-height: 40px; }
+.mini .composer__actions { gap: 6px; }
+.mini-icon { display: none; flex: none; width: 18px; height: 18px; }
+.mini .mini-icon { display: block; }
+.mini .mini-icon-btn .btn__label { display: none; }
+.mini .mini-icon-btn { flex: 0 0 auto !important; min-width: 44px; padding: 0 10px !important; }
+.mini #timerStopBtn { gap: 6px; }

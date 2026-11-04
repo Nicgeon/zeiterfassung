@@ -1144,7 +1144,7 @@
   const isMini = document.documentElement.classList.contains('mini');
 
   els.miniBtn.addEventListener('click', () => {
-    const w = window.open('/index.html?mini=1', 'zeit-mini', 'popup=yes,width=480,height=420');
+    const w = window.open('/index.html?mini=1', 'zeit-mini', 'popup=yes,width=460,height=400');
     if (!w) return showToast('Das Mini-Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
     w.focus();
   });
