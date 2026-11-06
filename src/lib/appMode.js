@@ -49,7 +49,7 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
       else if (state === 'open') monitor.ping();
     }
     res.set('Cache-Control', 'no-store');
-    res.json({ appMode: !!appMode });
+    res.json({ appMode: !!appMode, seen: !!(monitor && monitor.seen) });
   });
   // Browser fuer das App-Fenster (gilt ab dem naechsten Start): nur Stichwoerter, nie ein Pfad aus dem Netz
   router.get('/settings', (req, res) => {

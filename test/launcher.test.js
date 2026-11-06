@@ -59,7 +59,7 @@ async function withRouter(opts, fn) {
 
 test('Ping-Route: Zustände, Herkunftsprüfung, nur im Programm-Modus wirksam', async () => {
   await withRouter({ appMode: true }, async (base, calls) => {
-    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: true });
+    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: true, seen: false });
     await fetch(`${base}/ping?state=closing`);
     await fetch(`${base}/ping?state=probe`); // wirkt nicht
     assert.deepEqual(calls, ['ping', 'closing']);
@@ -83,7 +83,7 @@ test('Ping-Route: Zustände, Herkunftsprüfung, nur im Programm-Modus wirksam', 
     assert.deepEqual(await r.json(), { opened: false }); // ohne Starter: die Seite oeffnet selbst ein Popup
   });
   await withRouter({ appMode: false }, async (base, calls) => {
-    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: false });
+    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: false, seen: false });
     assert.deepEqual(calls, []);
   });
 });
@@ -122,6 +122,15 @@ function freePort() {
   });
 }
 
+
+/** Schein-Browser: schreibt seine Argumente auf, meldet sich einmal beim Server (wie die Seite im Fenster) und lebt bis "close" erscheint. */
+function writeFakeBrowser(dir, { argsFile = 'browser-args', append = false, ping = true } = {}) {
+  const file = path.join(dir, 'fake-browser.sh');
+  const pingCmd = ping ? `"${process.execPath}" -e "require('http').get('http://127.0.0.1:'+process.env.PORT+'/api/app/ping?state=open',r=>r.resume()).on('error',()=>{})"\n` : '';
+  fs.writeFileSync(file, `#!/bin/sh\necho "$@" ${append ? '>>' : '>'} "${dir}/${argsFile}"\n${pingCmd}while [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  return file;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn, ms = 20000) {
   const end = Date.now() + ms;
@@ -137,10 +146,8 @@ const get = (port, p, headers = {}) => new Promise((resolve, reject) => {
 test('Starter: Server unsichtbar mit App-Fenster; Ende des Fensters beendet alles; Ping-Ende ebenso', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-'));
   const port = await freePort();
-  const fake = path.join(dir, 'fake-browser.sh');
-  // Schein-Browser: schreibt seine Argumente auf, lebt bis die Datei "close" erscheint
-  fs.writeFileSync(fake, `#!/bin/sh\necho "$@" > "${dir}/browser-args"\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
-  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_IDLE_MS: '1500', ZEIT_CLOSING_MS: '400' };
+  const fake = writeFakeBrowser(dir);
+  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_IDLE_MS: '60000', ZEIT_CLOSING_MS: '400' };
   delete env.ENCRYPTION_KEY;
   const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js')], { env, stdio: 'ignore' });
   const exited = new Promise((r) => launcher.on('exit', (code) => r(code)));
@@ -151,7 +158,7 @@ test('Starter: Server unsichtbar mit App-Fenster; Ende des Fensters beendet alle
     assert.match(args, new RegExp(`--app=http://localhost:${port}`));
     assert.match(args, /--user-data-dir=.*browser-profil/);
     const ping = await get(port, '/api/app/ping?state=probe');
-    assert.deepEqual(JSON.parse(ping.body), { appMode: true });
+    assert.equal(JSON.parse(ping.body).appMode, true);
     assert.ok(fs.readFileSync(path.join(dir, 'zeiterfassung.log'), 'utf8').includes('Server gestartet'));
 
     // Zweiter Start: Zeiterfassung laeuft schon -> nur ein weiteres Fenster, kein zweiter Server
@@ -178,8 +185,7 @@ test('Starter: Server unsichtbar mit App-Fenster; Ende des Fensters beendet alle
 test('Starter: Schließt die Person das Fenster (Browser-Prozess endet), beendet sich auch der Server', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher2-'));
   const port = await freePort();
-  const fake = path.join(dir, 'fake-browser.sh');
-  fs.writeFileSync(fake, `#!/bin/sh\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  const fake = writeFakeBrowser(dir, { argsFile: 'unused' });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_MIN_WINDOW_MS: '800' };
   delete env.ENCRYPTION_KEY;
   const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js')], { env, stdio: 'ignore' });
@@ -221,8 +227,7 @@ test('Starter: Beenden-Route der Seite beendet Server und Starter', async () => 
 test('Starter mit --mini: öffnet nur das kleine Fenster mit fester Größe', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher4-'));
   const port = await freePort();
-  const fake = path.join(dir, 'fake-browser.sh');
-  fs.writeFileSync(fake, `#!/bin/sh\necho "$@" > "${dir}/browser-args"\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  const fake = writeFakeBrowser(dir);
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
   delete env.ENCRYPTION_KEY;
   const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js'), '--mini'], { env, stdio: 'ignore' });
@@ -245,8 +250,7 @@ test('appWindowArgs: Größe nur auf Wunsch', () => {
 test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster beim Starter an (Mini und groß)', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher5-'));
   const port = await freePort();
-  const fake = path.join(dir, 'fake-browser.sh');
-  fs.writeFileSync(fake, `#!/bin/sh\necho "$@" >> "${dir}/browser-calls"\nwhile [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
+  const fake = writeFakeBrowser(dir, { argsFile: 'browser-calls', append: true });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
   delete env.ENCRYPTION_KEY;
   const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js')], { env, stdio: 'ignore' });
@@ -316,5 +320,21 @@ test('Einstellungsroute: nur Stichwörter, Datei bleibt erhalten', async () => {
     assert.equal(get.browser, 'brave');
     assert.equal(get.current.kind, 'edge');
     assert.deepEqual(get.options, ['auto', 'edge', 'chrome', 'brave', 'chromium']);
+  });
+});
+
+test('openDetached (start-local): öffnet App-Fenster mit eigenem Profil, nie den Standardbrowser; ohne Browser null', () => {
+  const { openDetached } = require('../src/lib/appWindow');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-detached-'));
+  const fake = writeFakeBrowser(dir, { ping: false });
+  const logs = [];
+  const choice = openDetached({ url: 'http://127.0.0.1:1/', dataDir: dir, env: { ...process.env, ZEIT_BROWSER: fake }, log: (m) => logs.push(m) });
+  assert.ok(choice && choice.exe === fake);
+  fs.writeFileSync(path.join(dir, 'close'), '');
+  return until(() => fs.existsSync(path.join(dir, 'browser-args')), 5000).then(() => {
+    const args = fs.readFileSync(path.join(dir, 'browser-args'), 'utf8');
+    assert.match(args, /--app=http:\/\/127\.0\.0\.1:1\//);
+    assert.match(args, /--user-data-dir=.*browser-profil/);
+    assert.ok(logs.some((l) => l.includes('App-Fenster')));
   });
 });

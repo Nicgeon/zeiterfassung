@@ -59,6 +59,14 @@ function install(app) {
 }
 
 function openBrowser(url) {
+  // Erst ein App-Fenster (eigenes Profil, keine Tabs - landet nie als Tab im normalen Browserfenster)
+  const choice = require('./lib/appWindow').openDetached({
+    url,
+    dataDir: config.dataDir,
+    // eslint-disable-next-line no-console
+    log: (m) => console.log(m),
+  });
+  if (choice) return;
   const [cmd, args] =
     process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
       : process.platform === 'darwin' ? ['open', [url]]

@@ -17,7 +17,8 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
-const { chooseBrowser, defaultBrowserKind, appWindowArgs, psQuote, appleScriptQuote } = require('./lib/launcherUtil');
+const { appWindowArgs, psQuote, appleScriptQuote } = require('./lib/launcherUtil');
+const { findBrowsers, profileDirFor } = require('./lib/appWindow');
 const { defaultLocalDataDir } = require('./lib/localKeys');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -36,7 +37,7 @@ const windowFor = (kind) => (kind === 'mini' ? { url: MINI_URL, size: MINI_SIZE 
 const START_KIND = MINI ? 'mini' : 'main';
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
-const PROFILE_DIR = path.join(DATA_DIR, 'browser-profil');
+const PROFILE_DIR = profileDirFor(DATA_DIR);
 
 // --- Protokoll -----------------------------------------------------------------------------------
 
@@ -74,20 +75,21 @@ function notify(title, text, { block = false } = {}) {
 
 // --- Hilfen -----------------------------------------------------------------------------------------
 
-/** Antwortet auf dem Port UNSERE Zeiterfassung? (eigene Kennung in /api/app/ping) */
-function probe() {
+/** Antwort von UNSERER Zeiterfassung auf dem Port (eigene Kennung in /api/app/ping) oder null. seen: hat sich schon ein Fenster gemeldet? */
+function probeInfo() {
   return new Promise((resolve) => {
     const req = http.get({ host: '127.0.0.1', port: PORT, path: '/api/app/ping?state=probe', timeout: 1500 }, (res) => {
       let body = '';
       res.on('data', (c) => (body += c));
       res.on('end', () => {
-        try { resolve(typeof JSON.parse(body).appMode === 'boolean'); } catch { resolve(false); }
+        try { const j = JSON.parse(body); resolve(typeof j.appMode === 'boolean' ? j : null); } catch { resolve(null); }
       });
     });
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
   });
 }
+const probe = async () => !!(await probeInfo());
 
 function portInUse() {
   return new Promise((resolve) => {
@@ -104,11 +106,6 @@ async function waitForServer(ms) {
     await new Promise((r) => setTimeout(r, 300));
   }
   return false;
-}
-
-function which(name) {
-  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', [name], { encoding: 'utf8' });
-  return r.status === 0 ? r.stdout.split(/\r?\n/)[0].trim() : null;
 }
 
 // --- Vorbereitung (wie start-local.*) ---------------------------------------------------------------------
@@ -141,19 +138,10 @@ function ensureSetup() {
 
 // --- Server beaufsichtigen -----------------------------------------------------------------------------------
 
-// Einstellung "browser" aus <Datenordner>/launcher.json (Konto -> Programm): auto | edge | chrome | brave | chromium | Pfad
-function readSettings() {
-  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'launcher.json'), 'utf8')); } catch { return {}; }
-}
-const runCapture = (cmd, args) => { const r = spawnSync(cmd, args, { encoding: 'utf8', windowsHide: true }); return r.status === 0 ? r.stdout : ''; };
-const CHOICE = NO_WINDOW ? null : chooseBrowser({
-  env: process.env,
-  home: os.homedir(),
-  exists: (p) => fs.existsSync(p),
-  which,
-  preference: readSettings().browser,
-  defaultKind: defaultBrowserKind({ run: runCapture }),
-});
+// Browser fuer das App-Fenster in der Reihenfolge, in der sie versucht werden (Einstellung "browser" aus
+// <Datenordner>/launcher.json, dann Standardbrowser, dann Edge/Chrome/Brave/Chromium)
+const CHOICES = NO_WINDOW ? [] : findBrowsers(DATA_DIR, process.env);
+const CHOICE = CHOICES[0] || null;
 const BROWSER = CHOICE ? CHOICE.exe : null;
 let server = null;
 let stopping = false;
@@ -180,7 +168,7 @@ function runServerOnce() {
       if (msg && msg.type === 'open-window' && ['main', 'mini'].includes(msg.kind) && !NO_WINDOW) {
         log(`Fenster angefordert: ${msg.kind}`);
         const w = windowFor(msg.kind);
-        openWindow(w.url, { watchClose: false, size: w.size });
+        openExtraWindow(w);
       }
     });
     server.on('exit', (code, signal) => { log(`Server beendet (Code ${code}, Signal ${signal}).`); resolve(code); });
@@ -211,28 +199,72 @@ function openDefaultBrowser(url) {
   try { const c = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true }); c.on('error', () => {}); c.unref(); } catch { /* nur Komfort */ }
 }
 
-/**
- * Oeffnet das App-Fenster. watchClose: Schliesst die Person das Fenster, endet das Programm.
- */
-function openWindow(url, { watchClose, size = null }) {
-  const exe = BROWSER;
-  if (!exe) {
-    log('Kein Chrome/Edge gefunden - öffne den Standardbrowser (Das Programm läuft dann weiter, bis „Beenden“ gewählt wird).');
-    openDefaultBrowser(url);
-    return null;
-  }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Startet einen Browser mit App-Fenster; das Ergebnis (state) sammelt Fehler und Ende des Prozesses. */
+function launchApp(choice, { url, size }) {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
-  log(`App-Fenster: ${exe} (${CHOICE ? `${CHOICE.kind || 'angegeben'}, ${CHOICE.how}` : 'unbekannt'})`);
-  const started = Date.now();
-  const child = spawn(exe, appWindowArgs(url, PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
-  child.on('error', (err) => { log(`Browser konnte nicht gestartet werden: ${err.message}`); openDefaultBrowser(url); });
+  log(`App-Fenster: ${choice.exe} (${choice.kind || 'angegeben'}, ${choice.how})`);
+  const state = { started: Date.now(), exited: false, code: null, error: null, onExit: null };
+  const child = spawn(choice.exe, appWindowArgs(url, PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
+  child.on('error', (err) => { state.error = err; log(`Browser konnte nicht gestartet werden: ${err.message}`); });
   child.on('exit', (code) => {
-    const lived = Date.now() - started;
+    state.exited = true;
+    state.code = code;
+    const lived = Date.now() - state.started;
     log(`App-Fenster beendet (Code ${code}) nach ${Math.round(lived / 1000)} s.`);
-    // Lebte der Prozess nur kurz, hat er an eine schon laufende Instanz uebergeben: dann entscheidet der Ping des Servers.
-    if (watchClose && lived > MIN_WINDOW_MS) { log('Fenster geschlossen - beende Zeiterfassung.'); stopAll(0); }
+    if (state.onExit) state.onExit(lived);
   });
-  return child;
+  return state;
+}
+
+/** Schliesst die Person das Fenster (der Browser-Prozess endet nach laengerer Zeit), endet das Programm. */
+function watchClose(state) {
+  if (state.exited) return;
+  // Lebte der Prozess nur kurz, hat er an eine schon laufende Instanz uebergeben: dann entscheidet der Ping des Servers.
+  state.onExit = (lived) => { if (lived > MIN_WINDOW_MS) { log('Fenster geschlossen - beende Zeiterfassung.'); stopAll(0); } };
+}
+
+/**
+ * Erstes Fenster: probiert die Browser der Reihe nach und prueft, ob sich die Seite wirklich meldet (Ping).
+ * Der Standardbrowser (als Tab) kommt erst, wenn keiner funktioniert hat - dann mit Hinweis.
+ */
+async function openFirstWindow(w) {
+  if (!CHOICES.length) {
+    notify('Zeiterfassung', 'Es wurde weder Edge noch Chrome noch Brave gefunden. Die Zeiterfassung wird im Standardbrowser geöffnet (als Tab). Mit ZEIT_BROWSER oder unter Konto → Programm lässt sich ein Browser festlegen.');
+    openDefaultBrowser(w.url);
+    return;
+  }
+  for (const choice of CHOICES) {
+    const state = launchApp(choice, w);
+    const end = Date.now() + 30_000;
+    let result = 'timeout';
+    while (Date.now() < end) {
+      const info = await probeInfo();
+      if (info && info.seen) { result = 'ok'; break; }
+      if (state.error || (state.exited && state.code !== 0)) { result = 'failed'; break; }
+      await sleep(400);
+    }
+    if (result === 'ok' || (result === 'timeout' && !state.exited)) {
+      if (result === 'timeout') log('Noch keine Meldung vom Fenster, der Browser läuft aber - warte weiter.');
+      watchClose(state);
+      return;
+    }
+    log(`Mit ${choice.exe} ist kein Fenster erschienen (${result}${state.code !== null ? `, Code ${state.code}` : ''}) - versuche den nächsten Browser.`);
+  }
+  notify('Zeiterfassung', 'Das Programmfenster ließ sich mit keinem Browser öffnen (Einzelheiten in zeiterfassung.log im Datenordner). Die Zeiterfassung wird deshalb im Standardbrowser geöffnet.');
+  openDefaultBrowser(w.url);
+}
+
+/** Weiteres Fenster (zweiter Start, Anforderung der Seite): erster Browser, bei Startfehler der naechste. */
+async function openExtraWindow(w) {
+  if (!CHOICES.length) { openDefaultBrowser(w.url); return; }
+  for (const choice of CHOICES) {
+    const state = launchApp(choice, w);
+    await sleep(1500);
+    if (!state.error) return;
+  }
+  openDefaultBrowser(w.url);
 }
 
 // --- Ablauf -----------------------------------------------------------------------------------------------------------
@@ -246,9 +278,8 @@ async function main() {
   if (await portInUse()) {
     if (await probe()) {
       log('Zeiterfassung läuft bereits - öffne nur das Fenster.');
-      if (!NO_WINDOW) openWindow(windowFor(START_KIND).url, { watchClose: false, size: windowFor(START_KIND).size });
-      setTimeout(() => process.exit(0), 1500);
-      return;
+      if (!NO_WINDOW) await openExtraWindow(windowFor(START_KIND));
+      process.exit(0);
     }
     notify('Zeiterfassung', `Der Port ${PORT} ist von einem anderen Programm belegt. Bitte mit PORT=4712 (Umgebungsvariable) starten.`);
     process.exit(1);
@@ -264,7 +295,7 @@ async function main() {
 
   if (!NO_WINDOW) {
     if (await waitForServer(120_000)) {
-      openWindow(windowFor(START_KIND).url, { watchClose: true, size: windowFor(START_KIND).size });
+      await openFirstWindow(windowFor(START_KIND));
     } else {
       notify('Zeiterfassung', 'Der Server ist nicht rechtzeitig gestartet. Einzelheiten stehen in zeiterfassung.log (im Datenordner).');
     }

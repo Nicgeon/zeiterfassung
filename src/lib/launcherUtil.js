@@ -58,10 +58,11 @@ function defaultBrowserKind({ platform = process.platform, run } = {}) {
  * exists(pfad) prueft eine Datei, which(name) sucht im PATH (Linux).
  * @returns {{exe: string, kind: string|null, how: string}|null}
  */
-function chooseBrowser({ platform = process.platform, env = process.env, home = '', exists, which, preference, defaultKind = null }) {
-  if (env.ZEIT_BROWSER) return { exe: env.ZEIT_BROWSER, kind: null, how: 'ZEIT_BROWSER' };
+function listBrowsers({ platform = process.platform, env = process.env, home = '', exists, which, preference, defaultKind = null }) {
+  const out = [];
+  if (env.ZEIT_BROWSER) return [{ exe: env.ZEIT_BROWSER, kind: null, how: 'ZEIT_BROWSER' }];
   const pref = String(preference || 'auto').trim();
-  if (/[\\/]/.test(pref) && exists(pref)) return { exe: pref, kind: null, how: 'Einstellung (Pfad)' };
+  if (/[\\/]/.test(pref) && exists(pref)) out.push({ exe: pref, kind: null, how: 'Einstellung (Pfad)' });
   const order = [];
   if (KINDS.includes(pref.toLowerCase())) order.push(pref.toLowerCase());
   if (defaultKind && !order.length) order.push(defaultKind);
@@ -71,11 +72,17 @@ function chooseBrowser({ platform = process.platform, env = process.env, home = 
       const found = platform === 'linux' ? which(candidate) : (exists(candidate) ? candidate : null);
       if (found) {
         const how = kind === pref.toLowerCase() ? 'Einstellung' : kind === defaultKind && order[0] === kind ? 'Standardbrowser' : 'automatisch';
-        return { exe: found, kind, how };
+        out.push({ exe: found, kind, how });
+        break; // je Browser-Art nur ein Fund
       }
     }
   }
-  return null;
+  return out;
+}
+
+/** Erste Wahl aus listBrowsers (oder null). */
+function chooseBrowser(opts) {
+  return listBrowsers(opts)[0] || null;
 }
 
 /** Wie chooseBrowser, aber nur der Pfad (oder null). */
@@ -106,4 +113,4 @@ function appleScriptQuote(text) {
   return `"${String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-module.exports = { KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };
+module.exports = { KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };
