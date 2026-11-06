@@ -759,6 +759,7 @@
   function renderResumeBar() {
     const list = loadPausedTasks();
     els.resumeBar.classList.toggle('hidden', list.length === 0 || !!state.timer);
+    if (document.documentElement.classList.contains('mini')) return renderMiniResume(list);
     els.resumeBar.innerHTML = list.length === 0 ? '' : `
       <span class="resume-bar__label">Weitermachen:</span>
       ${list.map((t, i) => `
@@ -767,6 +768,30 @@
           <button type="button" class="chip chip--mid" data-manual="${i}" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">＋ Zeit</button>
           <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
         </span>`).join('')}`;
+  }
+
+  /** Mini-Fenster: pausierte Aufgaben als Karte mit gleich aufgebauten Zeilen (Weitermachen, Zeit nachtragen, entfernen). */
+  function renderMiniResume(list) {
+    const play = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+    const plus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    const cross = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    els.resumeBar.innerHTML = list.length === 0 ? '' : `
+      <div class="mini-resume__head"><span>Pausiert</span><span class="mini-resume__count">${list.length}</span></div>
+      ${list.map((t, i) => {
+        const mergeable = t.entryId && t.workDate === todayISO();
+        const name = t.description || t.jiraKey;
+        const sub = [t.description && t.jiraKey ? t.jiraKey : '', mergeable ? `${t.minutes} Min bisher` : ''].filter(Boolean).join(' · ');
+        return `
+        <div class="mini-resume__row">
+          <button type="button" class="mini-resume__play chip--resume" data-index="${i}" aria-label="Weitermachen: ${escapeHtml(name)}" title="${mergeable ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">${play}</button>
+          <div class="mini-resume__text">
+            <div class="mini-resume__title">${escapeHtml(name)}</div>
+            ${sub ? `<div class="mini-resume__sub mono">${escapeHtml(sub)}</div>` : ''}
+          </div>
+          <button type="button" class="mini-resume__btn" data-manual="${i}" aria-label="Zeit von Hand nachtragen" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">${plus}</button>
+          <button type="button" class="mini-resume__btn mini-resume__btn--quiet" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">${cross}</button>
+        </div>`;
+      }).join('')}`;
   }
 
   /** Unterbrochene Aufgabe von Hand fortsetzen: Formular vorbefuellen, die bisherige Zeit kommt dazu. */
@@ -1179,12 +1204,21 @@
     clearTimeout(fitTimer);
     fitTimer = setTimeout(() => {
       try {
-        const wanted = Math.ceil(els.composer.getBoundingClientRect().bottom + window.scrollY + 12);
+        const bottoms = [els.composer, els.resumeBar]
+          .filter((el) => !el.classList.contains('hidden'))
+          .map((el) => el.getBoundingClientRect().bottom);
+        const wanted = Math.ceil(Math.max(...bottoms) + window.scrollY + 12);
         if (Math.abs(window.innerHeight - wanted) > 3) window.resizeTo(window.outerWidth, wanted + (window.outerHeight - window.innerHeight));
       } catch { /* nur Komfort */ }
     }, 120);
   }
-  if (isMini && typeof ResizeObserver === 'function') new ResizeObserver(fitMini).observe(els.composer);
+  if (isMini && typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(fitMini);
+    ro.observe(els.composer);
+    ro.observe(els.resumeBar);
+  }
+  // Pausierte Aufgaben liegen im Browser-Speicher: Aenderungen im anderen Fenster uebernehmen
+  window.addEventListener('storage', (e) => { if (e.key === PAUSED_KEY) renderResumeBar(); });
 
   let syncing = false;
   let lastSync = 0;
@@ -1197,6 +1231,7 @@
       state.entries = entries.entries;
       renderLedger();
       renderTimer(timer.timer);
+      renderResumeBar();
       // Noch nichts eingegeben: Formular mit frischen Vorgaben (z. B. Start = Ende des letzten Eintrags)
       if (!state.editingId && !state.timer && !els.description.value.trim() && !els.jiraKey.value.trim()) resetFormForNewEntry();
     } catch { /* offline o. ae.: beim naechsten Mal */ } finally {

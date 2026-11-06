@@ -1373,12 +1373,13 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .bh-details pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); }
 
 /* --- Mini-Fenster (index.html?mini=1) -------------------------------------------------------
-   Nur das Eintragsformular mit Aufgabe, Zeit und Knoepfen; alles andere ist ausgeblendet. */
+   Nur das Eintragsformular (Aufgabe, Zeit, Ticket, Knoepfe) und darunter die pausierten Aufgaben.
+   Ein Raster: alle Eingaben und Knoepfe 44 px hoch, Symbolknoepfe quadratisch 44 px (in den Listen 36 px),
+   Hauptaktion immer als gefuellter Knopf rechts bzw. unten. Farben kommen aus dem gewaehlten Theme. */
 
 .mini .topbar,
 .mini .page-head,
 .mini .page-side,
-.mini #resumeBar,
 .mini .page-main > .card--flush,
 .mini .theme-menu--floating,
 .mini #mergeBanner,
@@ -1391,39 +1392,124 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini body { background: var(--bg) !important; padding: 0; }
 .mini body::before,
 .mini body::after { display: none !important; }
-.mini .shell { padding: 10px; max-width: none; }
+.mini .shell { padding: 12px; max-width: none; }
 .mini .page-grid { display: block; }
-.mini .page-main { gap: 0; }
-.mini .card { padding: 14px; box-shadow: none; }
-.mini .composer__head { margin-bottom: 8px; }
-.mini .composer__head h2 { font-size: 16px; }
-.mini .composer__text textarea { min-height: 62px; font-size: 15px; }
-.mini .composer__meta { grid-template-columns: minmax(0, 1fr); margin-top: 10px; gap: 8px; }
-.mini .chip { min-height: 30px; padding: 0 10px; }
-.mini .composer__footer { margin-top: 12px; padding-top: 12px; justify-content: flex-end; }
-.mini .composer__actions { width: 100%; flex-wrap: nowrap; }
-.mini .composer__actions > .btn,
-.mini .composer__actions > .split { flex: 1 1 0; }
-.mini .composer__actions .split__main { flex: 1 1 auto; }
-.mini .composer__actions .btn { padding: 0 10px; font-size: 13px; white-space: nowrap; letter-spacing: 0.01em; text-transform: none; }
+.mini .page-main { gap: 10px; }
+.mini #resumeBar { order: 2; } /* unter dem Formular */
+.mini .card { padding: 16px; box-shadow: none; border-radius: 24px; }
 
-/* Mini-Fenster: Ticket als schmale Zeile ohne sichtbare Beschriftung, Symbole statt Texte im Timer */
-.mini .composer__ticket .fieldblock__label {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+/* Kopf: Titel (bzw. Uhr) links, Segment und Fenster-Wechsel rechts */
+.mini .composer__head { flex-wrap: nowrap; height: 36px; margin-bottom: 12px; gap: 8px; }
+.mini .composer__head h2 { margin-right: auto; font-size: 16px; }
+.mini .composer__head-actions { gap: 6px; }
+.mini .seg--sm .seg__btn { min-height: 28px; padding: 0 12px; font-size: 12px; }
+.mini .composer__head .icon-btn { width: 36px; height: 36px; border-radius: 999px; }
+.mini .composer--timer .composer__head h2 { display: none; }
+.mini .composer--timer .timer-clock { margin-right: auto; gap: 10px; }
+.mini .composer--timer .timer-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+.mini .composer--timer .timer-elapsed { font-size: 28px; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Aufgabe */
+.mini .composer__text textarea { min-height: 68px; font-size: 14px; line-height: 1.45; padding: 11px 14px; }
+
+/* Eingaben: eine Hoehe */
+.mini input[type='text'], .mini input[type='time'], .mini input[type='number'] { min-height: 44px; height: 44px; font-size: 14px; }
+.mini .fieldblock__label { margin-bottom: 4px; font-size: 11px; letter-spacing: 0.06em; }
+
+/* Zeit und Ticket. Dauer-Modus: Dauer und Ticket nebeneinander, darunter Schnellwahl; Zeitraum-Modus: untereinander. */
+.mini .composer__meta { grid-template-columns: minmax(0, 1fr); margin-top: 12px; gap: 12px; }
+.mini .when { flex-wrap: nowrap; gap: 6px; }
+.mini .when input[type='time'] { flex: 1 1 0; width: auto; min-width: 0; padding: 0 8px; }
+.mini .when #duration { width: 100%; }
+.mini .when--times .btn { flex: none; }
+.mini .composer__ticket input[type='text'] { width: 100%; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__meta {
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 4px 8px;
 }
-.mini .composer__text textarea { min-height: 56px; }
-.mini input[type='text'], .mini input[type='time'], .mini input[type='number'] { min-height: 40px; }
-.mini .btn { min-height: 40px; }
-.mini .composer__actions { gap: 6px; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__when,
+.mini .composer[data-mode='duration']:not(.composer--timer) .when--duration,
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__ticket { display: contents; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .label-duration { grid-column: 1; grid-row: 1; margin: 0 0 0; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__ticket .fieldblock__label { grid-column: 2; grid-row: 1; }
+.mini .composer[data-mode='duration']:not(.composer--timer) #duration { grid-column: 1; grid-row: 2; }
+.mini .composer[data-mode='duration']:not(.composer--timer) #jiraKey { grid-column: 2; grid-row: 2; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .duration-chips { grid-column: 1 / -1; grid-row: 3; margin-top: 4px; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .when__summary { grid-column: 1 / -1; grid-row: 4; margin: 4px 0 0; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .school-check { grid-column: 1 / -1; grid-row: 5; margin-top: 8px; }
+.mini .duration-chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.mini .chip { min-height: 32px; padding: 0 4px; font-size: 12px; justify-content: center; text-align: center; }
+.mini .when__summary { font-size: 12px; margin-top: 4px; }
+.mini .school-check { margin-top: 8px; font-size: 13px; }
+
+/* Aktionen: gleich hohe Knoepfe. Bereit: Timer (Kontur) | Speichern (gefuellt). Timer laeuft: Verwerfen | Unterbrechen | Stoppen. */
+.mini .composer__footer { display: block; margin-top: 12px; padding-top: 12px; }
+.mini .composer__actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; width: 100%; margin: 0; }
+.mini .composer--timer .composer__actions { grid-template-columns: 44px 44px minmax(0, 1fr); }
+.mini .btn { min-height: 44px; height: 44px; padding: 0 12px; font-size: 14px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.mini .composer__actions .btn { gap: 8px; }
+.mini #timerStartBtn { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.mini #timerStartBtn:hover { background: var(--accent-wash); }
+.mini .split { display: flex; width: 100%; }
+.mini .split__main { flex: 1 1 auto; border-radius: 999px 0 0 999px; }
+.mini .split__toggle { flex: none; min-width: 44px; padding: 0 10px; border-radius: 0 999px 999px 0; }
+.mini #saveBtn, .mini #saveMenuBtn { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.mini #saveBtn:hover, .mini #saveMenuBtn:hover { background: var(--accent-strong); }
+.mini #saveMenuBtn { border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); }
+.mini .split__menu { right: 0; left: auto; min-width: 250px; }
+
+/* Symbole statt Texte im Timer */
 .mini-icon { display: none; flex: none; width: 18px; height: 18px; }
 .mini .mini-icon { display: block; }
 .mini .mini-icon-btn .btn__label { display: none; }
-.mini .mini-icon-btn { flex: 0 0 auto !important; min-width: 44px; padding: 0 10px !important; }
-.mini #timerStopBtn { gap: 6px; }
+.mini .mini-icon-btn { width: 44px; min-width: 44px; padding: 0 !important; border-radius: 999px; }
+.mini #timerDiscardBtn { background: transparent; border: 1.5px solid var(--border-strong); color: var(--danger); }
+.mini #timerPauseBtn { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+.mini #timerDiscardBtn:hover, .mini #timerPauseBtn:hover { background: var(--accent-wash); }
+.mini #timerStopBtn { gap: 8px; }
 
 /* Knopf "Grosses Fenster" nur im Mini-Fenster */
 .mini-only { display: none; }
-.mini .mini-only { display: inline-flex; }
-.mini .composer__head { flex-wrap: nowrap; }
-.mini .composer__head h2 { margin-right: auto; }
-.mini .composer--timer .composer__head .mini-only { order: 3; margin-left: 8px; }
+.mini .mini-only { display: inline-flex; align-items: center; justify-content: center; }
+.mini .composer__head .mini-only { order: 3; }
+
+/* Pausierte Aufgaben (Weitermachen): eigene Karte, jede Zeile gleich aufgebaut */
+.mini #resumeBar {
+  flex-direction: column;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 12px 12px 8px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.mini-resume__head {
+  display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 4px 4px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);
+}
+.mini-resume__count {
+  min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-wash); color: var(--accent-strong); font-size: 11px; letter-spacing: 0;
+}
+.mini-resume__row { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px; border-radius: 16px; background: var(--bg); }
+.mini .mini-resume__play {
+  flex: none; width: 44px; height: 44px; max-width: none; padding: 0; border: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+}
+.mini .mini-resume__play:hover { background: var(--accent-strong); }
+.mini-resume__play svg { width: 16px; height: 16px; }
+.mini-resume__text { min-width: 0; flex: 1; }
+.mini-resume__title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-resume__sub { margin-top: 1px; font-size: 12px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-resume__btn {
+  flex: none; width: 36px; height: 36px; padding: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--ink);
+}
+.mini-resume__btn:hover { background: var(--surface-alt); }
+.mini-resume__btn--quiet { border-color: transparent; color: var(--ink-faint); }
+.mini-resume__btn svg { width: 16px; height: 16px; }
