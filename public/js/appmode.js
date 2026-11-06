@@ -12,6 +12,7 @@
   let timer = null;
   ping('open').then((data) => {
     if (!data || !data.appMode) return;
+    window.zeitAppMode = true;
     timer = setInterval(() => ping('open'), 10000);
     // Seite wird verlassen (Fenster zu oder nur Seitenwechsel): die naechste Seite meldet sich sofort wieder
     window.addEventListener('pagehide', () => ping('closing', true));

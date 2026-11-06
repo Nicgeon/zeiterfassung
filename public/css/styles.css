@@ -1396,6 +1396,7 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini .page-grid { display: block; }
 .mini .page-main { gap: 10px; }
 .mini #resumeBar { order: 2; } /* unter dem Formular */
+.mini .mini-recent { order: 1; }
 .mini .card { padding: 16px; box-shadow: none; border-radius: 24px; }
 
 /* Kopf: Titel (bzw. Uhr) links, Segment und Fenster-Wechsel rechts */
@@ -1513,3 +1514,20 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .mini-resume__btn:hover { background: var(--surface-alt); }
 .mini-resume__btn--quiet { border-color: transparent; color: var(--ink-faint); }
 .mini-resume__btn svg { width: 16px; height: 16px; }
+
+/* "Noch in Jira eintragen": gleiche Karte wie "Pausiert" */
+.mini-recent { display: none; }
+.mini .mini-recent:not(.hidden) {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 12px 8px;
+  border-radius: 24px; background: var(--surface); border: 1px solid var(--border);
+}
+.mini-recent__auto { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-muted); cursor: pointer; }
+.mini-recent__auto input { width: 14px; height: 14px; margin: 0; }
+.mini .mini-recent__copy {
+  flex: none; width: 44px; height: 44px; padding: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--accent); border: 1.5px solid var(--accent);
+}
+.mini .mini-recent__copy:hover { background: var(--accent-wash); }
+.mini-recent__copy svg { width: 18px; height: 18px; }
+.mini-recent__more { padding: 2px 6px 4px; font-size: 12px; color: var(--ink-faint); }

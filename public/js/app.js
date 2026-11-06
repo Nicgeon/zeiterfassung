@@ -68,6 +68,7 @@
     timerStopBtn: $('#timerStopBtn'),
     timerPauseBtn: $('#timerPauseBtn'),
     resumeBar: $('#resumeBar'),
+    miniRecent: $('#miniRecent'),
     timerDiscardBtn: $('#timerDiscardBtn'),
   };
 
@@ -412,6 +413,7 @@
     els.nowBtn.classList.toggle('hidden', !isTodayISO(state.viewDate));
     els.entryCount.textContent = state.entries.length ? `· ${state.entries.length}` : '';
     renderSummary();
+    renderMiniRecent();
 
     if (state.entries.length === 0) {
       els.ledger.innerHTML = '<div class="list-empty">Noch keine Einträge für diesen Tag.</div>';
@@ -695,10 +697,11 @@
       els.jiraKey.value = '';
       state.viewDate = data.entry.workDate;
       await loadEntries();
+      const copied = await autoCopyEntry(data.entry);
       showToast(
         pause
-          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description || jiraKey}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.`
-          : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.`,
+          ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description || jiraKey}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.${copied}`
+          : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.${copied}`,
         pause ? { durationMs: 7000 } : undefined
       );
     } catch (err) {
@@ -754,6 +757,67 @@
 
   function removePausedTaskByEntry(entryId) {
     savePausedTasks(loadPausedTasks().filter((t) => t.entryId !== entryId));
+  }
+
+  // --- Mini-Fenster: "Noch in Jira eintragen" ------------------------------------------------------
+  // Die Tagesliste fehlt im Mini-Fenster. Damit man zum Einfuegen in Jira nicht ins grosse Fenster wechseln muss,
+  // stehen hier die juengsten noch nicht uebertragenen Eintraege mit Kopieren-Knopf und "in Jira"-Haken.
+  const AUTO_COPY_KEY = 'zeit.miniAutoCopy';
+  const MINI_RECENT_MAX = 2;
+  const autoCopyOn = () => { try { return localStorage.getItem(AUTO_COPY_KEY) === '1'; } catch { return false; } };
+
+  function renderMiniRecent() {
+    if (!document.documentElement.classList.contains('mini')) return;
+    const open = state.entries.filter((e) => !e.transferred).sort((a, b) => b.id - a.id);
+    els.miniRecent.classList.toggle('hidden', open.length === 0);
+    if (open.length === 0) { els.miniRecent.innerHTML = ''; return; }
+    const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    els.miniRecent.innerHTML = `
+      <div class="mini-resume__head">
+        <span>Noch in Jira eintragen</span><span class="mini-resume__count">${open.length}</span>
+        <label class="mini-recent__auto" title="Beim Speichern oder Stoppen den Eintrag automatisch in die Zwischenablage kopieren">
+          <input type="checkbox" id="miniAutoCopy"${autoCopyOn() ? ' checked' : ''}> Automatisch kopieren
+        </label>
+      </div>
+      ${open.slice(0, MINI_RECENT_MAX).map((e) => `
+        <div class="mini-resume__row" data-id="${e.id}">
+          <button type="button" class="mini-recent__copy" data-copy aria-label="Eintrag kopieren" title="Kopieren – zum Einfügen in Jira">${ICONS.copy}</button>
+          <div class="mini-resume__text">
+            <div class="mini-resume__title">${escapeHtml(e.description || e.jiraKey || '')}</div>
+            <div class="mini-resume__sub mono">${escapeHtml([e.description && e.jiraKey ? e.jiraKey : '', formatDurationLong(e.durationMinutes)].filter(Boolean).join(' · '))}</div>
+          </div>
+          <button type="button" class="mini-resume__btn" data-done aria-label="Als in Jira eingetragen markieren" title="In Jira eingetragen – aus dieser Liste entfernen">${check}</button>
+        </div>`).join('')}
+      ${open.length > MINI_RECENT_MAX ? `<div class="mini-recent__more">+ ${open.length - MINI_RECENT_MAX} weitere im großen Fenster</div>` : ''}`;
+  }
+
+  els.miniRecent.addEventListener('change', (e) => {
+    if (e.target.id !== 'miniAutoCopy') return;
+    try { localStorage.setItem(AUTO_COPY_KEY, e.target.checked ? '1' : '0'); } catch { /* nur Komfort */ }
+  });
+  els.miniRecent.addEventListener('click', async (e) => {
+    const row = e.target.closest('.mini-resume__row');
+    if (!row) return;
+    const entry = state.entries.find((x) => x.id === Number(row.dataset.id));
+    if (!entry) return;
+    if (e.target.closest('[data-copy]')) {
+      const ok = await copyToClipboard(entryLine(entry, loadShowTimes()));
+      showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');
+    } else if (e.target.closest('[data-done]')) {
+      try {
+        await Api.patch(`/api/entries/${entry.id}/transferred`, { transferred: true });
+        entry.transferred = true;
+        renderLedger();
+      } catch (err) {
+        showToast(err.message);
+      }
+    }
+  });
+
+  /** Mini-Fenster mit "Automatisch kopieren": den gerade angelegten Eintrag in die Zwischenablage legen. */
+  async function autoCopyEntry(entry) {
+    if (!entry || !document.documentElement.classList.contains('mini') || !autoCopyOn()) return '';
+    return (await copyToClipboard(entryLine(entry, loadShowTimes()))) ? ' In die Zwischenablage kopiert.' : '';
   }
 
   function renderResumeBar() {
@@ -992,6 +1056,7 @@
           showToast(`${err.message} Der neue Teil wurde als eigener Eintrag gespeichert.`);
         }
         if (merged) removePausedTaskByEntry(merge.entryId);
+        const copied = await autoCopyEntry(data.entry);
         if (pause) {
           addPausedTask({
             description: description.trim(),
@@ -1001,11 +1066,11 @@
             workDate: data.entry.workDate,
             surcharge,
           });
-          showToast(`Eintrag gespeichert – „${description.trim() || jiraKey}" ist unterbrochen. Oben geht es mit „Weitermachen" weiter.`, { durationMs: 6000 });
+          showToast(`Eintrag gespeichert – „${description.trim() || jiraKey}" ist unterbrochen. Oben geht es mit „Weitermachen" weiter.${copied}`, { durationMs: 6000 });
         } else if (merged) {
-          showToast('Eintrag gespeichert – der frühere Teil wurde übernommen.');
+          showToast(`Eintrag gespeichert – der frühere Teil wurde übernommen.${copied}`);
         } else if (!fellBack) {
-          showToast('Eintrag gespeichert.');
+          showToast(`Eintrag gespeichert.${copied}`);
         }
       }
       await loadEntries();
@@ -1188,7 +1253,14 @@
   }
 
   els.miniBtn.addEventListener('click', async () => {
-    if (!(await openAppWindow('mini'))) showToast('Das Mini-Fenster konnte nicht geöffnet werden (Pop-ups für diese Seite erlauben).');
+    if (!(await openAppWindow('mini'))) return showToast('Das Mini-Fenster konnte nicht geöffnet werden (Pop-ups für diese Seite erlauben).');
+    // Im Programm-Fenster schliesst sich das grosse Fenster, sobald das Mini-Fenster da ist (andernfalls bleibt es offen,
+    // z. B. in einem normalen Browser-Tab). Das Programm laeuft weiter, solange das Mini-Fenster offen ist.
+    if (window.zeitAppMode) {
+      setTimeout(() => window.close(), 700);
+      // Der Browser erlaubt Skripten nicht immer, ein Fenster zu schliessen, das sie nicht selbst geoeffnet haben
+      setTimeout(() => showToast('Das große Fenster lässt sich nicht automatisch schließen – du kannst es jetzt selbst schließen.'), 1400);
+    }
   });
 
   // Mini -> gross: das grosse Fenster oeffnen (oder in den Vordergrund holen), dieses Mini-Fenster schliesst sich
