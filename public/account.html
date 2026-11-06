@@ -138,6 +138,17 @@
       Die Zeiterfassung läuft im Hintergrund und beendet sich, sobald dieses Fenster geschlossen wird.
       Hier lässt sie sich auch gezielt beenden.
     </p>
+    <div class="field mt-lg">
+      <label for="browserSelect">Browser für das Programmfenster</label>
+      <select id="browserSelect">
+        <option value="auto">Automatisch (Standardbrowser, sonst Edge, Chrome, Brave)</option>
+        <option value="edge">Microsoft Edge</option>
+        <option value="chrome">Google Chrome</option>
+        <option value="brave">Brave</option>
+        <option value="chromium">Chromium</option>
+      </select>
+      <p class="field-hint" id="browserHint">Gilt ab dem nächsten Start des Programms.</p>
+    </div>
     <button type="button" class="btn btn--secondary" id="quitBtn">Zeiterfassung beenden</button>
   </div>
 

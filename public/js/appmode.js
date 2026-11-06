@@ -18,6 +18,25 @@
     window.addEventListener('pageshow', (e) => { if (e.persisted) ping('open'); });
   });
 
+  // Browser fuer das Programmfenster (Konto -> Programm)
+  const browserSelect = document.getElementById('browserSelect');
+  if (browserSelect) {
+    const names = { edge: 'Microsoft Edge', chrome: 'Google Chrome', brave: 'Brave', chromium: 'Chromium' };
+    const hint = document.getElementById('browserHint');
+    Api.get('/api/app/settings').then((s) => {
+      browserSelect.value = s.browser;
+      const cur = s.current;
+      hint.textContent = 'Gilt ab dem nächsten Start des Programms. ' +
+        (cur && cur.exe ? `Aktuell in Benutzung: ${names[cur.kind] || 'Browser'} (${cur.exe}).` : 'Derzeit läuft kein Programmfenster dieser Sitzung (oder es wurde ein Browser-Tab verwendet).');
+    }).catch(() => {});
+    browserSelect.addEventListener('change', async () => {
+      try {
+        await Api.put('/api/app/settings', { browser: browserSelect.value });
+        showToast('Gespeichert – gilt ab dem nächsten Start.');
+      } catch (err) { showToast(err.message); }
+    });
+  }
+
   const quitBtn = document.getElementById('quitBtn');
   if (quitBtn) {
     quitBtn.addEventListener('click', async () => {

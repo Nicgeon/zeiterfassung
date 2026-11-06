@@ -17,7 +17,7 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
-const { findBrowser, appWindowArgs, psQuote, appleScriptQuote } = require('./lib/launcherUtil');
+const { chooseBrowser, defaultBrowserKind, appWindowArgs, psQuote, appleScriptQuote } = require('./lib/launcherUtil');
 const { defaultLocalDataDir } = require('./lib/localKeys');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -141,7 +141,20 @@ function ensureSetup() {
 
 // --- Server beaufsichtigen -----------------------------------------------------------------------------------
 
-const BROWSER = NO_WINDOW ? null : findBrowser({ env: process.env, home: os.homedir(), exists: (p) => fs.existsSync(p), which });
+// Einstellung "browser" aus <Datenordner>/launcher.json (Konto -> Programm): auto | edge | chrome | brave | chromium | Pfad
+function readSettings() {
+  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'launcher.json'), 'utf8')); } catch { return {}; }
+}
+const runCapture = (cmd, args) => { const r = spawnSync(cmd, args, { encoding: 'utf8', windowsHide: true }); return r.status === 0 ? r.stdout : ''; };
+const CHOICE = NO_WINDOW ? null : chooseBrowser({
+  env: process.env,
+  home: os.homedir(),
+  exists: (p) => fs.existsSync(p),
+  which,
+  preference: readSettings().browser,
+  defaultKind: defaultBrowserKind({ run: runCapture }),
+});
+const BROWSER = CHOICE ? CHOICE.exe : null;
 let server = null;
 let stopping = false;
 // Programm-Modus (Server beendet sich, wenn das Fenster zu ist) nur, wenn ein App-Fenster moeglich ist
@@ -151,7 +164,14 @@ function runServerOnce() {
   return new Promise((resolve) => {
     server = spawn(process.execPath, [path.join(ROOT, 'src', 'server.js')], {
       cwd: ROOT,
-      env: { ...process.env, LOCAL_MODE: 'true', ZEIT_SUPERVISED: '1', ZEIT_APP_MODE: windowMode ? '1' : '0', OPEN_BROWSER: '0' },
+      env: {
+        ...process.env,
+        LOCAL_MODE: 'true',
+        ZEIT_SUPERVISED: '1',
+        ZEIT_APP_MODE: windowMode ? '1' : '0',
+        OPEN_BROWSER: '0',
+        ZEIT_WINDOW_BROWSER: CHOICE ? JSON.stringify({ kind: CHOICE.kind, exe: CHOICE.exe, how: CHOICE.how }) : '', // fuer die Anzeige unter Konto
+      },
       stdio: ['ignore', logFd, logFd, 'ipc'], // IPC: der Server kann weitere Fenster anfordern (Mini <-> gross)
       windowsHide: true,
     });
@@ -202,7 +222,7 @@ function openWindow(url, { watchClose, size = null }) {
     return null;
   }
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
-  log(`App-Fenster: ${exe}`);
+  log(`App-Fenster: ${exe} (${CHOICE ? `${CHOICE.kind || 'angegeben'}, ${CHOICE.how}` : 'unbekannt'})`);
   const started = Date.now();
   const child = spawn(exe, appWindowArgs(url, PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
   child.on('error', (err) => { log(`Browser konnte nicht gestartet werden: ${err.message}`); openDefaultBrowser(url); });

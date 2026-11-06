@@ -1144,8 +1144,18 @@
 
   const isMini = document.documentElement.classList.contains('mini');
 
-  /** Im Programm-Modus oeffnet der Starter ein eigenes App-Fenster (unabhaengig von diesem); sonst false. */
-  async function openViaLauncher(kind) {
+  /**
+   * Fenster oeffnen. Erste Wahl: ein Popup aus dieser Seite heraus - der Browser oeffnet es selbst, es kommt
+   * zuverlaessig nach vorn und besteht auch, wenn das Fenster, aus dem es geoeffnet wurde, geschlossen wird.
+   * (Ein weiterer Browser-Prozess ueber den Starter bekommt unter Windows nicht immer den Vordergrund.)
+   * Zweite Wahl, falls der Browser das Popup blockiert: der Starter (Programm-Modus).
+   */
+  async function openAppWindow(kind) {
+    const mini = kind === 'mini';
+    const width = mini ? 460 : Math.min(1280, Math.max(900, (window.screen.availWidth || 1280) - 80));
+    const height = mini ? 400 : Math.min(860, Math.max(600, (window.screen.availHeight || 860) - 80));
+    const w = window.open(mini ? '/index.html?mini=1' : '/index.html', mini ? 'zeit-mini' : 'zeit-main', `popup=yes,width=${width},height=${height}`);
+    if (w) { w.focus(); return true; }
     try {
       const r = await Api.post('/api/app/window', { kind });
       return !!(r && r.opened);
@@ -1153,18 +1163,12 @@
   }
 
   els.miniBtn.addEventListener('click', async () => {
-    if (await openViaLauncher('mini')) return;
-    const w = window.open('/index.html?mini=1', 'zeit-mini', 'popup=yes,width=460,height=400');
-    if (!w) return showToast('Das Mini-Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
-    w.focus();
+    if (!(await openAppWindow('mini'))) showToast('Das Mini-Fenster konnte nicht geöffnet werden (Pop-ups für diese Seite erlauben).');
   });
 
   // Mini -> gross: das grosse Fenster oeffnen (oder in den Vordergrund holen), dieses Mini-Fenster schliesst sich
   els.miniMainBtn.addEventListener('click', async () => {
-    if (!(await openViaLauncher('main'))) {
-      const w = window.open('/index.html', 'zeit-main');
-      if (!w) return showToast('Das Fenster wurde vom Browser blockiert (Pop-ups für diese Seite erlauben).');
-    }
+    if (!(await openAppWindow('main'))) return showToast('Das Fenster konnte nicht geöffnet werden (Pop-ups für diese Seite erlauben).');
     setTimeout(() => window.close(), 700);
   });
 

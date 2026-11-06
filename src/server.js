@@ -228,6 +228,8 @@ if (config.localMode) {
     monitor,
     appMode: appModeOn,
     quit: () => process.exit(0),
+    settingsFile: path.join(config.dataDir, 'launcher.json'),
+    currentBrowser: (() => { try { return JSON.parse(process.env.ZEIT_WINDOW_BROWSER || 'null'); } catch { return null; } })(),
     // Der Starter (Elternprozess) oeffnet das Fenster; nur vorhanden, wenn er den Server mit Nachrichtenkanal startet
     openWindow: appModeOn && typeof process.send === 'function' ? (kind) => { process.send({ type: 'open-window', kind }); return true; } : null,
   }));

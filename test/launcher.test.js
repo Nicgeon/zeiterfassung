@@ -277,3 +277,44 @@ test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster bei
     launcher.kill();
   }
 });
+
+test('Browserwahl: Einstellung vor Standardbrowser vor Reihenfolge; Standardbrowser aus Registry/xdg erkannt', () => {
+  const { chooseBrowser, defaultBrowserKind } = require('../src/lib/launcherUtil');
+  const env = { 'ProgramFiles(x86)': 'C:\\PF86', ProgramFiles: 'C:\\PF' };
+  const all = () => true;
+  assert.equal(defaultBrowserKind({ platform: 'win32', run: () => '    ProgId    REG_SZ    BraveHTML\r\n' }), 'brave');
+  assert.equal(defaultBrowserKind({ platform: 'win32', run: () => 'ProgId REG_SZ MSEdgeHTM' }), 'edge');
+  assert.equal(defaultBrowserKind({ platform: 'win32', run: () => 'ProgId REG_SZ ChromeHTML' }), 'chrome');
+  assert.equal(defaultBrowserKind({ platform: 'win32', run: () => 'ProgId REG_SZ FirefoxURL-308046B0AF4A39CB' }), null);
+  assert.equal(defaultBrowserKind({ platform: 'win32', run: () => { throw new Error('reg fehlt'); } }), null);
+  assert.equal(defaultBrowserKind({ platform: 'linux', run: () => 'brave-browser.desktop\n' }), 'brave');
+  assert.equal(defaultBrowserKind({ platform: 'darwin', run: () => 'x' }), null);
+
+  // automatisch: Standardbrowser zuerst (hier Brave), sonst Edge
+  assert.match(chooseBrowser({ platform: 'win32', env, exists: all, defaultKind: 'brave' }).exe, /brave\.exe$/);
+  assert.match(chooseBrowser({ platform: 'win32', env, exists: all }).exe, /msedge\.exe$/);
+  // Einstellung schlägt Standardbrowser
+  const c = chooseBrowser({ platform: 'win32', env, exists: all, defaultKind: 'brave', preference: 'chrome' });
+  assert.deepEqual([c.kind, c.how], ['chrome', 'Einstellung']);
+  // nicht installierter Wunsch: nächster vorhandener
+  const only = (p) => /chrome\.exe$/.test(p);
+  assert.equal(chooseBrowser({ platform: 'win32', env, exists: only, preference: 'brave' }).kind, 'chrome');
+  // Pfad aus der Einstellungsdatei (nur von Hand setzbar)
+  assert.equal(chooseBrowser({ platform: 'win32', env, exists: (p) => p === 'D:\\Browser\\x.exe', preference: 'D:\\Browser\\x.exe' }).exe, 'D:\\Browser\\x.exe');
+  assert.equal(chooseBrowser({ platform: 'win32', env, exists: () => false }), null);
+});
+
+test('Einstellungsroute: nur Stichwörter, Datei bleibt erhalten', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-settings-')), 'launcher.json');
+  fs.writeFileSync(file, JSON.stringify({ andere: 1 }));
+  await withRouter({ appMode: true, settingsFile: file, currentBrowser: { kind: 'edge', exe: 'C:\\x\\msedge.exe', how: 'automatisch' } }, async (base) => {
+    const put = (body) => fetch(`${base}/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await put({ browser: 'brave' })).status, 200);
+    assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')), { andere: 1, browser: 'brave' });
+    assert.equal((await put({ browser: 'C:\\evil.exe' })).status, 400); // nie ein Pfad aus dem Netz
+    const get = await (await fetch(`${base}/settings`)).json();
+    assert.equal(get.browser, 'brave');
+    assert.equal(get.current.kind, 'edge');
+    assert.deepEqual(get.options, ['auto', 'edge', 'chrome', 'brave', 'chromium']);
+  });
+});
