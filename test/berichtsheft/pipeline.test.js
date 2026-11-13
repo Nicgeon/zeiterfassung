@@ -179,7 +179,7 @@ test('Noah AI und kompatibel arbeiten in einfachen Schritten: Einordnung, dann j
     assert.doesNotMatch(gen.calls[1].user, /Subnetting|Stichwort|Schule:/);
     assert.match(gen.calls[1].user, /^Stichpunkte der Woche:\n1\. Backup geprüft für ein Kunde \(2x erfasst\)\n2\. Lini Update/);
     assert.match(gen.calls[2].user, /^Stichpunkte der Woche:\n1\. (Berufsschule: Subnetting|Routing)/);
-    assert.equal(gen.calls[2].system.includes('höchstens 2 Zeilen') || gen.calls[2].system.includes('höchstens 3 Zeilen') || gen.calls[2].system.includes('höchstens 4 Zeilen'), true);
+    assert.match(gen.calls[2].system, /höchstens [4-8] Zeilen/); // Schule: 4 bis 8 Zeilen
     assert.equal(r.assignment.get(3), 'schule');
     assert.equal(r.assignment.get(5), 'schule'); // markiert
     assert.equal(r.assignment.get(1), 'betrieb');
@@ -207,13 +207,13 @@ test('Einordnung unbrauchbar (z. B. "1, 2, 3 … 86"): Markierungen und Stichwö
   assert.equal(gen.calls.length, 3);
 });
 
-test('keine Schul-Stichpunkte: nur zwei Anfragen, Betrieb bekommt alle 10 Zeilen', async () => {
+test('keine Schul-Stichpunkte: nur zwei Anfragen, Betrieb bekommt alle 14 Zeilen', async () => {
   const noSchool = entries.filter((e) => !/Schule|Routing/.test(e.description) && !e.school);
   const { items } = buildItems(noSchool, vocab, ['Berufsschule']);
   const gen = stepModel({ classify: 'keine' });
   const r = await aiReport({ items, provider: 'noah', model: 'm', apiKey: 'k', generateImpl: gen });
   assert.equal(gen.calls.length, 2);
-  assert.match(gen.calls[1].system, /höchstens 10 Zeilen/);
+  assert.match(gen.calls[1].system, /höchstens 14 Zeilen/);
   assert.equal(r.schule, '');
 });
 

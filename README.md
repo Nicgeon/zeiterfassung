@@ -422,7 +422,7 @@ Azubis sehen ausschließlich ihre eigenen Einträge.
 ## Berichtsheft-Text mit KI
 
 Aus den erfassten Einträgen einer Woche entstehen zwei zusammenhängende Textblöcke für das Berichtsheft:
-**„Betriebliche Tätigkeiten:“** und **„Berufsschule (Unterrichtsthemen):“** (zusammen 5 bis 10 Zeilen,
+**„Betriebliche Tätigkeiten:“** und **„Berufsschule (Unterrichtsthemen):“** (zusammen 5 bis 14 Zeilen, davon bei kleinen Modellen 4 bis 8 für die Berufsschule,
 Fließtext, ohne Namen, Daten und Wochentage).
 
 **In der Weboberfläche** (empfohlen):

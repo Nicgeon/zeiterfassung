@@ -4,7 +4,7 @@
 
 const { anonymizeText } = require('./anonymize');
 const {
-  systemPrompt, userMessage, parseAnswer, checkLimits, MAX_LINES,
+  systemPrompt, userMessage, parseAnswer, checkLimits, MAX_LINES, SCHOOL_LINES_MIN, SCHOOL_LINES_MAX,
   classifyPrompt, writePrompt, parseIdList, cleanProse, truncateToLines,
 } = require('./prompt');
 const { generate } = require('./providers');
@@ -92,9 +92,9 @@ async function stepwiseReport({ items, provider, model, apiKey, baseUrl, lineWid
   const workItems = items.filter((i) => !schoolIds.has(i.id));
   const assignment = new Map(items.map((i) => [i.id, schoolIds.has(i.id) ? 'schule' : 'betrieb']));
 
-  // Zeilenbudget: zusammen höchstens 10 Zeilen, die Schule bekommt 2 bis 4 davon
+  // Zeilenbudget: zusammen höchstens MAX_LINES Zeilen, die Schule bekommt davon SCHOOL_LINES_MIN bis SCHOOL_LINES_MAX
   const both = schoolItems.length > 0 && workItems.length > 0;
-  const schoolLines = both ? Math.min(4, Math.max(2, Math.round((MAX_LINES * schoolItems.length) / items.length))) : MAX_LINES;
+  const schoolLines = both ? Math.min(SCHOOL_LINES_MAX, Math.max(SCHOOL_LINES_MIN, Math.round((MAX_LINES * schoolItems.length) / items.length))) : MAX_LINES;
   const workLines = both ? MAX_LINES - schoolLines : MAX_LINES;
 
   async function write(section, list, maxLines, label) {

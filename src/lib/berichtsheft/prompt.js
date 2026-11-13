@@ -21,8 +21,11 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-const MAX_LINES = 10;
+const MAX_LINES = 14;
 const MIN_LINES = 5;
+// Aufteilung bei den Einzelschritten (kleine Modelle): so viele Zeilen darf der Schultext haben
+const SCHOOL_LINES_MIN = 4;
+const SCHOOL_LINES_MAX = 8;
 
 /** Kurzfassung für kleine/langsame Modelle: weniger Eingabe, weniger Ausgabe (nur Nummern statt Zuordnungsliste). */
 function compactPrompt({ lineWidth = 95 } = {}) {
@@ -182,7 +185,7 @@ function checkLimits({ betrieb, schule }, { lineWidth = 95, hasSchool, hasBetrie
   return { lines, problems };
 }
 
-module.exports = { SCHEMA, MAX_LINES, MIN_LINES, systemPrompt, compactPrompt, userMessage, countLines, extractJson, normalizeAnswer, parseAnswer, checkLimits };
+module.exports = { SCHEMA, MAX_LINES, MIN_LINES, SCHOOL_LINES_MIN, SCHOOL_LINES_MAX, systemPrompt, compactPrompt, userMessage, countLines, extractJson, normalizeAnswer, parseAnswer, checkLimits };
 
 // ---------------------------------------------------------------------------------------------
 // Schrittweise Aufgaben fuer kleine Modelle (Noah AI, eigene Adressen): statt EINER Anfrage mit
