@@ -377,6 +377,18 @@
       </div>`;
   }
 
+  /**
+   * innerHTML nur setzen, wenn sich etwas geaendert hat. Beim Zurueckkehren ins Fenster laeuft ein Abgleich
+   * (Fokus-Ereignis), der die Listen neu zeichnet; wuerde dabei ein Knopf unter dem Mauszeiger ersetzt, ginge der
+   * erste Klick (z. B. "Weitermachen") verloren.
+   */
+  const renderedHtml = new WeakMap();
+  function setHtml(el, html) {
+    if (renderedHtml.get(el) === html) return;
+    renderedHtml.set(el, html);
+    el.innerHTML = html;
+  }
+
   function renderSummary() {
     const total = state.entries.reduce((sum, e) => sum + e.durationMinutes, 0);
     const done = state.entries.filter((e) => e.transferred).reduce((sum, e) => sum + e.durationMinutes, 0);
@@ -416,7 +428,7 @@
     renderMiniRecent();
 
     if (state.entries.length === 0) {
-      els.ledger.innerHTML = '<div class="list-empty">Noch keine Einträge für diesen Tag.</div>';
+      setHtml(els.ledger, '<div class="list-empty">Noch keine Einträge für diesen Tag.</div>');
       els.copyAllBtn.disabled = true;
       els.copyOpenBtn.disabled = true;
       els.copyOpenBtn.textContent = 'Offene kopieren';
@@ -427,7 +439,7 @@
     const openCount = state.entries.filter((e) => !e.transferred).length;
     els.copyOpenBtn.disabled = openCount === 0;
     els.copyOpenBtn.textContent = openCount > 0 ? `Offene kopieren (${openCount})` : 'Offene kopieren';
-    els.ledger.innerHTML = sortedEntries().map(entryRow).join('');
+    setHtml(els.ledger, sortedEntries().map(entryRow).join(''));
   }
 
   async function loadEntries() {
@@ -770,9 +782,9 @@
     if (!document.documentElement.classList.contains('mini')) return;
     const open = state.entries.filter((e) => !e.transferred).sort((a, b) => b.id - a.id);
     els.miniRecent.classList.toggle('hidden', open.length === 0);
-    if (open.length === 0) { els.miniRecent.innerHTML = ''; return; }
+    if (open.length === 0) { setHtml(els.miniRecent, ''); return; }
     const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-    els.miniRecent.innerHTML = `
+    setHtml(els.miniRecent, `
       <div class="mini-resume__head">
         <span>Noch in Jira eintragen</span><span class="mini-resume__count">${open.length}</span>
         <label class="mini-recent__auto" title="Beim Speichern oder Stoppen den Eintrag automatisch in die Zwischenablage kopieren">
@@ -788,7 +800,7 @@
           </div>
           <button type="button" class="mini-resume__btn" data-done aria-label="Als in Jira eingetragen markieren" title="In Jira eingetragen – aus dieser Liste entfernen">${check}</button>
         </div>`).join('')}
-      ${open.length > MINI_RECENT_MAX ? `<div class="mini-recent__more">+ ${open.length - MINI_RECENT_MAX} weitere im großen Fenster</div>` : ''}`;
+      ${open.length > MINI_RECENT_MAX ? `<div class="mini-recent__more">+ ${open.length - MINI_RECENT_MAX} weitere im großen Fenster</div>` : ''}`);
   }
 
   els.miniRecent.addEventListener('change', (e) => {
@@ -824,14 +836,14 @@
     const list = loadPausedTasks();
     els.resumeBar.classList.toggle('hidden', list.length === 0 || !!state.timer);
     if (document.documentElement.classList.contains('mini')) return renderMiniResume(list);
-    els.resumeBar.innerHTML = list.length === 0 ? '' : `
+    setHtml(els.resumeBar, list.length === 0 ? '' : `
       <span class="resume-bar__label">Weitermachen:</span>
       ${list.map((t, i) => `
         <span class="resume-item">
           <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description || t.jiraKey)}${t.description && t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
           <button type="button" class="chip chip--mid" data-manual="${i}" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">＋ Zeit</button>
           <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
-        </span>`).join('')}`;
+        </span>`).join('')}`);
   }
 
   /** Mini-Fenster: pausierte Aufgaben als Karte mit gleich aufgebauten Zeilen (Weitermachen, Zeit nachtragen, entfernen). */
@@ -839,7 +851,7 @@
     const play = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
     const plus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
     const cross = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-    els.resumeBar.innerHTML = list.length === 0 ? '' : `
+    setHtml(els.resumeBar, list.length === 0 ? '' : `
       <div class="mini-resume__head"><span>Pausiert</span><span class="mini-resume__count">${list.length}</span></div>
       ${list.map((t, i) => {
         const mergeable = t.entryId && t.workDate === todayISO();
@@ -855,7 +867,7 @@
           <button type="button" class="mini-resume__btn" data-manual="${i}" aria-label="Zeit von Hand nachtragen" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">${plus}</button>
           <button type="button" class="mini-resume__btn mini-resume__btn--quiet" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">${cross}</button>
         </div>`;
-      }).join('')}`;
+      }).join('')}`);
   }
 
   /** Unterbrochene Aufgabe von Hand fortsetzen: Formular vorbefuellen, die bisherige Zeit kommt dazu. */
