@@ -595,6 +595,7 @@
     state.timer = timer;
     els.composer.classList.toggle('composer--timer', !!timer);
     renderResumeBar();
+    if (window.ZeitTasks) window.ZeitTasks.render();
     els.formTitle.textContent = timer ? 'Timer läuft' : state.editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
     clearInterval(elapsedInterval);
 
@@ -835,19 +836,11 @@
   function renderResumeBar() {
     const list = loadPausedTasks();
     els.resumeBar.classList.toggle('hidden', list.length === 0 || !!state.timer);
-    if (document.documentElement.classList.contains('mini')) return renderMiniResume(list);
-    setHtml(els.resumeBar, list.length === 0 ? '' : `
-      <span class="resume-bar__label">Weitermachen:</span>
-      ${list.map((t, i) => `
-        <span class="resume-item">
-          <button type="button" class="chip chip--resume" data-index="${i}" title="${t.entryId && t.workDate === todayISO() ? `Timer weiterlaufen lassen – der bisherige Eintrag (${t.minutes} Min) wird mit dem neuen zusammengeführt` : 'Timer mit dieser Aufgabe starten'}">▶ ${escapeHtml(t.description || t.jiraKey)}${t.description && t.jiraKey ? `<span class="mono">${escapeHtml(t.jiraKey)}</span>` : ''}${t.entryId && t.workDate === todayISO() ? `<span class="mono">${t.minutes} Min bisher</span>` : ''}</button>
-          <button type="button" class="chip chip--mid" data-manual="${i}" title="Zeit von Hand eintragen – die bisherige Zeit wird auf den neuen Eintrag draufgelegt">＋ Zeit</button>
-          <button type="button" class="chip-x" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">×</button>
-        </span>`).join('')}`);
+    renderPausedRows(list);
   }
 
-  /** Mini-Fenster: pausierte Aufgaben als Karte mit gleich aufgebauten Zeilen (Weitermachen, Zeit nachtragen, entfernen). */
-  function renderMiniResume(list) {
+  /** Pausierte Aufgaben als Zeilen (Weitermachen, Zeit nachtragen, entfernen). */
+  function renderPausedRows(list) {
     const play = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
     const plus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
     const cross = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -868,6 +861,23 @@
           <button type="button" class="mini-resume__btn mini-resume__btn--quiet" data-remove="${i}" aria-label="Aus der Liste entfernen" title="Aus der Liste entfernen">${cross}</button>
         </div>`;
       }).join('')}`);
+  }
+
+  /** Aus der Aufgabenliste: Timer mit Titel und Ticket der Aufgabe starten (die Aufgabe bleibt offen). */
+  async function startTimerForTask(task) {
+    if (state.timer) { showToast('Bitte zuerst den Timer stoppen oder unterbrechen.'); return; }
+    setFormError(els.formError, '');
+    try {
+      const data = await Api.post('/api/timer', {
+        work_date: todayISO(),
+        start_time: nowHHMM(),
+        description: task.title,
+        jira_key: task.jiraKey || null,
+      });
+      renderTimer(data.timer);
+    } catch (err) {
+      showToast(err.message);
+    }
   }
 
   /** Unterbrochene Aufgabe von Hand fortsetzen: Formular vorbefuellen, die bisherige Zeit kommt dazu. */
@@ -1288,7 +1298,7 @@
     clearTimeout(fitTimer);
     fitTimer = setTimeout(() => {
       try {
-        const bottoms = [els.composer, els.resumeBar]
+        const bottoms = [...document.querySelectorAll('.workspace > .tasks-col, .work-col > .composer, .work-col > .mini-recent')]
           .filter((el) => !el.classList.contains('hidden'))
           .map((el) => el.getBoundingClientRect().bottom);
         const wanted = Math.ceil(Math.max(...bottoms) + window.scrollY + 12);
@@ -1299,7 +1309,8 @@
   if (isMini && typeof ResizeObserver === 'function') {
     const ro = new ResizeObserver(fitMini);
     ro.observe(els.composer);
-    ro.observe(els.resumeBar);
+    ro.observe(document.getElementById('tasksCol'));
+    ro.observe(els.miniRecent);
   }
   // Pausierte Aufgaben liegen im Browser-Speicher: Aenderungen im anderen Fenster uebernehmen
   window.addEventListener('storage', (e) => { if (e.key === PAUSED_KEY) renderResumeBar(); });
@@ -1316,6 +1327,7 @@
       renderLedger();
       renderTimer(timer.timer);
       renderResumeBar();
+      if (window.ZeitTasks) window.ZeitTasks.refresh();
       // Noch nichts eingegeben: Formular mit frischen Vorgaben (z. B. Start = Ende des letzten Eintrags)
       if (!state.editingId && !state.timer && !els.description.value.trim() && !els.jiraKey.value.trim()) resetFormForNewEntry();
     } catch { /* offline o. ae.: beim naechsten Mal */ } finally {
@@ -1326,5 +1338,6 @@
   window.addEventListener('focus', syncFromServer);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromServer(); });
 
+  if (window.ZeitTasks) window.ZeitTasks.init({ startTimer: startTimerForTask, running: () => state.timer });
   init().then(fitMini);
 })();

@@ -28,7 +28,44 @@
   </div>
 </div>
 
-<div class="shell shell--page">
+<div class="shell shell--page workspace">
+
+  <!-- Aufgaben (linke Spalte) -->
+  <section class="tasks-col" id="tasksCol" aria-label="Aufgaben">
+    <div class="tasks__head">
+      <h2>Aufgaben</h2>
+      <div class="seg seg--sm tasks__tabs" role="group" aria-label="Ansicht">
+        <button type="button" class="seg__btn is-active" data-view="today" aria-pressed="true">Heute</button>
+        <button type="button" class="seg__btn" data-view="soon" aria-pressed="false">Demnächst</button>
+        <button type="button" class="seg__btn" data-view="all" aria-pressed="false">Alle</button>
+      </div>
+    </div>
+
+    <form class="tasks__add" id="taskAddForm" autocomplete="off">
+      <svg class="tasks__add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <label class="visually-hidden" for="taskTitle">Neue Aufgabe</label>
+      <input type="text" id="taskTitle" maxlength="500" placeholder="Neue Aufgabe …" />
+      <label class="visually-hidden" for="taskDue">Fällig</label>
+      <select id="taskDue" class="tasks__due">
+        <option value="today">Heute</option>
+        <option value="tomorrow">Morgen</option>
+        <option value="monday">Montag</option>
+        <option value="none">Ohne Datum</option>
+      </select>
+    </form>
+    <div id="taskError" class="tasks__error"></div>
+
+    <div id="taskList" class="tasks__list"></div>
+
+    <!-- Unterbrochene Aufgaben: ein Klick startet den Timer damit erneut -->
+    <div class="resume-bar hidden" id="resumeBar" aria-label="Unterbrochene Aufgaben"></div>
+
+    <button type="button" class="tasks__more" id="taskDoneToggle" aria-expanded="false">Erledigte anzeigen</button>
+    <div id="taskDoneList" class="tasks__list hidden"></div>
+  </section>
+
+  <!-- Erfassung (rechte Spalte) -->
+  <div class="work-col page-main">
 
   <div class="page-head">
     <div>
@@ -45,13 +82,6 @@
       <button type="button" class="btn btn--secondary btn--nav" id="nextDayBtn" title="Nächster Tag" aria-label="Nächster Tag">&rarr;</button>
     </div>
   </div>
-
-  <div class="page-grid">
-
-    <div class="page-main">
-
-      <!-- Unterbrochene Aufgaben: ein Klick startet den Timer damit erneut -->
-      <div class="resume-bar hidden" id="resumeBar" aria-label="Unterbrochene Aufgaben"></div>
 
       <!-- Neuer Eintrag. Läuft ein Timer, wird dieselbe Karte zum Timer: Aufgabe und Ticket
            sind dann die Felder des Timers, die Zeitangaben entfallen. -->
@@ -169,26 +199,8 @@
       <!-- Nur Mini-Fenster: Eintraege, die noch in Jira eingetragen werden muessen (Kopieren ohne Fensterwechsel) -->
       <section class="mini-recent hidden" id="miniRecent" aria-label="Noch in Jira eintragen"></section>
 
-      <!-- Liste -->
-      <section class="card card--flush" aria-label="Einträge des Tages">
-        <div class="list-head">
-          <h2>Einträge <span class="list-head__count" id="entryCount"></span></h2>
-          <div class="sort-control">
-            <label for="sortSelect">Sortierung</label>
-            <select id="sortSelect">
-              <option value="time-asc">Älteste zuerst</option>
-              <option value="time-desc">Neueste zuerst</option>
-              <option value="duration-desc">Längste zuerst</option>
-              <option value="ticket">Nach Ticket</option>
-            </select>
-          </div>
-        </div>
-        <div id="ledger"></div>
-      </section>
-    </div>
-
-    <aside class="page-side" aria-label="Zusammenfassung">
-      <div class="card">
+      <!-- Tagesübersicht als ein Band -->
+      <div class="card summary summary--band">
         <div class="summary__label" id="summaryLabel">Heute erfasst</div>
         <div class="summary__total">
           <span class="summary__value mono" id="sumTotal">0:00</span>
@@ -214,19 +226,35 @@
         </div>
       </div>
 
-      <div class="card">
+      <!-- Liste -->
+      <section class="card card--flush" aria-label="Einträge des Tages">
+        <div class="list-head">
+          <h2>Einträge <span class="list-head__count" id="entryCount"></span></h2>
+          <div class="sort-control">
+            <label for="sortSelect">Sortierung</label>
+            <select id="sortSelect">
+              <option value="time-asc">Älteste zuerst</option>
+              <option value="time-desc">Neueste zuerst</option>
+              <option value="duration-desc">Längste zuerst</option>
+              <option value="ticket">Nach Ticket</option>
+            </select>
+          </div>
+        </div>
+        <div id="ledger"></div>
+      </section>
+
+      <div class="card ticket-card">
         <h2 class="mb-md">Nach Ticket</h2>
         <div id="ticketList"></div>
       </div>
-    </aside>
   </div>
-
 </div>
 
 <script src="/js/util.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
 <script src="/js/tickets.js"></script>
+<script src="/js/tasks.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>
