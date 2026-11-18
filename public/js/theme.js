@@ -43,9 +43,84 @@
     document.documentElement.classList.add('no-times');
   }
 
+  // Seitenleiste ein-/ausgeklappt: gemerkt pro Browser; ohne Wahl ist sie auf schmalen Fenstern (< 1280 px) eingeklappt
+  const NAV_KEY = 'zeit.nav';
+  const navCollapsed = () => {
+    let saved = null;
+    try { saved = localStorage.getItem(NAV_KEY); } catch { /* nur Komfort */ }
+    return saved === 'collapsed' || (saved !== 'expanded' && window.innerWidth < 1280);
+  };
+  document.documentElement.classList.toggle('nav-collapsed', navCollapsed());
+
   // Auswahlmenue statt Durchschalten: Knopf mit aktuellem Schema, darunter die Liste.
   // Mini-Fenster (index.html?mini=1): nur Aufgabe und Zeit, siehe styles.css ".mini"
   if (/[?&]mini=1(&|$)/.test(location.search)) document.documentElement.classList.add('mini');
+
+  const NAV_ICONS = {
+    'index.html': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12.5l3 3 5-6"/>',
+    'uebersicht.html': '<path d="M5 20V10M12 20V4M19 20v-7"/>',
+    'wochenbericht.html': '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
+    'account.html': '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+    'admin.html': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.2-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.6 5.2"/>',
+    logout: '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>',
+    toggle: '<path d="M4 5h16v14H4z"/><path d="M9 5v14"/>',
+  };
+  const icon = (paths, cls) => '<svg class="' + (cls || 'nav-icon') + '" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+
+  /** Symbole an den Menüpunkten, Ein-/Ausklappen, Anfangsbuchstabe als Profilbild (alles nur Darstellung). */
+  function setupNav() {
+    const bar = document.querySelector('.topbar');
+    if (!bar) return;
+    bar.querySelectorAll('.topbar__nav a').forEach((a) => {
+      const file = (a.getAttribute('href') || '').split('/').pop();
+      let label = a.querySelector('.label');
+      if (!label) {
+        label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = a.textContent.trim();
+        a.textContent = '';
+        a.appendChild(label);
+      }
+      a.title = label.textContent;
+      if (NAV_ICONS[file] && !a.querySelector('.nav-icon')) a.insertAdjacentHTML('afterbegin', icon(NAV_ICONS[file]));
+    });
+
+    const brand = bar.querySelector('.topbar__brand');
+    if (brand && !brand.querySelector('.nav-toggle')) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'nav-toggle';
+      t.innerHTML = icon(NAV_ICONS.toggle, 'nav-toggle__icon');
+      const sync = () => {
+        const collapsed = document.documentElement.classList.contains('nav-collapsed');
+        t.title = collapsed ? 'Menü ausklappen' : 'Menü einklappen';
+        t.setAttribute('aria-label', t.title);
+        t.setAttribute('aria-expanded', String(!collapsed));
+      };
+      t.addEventListener('click', () => {
+        const collapsed = !document.documentElement.classList.contains('nav-collapsed');
+        document.documentElement.classList.toggle('nav-collapsed', collapsed);
+        try { localStorage.setItem(NAV_KEY, collapsed ? 'collapsed' : 'expanded'); } catch { /* nur Komfort */ }
+        sync();
+      });
+      brand.appendChild(t);
+      sync();
+    }
+
+    const out = document.getElementById('logoutBtn');
+    if (out && !out.querySelector('svg')) {
+      const text = out.textContent.trim();
+      out.title = text;
+      out.innerHTML = icon(NAV_ICONS.logout, 'nav-icon') + '<span class="label">' + text + '</span>';
+    }
+    const who = document.getElementById('userLabel');
+    if (who) {
+      const initial = () => { who.dataset.initial = (who.textContent.trim()[0] || '·').toUpperCase(); who.title = who.textContent.trim(); };
+      initial();
+      new MutationObserver(initial).observe(who, { childList: true, characterData: true, subtree: true });
+    }
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
     const wrap = document.createElement('div');
@@ -117,6 +192,8 @@
       else if (e.key === 'Tab') setOpen(false);
     });
     document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) setOpen(false); });
+
+    setupNav();
 
     wrap.append(btn, list);
     const host = document.querySelector('.topbar__user');

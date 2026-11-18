@@ -446,6 +446,9 @@ erinnern“ (`POST /api/tasks/:id/snooze`), eine Schaltfläche dafür gibt es no
 
 **Oberfläche:** Ab 1000 px Breite steht die Navigation links als Seitenleiste (Farben und Themes unverändert), darunter
 auf der Erfassungsseite links die Aufgaben und rechts Erfassung, Tagesband (erfasst / in Jira / offen) und Einträge.
+Die Seitenleiste lässt sich über das Symbol oben ein- und ausklappen (eingeklappt nur Symbole; die Wahl wird pro Browser
+gemerkt, ohne Wahl ist sie auf Fenstern unter 1280 px eingeklappt). Unten stehen Profil (Anfangsbuchstabe, Name),
+Farbschema und Abmelden.
 
 ## Berichtsheft-Text mit KI
 

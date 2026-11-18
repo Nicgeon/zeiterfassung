@@ -1377,47 +1377,98 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
    die Aufgaben und rechts Erfassung, Tagesband und Eintraege. Alle Farben kommen aus den Theme-Variablen. */
 
 @media (min-width: 1000px) {
-  html:not(.mini) body:has(> .topbar) { padding-left: 224px; }
+  html { --nav-w: 232px; }
+  html.nav-collapsed { --nav-w: 76px; }
+  html:not(.mini) body:has(> .topbar) { padding-left: var(--nav-w); }
   html:not(.mini) .topbar {
-    position: fixed; left: 0; top: 0; bottom: 0; width: 224px; z-index: 20;
+    position: fixed; left: 0; top: 0; bottom: 0; width: var(--nav-w); z-index: 20; box-sizing: border-box;
     flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start;
-    gap: 4px; min-height: 0; padding: 24px 14px 16px; overflow-y: auto;
+    gap: 4px; min-height: 0; padding: 20px 14px 14px;
     border-bottom: 0; border-right: 1px solid var(--border); background: var(--surface);
   }
-  html:not(.mini) .topbar__brand { padding: 0 10px 18px; }
-  html:not(.mini) .topbar__brand .mark { display: inline-block; width: 12px; height: 12px; border-radius: 4px; }
-  html:not(.mini) .topbar__brand strong { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
-  html:not(.mini) .topbar__nav { flex: 1; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; }
+  html:not(.mini) .topbar__brand { gap: 10px; padding: 0 6px 16px 10px; min-height: 44px; }
+  html:not(.mini) .topbar__brand .mark { display: inline-block; flex: none; width: 14px; height: 14px; border-radius: 5px; }
+  html:not(.mini) .topbar__brand strong { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-toggle {
+    flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 12px; background: transparent;
+    color: var(--ink-muted); display: inline-flex; align-items: center; justify-content: center;
+  }
+  .nav-toggle:hover { background: var(--surface-alt); color: var(--ink); }
+  html:not(.mini) .topbar__nav { flex: 1; min-height: 0; overflow-y: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 4px; }
   html:not(.mini) .topbar__nav a {
-    display: flex; align-items: center; min-height: 44px; padding: 0 14px;
+    display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px;
     border-bottom: 0; border-radius: 14px; font-size: 14px; font-weight: 500; color: var(--ink-muted);
   }
+  html:not(.mini) .topbar__nav a .nav-icon { flex: none; }
   html:not(.mini) .topbar__nav a:hover { background: var(--surface-alt); color: var(--ink); }
-  html:not(.mini) .topbar__nav a.active { background: var(--accent-wash); color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+  html:not(.mini) .topbar__nav a.active { background: var(--accent-wash); color: var(--ink); font-weight: 600; }
+  html:not(.mini) .topbar__nav a.active .nav-icon { color: var(--accent); }
+
+  /* Profil unten: Anfangsbuchstabe + Name, darunter Farbschema und Abmelden als ruhige Zeilen */
   html:not(.mini) .topbar__user {
-    flex-direction: column; align-items: stretch; gap: 6px; padding: 10px;
-    border-radius: 16px; background: var(--surface-alt);
+    flex-direction: column; align-items: stretch; gap: 2px; padding: 8px;
+    border-radius: 18px; background: var(--surface-alt); font-size: 14px;
   }
-  html:not(.mini) .topbar__user .theme-menu { align-self: stretch; }
-  html:not(.mini) .topbar__user .theme-toggle { width: 100%; justify-content: flex-start; }
-  html:not(.mini) .topbar .theme-menu__list { top: auto; bottom: calc(100% + 6px); left: 0; right: auto; }
-  html:not(.mini) .topbar__user .btn { width: 100%; }
+  html:not(.mini) .topbar__user #userLabel {
+    order: 1; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px;
+    font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  html:not(.mini) .topbar__user #userLabel::before {
+    content: attr(data-initial); flex: none; width: 32px; height: 32px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 700;
+  }
+  html:not(.mini) .topbar__user .theme-menu { order: 2; align-self: stretch; }
+  html:not(.mini) .topbar__user #logoutBtn { order: 3; }
+  html:not(.mini) .topbar__user .theme-toggle,
+  html:not(.mini) .topbar__user #logoutBtn {
+    width: 100%; min-height: 40px; justify-content: flex-start; gap: 12px; padding: 0 10px;
+    border: 0; border-radius: 12px; background: transparent; color: var(--ink-muted);
+    font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none;
+  }
+  html:not(.mini) .topbar__user .theme-toggle:hover,
+  html:not(.mini) .topbar__user #logoutBtn:hover { background: var(--surface); color: var(--ink); }
+  html:not(.mini) .topbar__user .theme-toggle .theme-toggle__label { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html:not(.mini) .topbar .theme-menu__list { top: auto; bottom: 0; left: calc(100% + 18px); right: auto; }
   html:not(.mini) .update-banner { padding-left: 24px; padding-right: 24px; }
+
+  /* Eingeklappt: nur Symbole */
+  html.nav-collapsed:not(.mini) .topbar { padding-left: 10px; padding-right: 10px; }
+  html.nav-collapsed:not(.mini) .topbar__brand { flex-direction: column; align-items: center; gap: 10px; padding: 0 0 12px; }
+  html.nav-collapsed:not(.mini) .topbar__brand strong,
+  html.nav-collapsed:not(.mini) .topbar__nav a .label,
+  html.nav-collapsed:not(.mini) .topbar__user .label,
+  html.nav-collapsed:not(.mini) .topbar__user .theme-toggle__label,
+  html.nav-collapsed:not(.mini) .topbar__user .theme-toggle svg:last-child { display: none; }
+  html.nav-collapsed:not(.mini) .topbar__nav a { justify-content: center; padding: 0; }
+  html.nav-collapsed:not(.mini) .topbar__user { padding: 6px 0; align-items: center; }
+  html.nav-collapsed:not(.mini) .topbar__user #userLabel { font-size: 0; padding: 0; justify-content: center; }
+  html.nav-collapsed:not(.mini) .topbar__user .theme-menu { align-self: center; }
+  html.nav-collapsed:not(.mini) .topbar__user .theme-toggle,
+  html.nav-collapsed:not(.mini) .topbar__user #logoutBtn { width: 44px; min-width: 44px; justify-content: center; padding: 0; }
+
+  /* Hintergrund: ohne dunkles Kopfband und Streifen, damit nichts durch den Inhalt schneidet */
+  html:not(.mini)[data-theme='marine'] body:has(> .topbar) { background: linear-gradient(180deg, #0471fe 0%, #035bcc 50%, #03469c 100%) fixed; background-color: #035bcc; }
+  html:not(.mini)[data-theme='marine-dark'] body:has(> .topbar) { background: linear-gradient(180deg, #0b2a7a 0%, #08205f 50%, #050f33 100%) fixed; background-color: #08205f; }
+  html:not(.mini)[data-theme^='marine'] body:has(> .topbar)::before,
+  html:not(.mini)[data-theme^='marine'] body:has(> .topbar)::after { display: none; }
 }
+@media (max-width: 999px) { .nav-toggle { display: none; } }
 
 /* Erfassungsseite: Aufgaben | Arbeitsbereich */
 .workspace {
   max-width: 1560px;
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
   align-items: start;
-  padding: 28px 32px 56px;
+  padding: 24px 28px 56px;
 }
 .work-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-@media (max-width: 1099px) {
-  .workspace { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 48px; }
-}
+@media (max-width: 1279px) { .workspace { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; padding: 20px 20px 48px; } }
+@media (max-width: 999px) { .workspace { grid-template-columns: minmax(0, 1fr); padding: 16px 14px 48px; } }
+/* Formular passt sich der Breite an (Dauer und Ticket untereinander, wenn es eng wird) */
+.work-col .composer__meta { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
 
 /* Aufgabenspalte */
 .tasks-col {
@@ -1425,10 +1476,11 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   position: sticky; top: 24px; align-self: start;
   max-height: calc(100vh / var(--ui-zoom) - 48px); overflow-y: auto; padding: 2px 4px 2px 0;
 }
-@media (max-width: 1099px) { .tasks-col { position: static; max-height: none; overflow: visible; } }
-.tasks__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+@media (max-width: 999px) { .tasks-col { position: static; max-height: none; overflow: visible; } }
+.tasks__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 40px; }
 .tasks__head h2 { margin: 0; }
-.tasks__tabs .seg__btn { min-height: 30px; padding: 0 12px; font-size: 12px; }
+.tasks__tabs .seg__btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.tasks__tabs { margin-left: auto; }
 
 .tasks__add {
   display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 6px 0 16px;
@@ -1514,6 +1566,17 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .task-edit__spacer { flex: 1; }
 .task-edit__delete { color: var(--danger); }
 
+/* Marine (hell): Texte, die direkt auf dem blauen Hintergrund stehen */
+[data-theme='marine'] .tasks-col > .tasks__head h2,
+[data-theme='marine'] .tasks-col > .tasks__empty,
+[data-theme='marine'] .tasks__list > .tasks__empty { color: #fafafa; }
+[data-theme='marine'] .tasks__label,
+[data-theme='marine'] .tasks__more,
+[data-theme='marine'] .tasks__more-hint { color: #d5e4ff; }
+[data-theme='marine'] .tasks__more:hover { color: #fff; }
+[data-theme='marine'] .tasks__group--overdue .tasks__label { color: #ffd0d6; }
+[data-theme='marine'] .tasks__error { color: #ffd0d6; }
+
 /* Pausierte Aufgaben: Zeilen in der Aufgabenspalte */
 .tasks-col #resumeBar {
   flex-direction: column; align-items: stretch; flex-wrap: nowrap; gap: 4px;
@@ -1539,7 +1602,12 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .summary--band .legend-key { white-space: nowrap; }
 .work-col .page-title { font-size: 34px; }
 .summary--band .summary__actions { grid-area: actions; margin: 0; flex-direction: column; min-width: 190px; }
-@media (max-width: 900px) {
+@media (max-width: 1279px) {
+  .summary--band { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'label bar' 'total legend' 'actions actions'; }
+  .summary--band .summary__actions { flex-direction: row; margin-top: 12px; min-width: 0; }
+  .summary--band .summary__actions .btn { flex: 1; }
+}
+@media (max-width: 700px) {
   .summary--band { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'total' 'bar' 'legend' 'actions'; }
   .summary--band .summary__bar { margin: 12px 0 4px; }
   .summary--band .summary__actions { margin-top: 12px; }
