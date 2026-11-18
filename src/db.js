@@ -83,6 +83,27 @@ CREATE TABLE IF NOT EXISTS active_timers (
   carry_minutes    INTEGER NOT NULL DEFAULT 0
 );
 
+-- Aufgaben (To-do-Liste). Titel verschluesselt wie die Eintraege; Wiederholung als kleines JSON
+-- ({"every":1,"unit":"week","mode":"due"}); reminded_at/snooze_until steuern die Erinnerungen.
+CREATE TABLE IF NOT EXISTS tasks (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title_enc     TEXT NOT NULL,
+  jira_key      TEXT,
+  due_date      TEXT,
+  due_time      TEXT,
+  priority      INTEGER NOT NULL DEFAULT 0,
+  status        TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done')),
+  done_at       TEXT,
+  repeat_json   TEXT,
+  snooze_until  TEXT,
+  reminded_at   TEXT,
+  deleted_at    TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status);
+
 -- Einstellungen fuer den Befehl "berichtsheft" (KI-Anbieter, Schluessel, Namenslisten),
 -- pro Person als verschluesselter JSON-Block.
 CREATE TABLE IF NOT EXISTS berichtsheft_settings (
@@ -227,6 +248,9 @@ function runRetentionCleanup() {
     // eslint-disable-next-line no-console
     console.log(`[AUFRAEUMEN] ${purged.changes} geloeschte(r) Zeiteintrag/-eintraege endgueltig entfernt.`);
   }
+  db.prepare("DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-1 day')").run();
+  // Lange erledigte Aufgaben ohne Wiederholung nach 90 Tagen entfernen (die Liste soll uebersichtlich bleiben)
+  db.prepare("DELETE FROM tasks WHERE status = 'done' AND done_at < datetime('now', '-90 days')").run();
 }
 
 /** Beendet alle Sitzungen eines bestimmten Nutzers (z.B. nach Passwort-Reset). */
