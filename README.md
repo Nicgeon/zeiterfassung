@@ -419,6 +419,34 @@ Mittwoch, 23.09.2026
 Tage ohne Einträge werden weggelassen. Auch hier gilt die Datentrennung:
 Azubis sehen ausschließlich ihre eigenen Einträge.
 
+## Aufgabenliste
+
+Links neben der Erfassung steht die Aufgabenliste (im Mini-Fenster als kompakte Karte). Aufgaben werden in der
+Datenbank gespeichert (Titel verschlüsselt wie die Einträge) und gelten damit für alle Fenster.
+
+- **Anlegen:** Text eintragen, Enter. Eine Ticketnummer im Text (z. B. `ITPKK-123`) oder ein eingefügter Jira-Link wird
+  zum Ticket der Aufgabe. Daneben wählst du „Heute“, „Morgen“, „Montag“ oder „Ohne Datum“.
+- **Ansichten:** *Heute* (überfällig und heute), *Demnächst*, *Alle*; „Erledigte anzeigen“ listet zuletzt Erledigtes
+  (Klick auf den Haken öffnet wieder).
+- **Bearbeiten:** Klick auf den Titel öffnet Titel, Ticket, Datum, Uhrzeit, „Wichtig“ und Wiederholung
+  (täglich/wöchentlich/monatlich; beim Abhaken entsteht die nächste Aufgabe, verpasste Termine werden übersprungen).
+- **▶ startet den Timer** mit Titel und Ticket der Aufgabe; die laufende Aufgabe ist hervorgehoben. **Abgehakt wird nie
+  automatisch** – auch nicht beim Stoppen des Timers, nur durch den Haken.
+- **Papierkorb:** Löschen und Abhaken lassen sich kurz rückgängig machen.
+- **Pausierte Aufgaben** („Unterbrechen“) stehen als Zeilen unter den Aufgaben.
+
+**Erinnerungen** (nur im lokalen Betrieb): Eine Aufgabe mit Datum und Uhrzeit meldet sich zu dieser Zeit, eine nur mit
+Datum um 09:00 an dem Tag, jeweils einmal als Systembenachrichtigung (Windows, macOS: `osascript`, Linux:
+`notify-send`). Was beim Start schon fällig war, kommt nachgeholt als „überfällig“. Damit das auch ohne offenes Fenster
+klappt: **Konto → Programm → „Im Hintergrund weiterlaufen“** (das Programm bleibt nach dem Schließen des Fensters aktiv;
+ein Klick auf das Programm-Symbol öffnet das Fenster wieder) und optional **„Beim Anmelden automatisch im Hintergrund
+starten“** (Autostart-Eintrag im eigenen Benutzerordner, kein Administrator nötig; `--hintergrund` startet ohne
+Fenster). Beenden geht weiter unter *Konto → Programm → Zeiterfassung beenden*. Die Schnittstelle kennt auch „Später
+erinnern“ (`POST /api/tasks/:id/snooze`), eine Schaltfläche dafür gibt es noch nicht.
+
+**Oberfläche:** Ab 1000 px Breite steht die Navigation links als Seitenleiste (Farben und Themes unverändert), darunter
+auf der Erfassungsseite links die Aufgaben und rechts Erfassung, Tagesband (erfasst / in Jira / offen) und Einträge.
+
 ## Berichtsheft-Text mit KI
 
 Aus den erfassten Einträgen einer Woche entstehen zwei zusammenhängende Textblöcke für das Berichtsheft:

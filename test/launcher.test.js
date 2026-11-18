@@ -338,3 +338,93 @@ test('openDetached (start-local): öffnet App-Fenster mit eigenem Profil, nie de
     assert.ok(logs.some((l) => l.includes('App-Fenster')));
   });
 });
+
+test('Autostart: Dateien und Inhalte je Plattform, im Benutzerordner, ohne Fremdtext im Befehl', () => {
+  const { autostartFile, autostartContent, createAutostart } = require('../src/lib/autostart');
+  assert.match(autostartFile({ platform: 'win32', home: 'C:\\Users\\x', env: { APPDATA: 'C:\\Users\\x\\AppData\\Roaming' } }), /Startup[\\/]Zeiterfassung\.vbs$/);
+  assert.match(autostartFile({ platform: 'darwin', home: '/Users/x' }), /LaunchAgents\/de\.zeiterfassung\.hintergrund\.plist$/);
+  assert.match(autostartFile({ platform: 'linux', home: '/home/x' }), /\.config\/autostart\/zeiterfassung\.desktop$/);
+  assert.equal(autostartFile({ platform: 'freebsd' }), null);
+  assert.match(autostartContent('win32', 'C:\\Programme\\Zeit'), /start-app\.bat.*--hintergrund/);
+  assert.match(autostartContent('darwin', '/Users/x/Zeit & Co'), /Zeit &amp; Co\/start-app\.sh/);
+  assert.match(autostartContent('linux', '/home/x/Zeit'), /Exec=\/bin\/bash ".*start-app\.sh" --hintergrund/);
+
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-auto-'));
+  const a = createAutostart({ root: '/opt/zeit', platform: 'linux', home });
+  assert.equal(a.isEnabled(), false);
+  a.enable();
+  assert.equal(a.isEnabled(), true);
+  assert.match(fs.readFileSync(a.file, 'utf8'), /opt\/zeit\/start-app\.sh/);
+  a.disable();
+  assert.equal(a.isEnabled(), false);
+  assert.equal(createAutostart({ root: '/x', platform: 'freebsd' }).supported, false);
+});
+
+test('Einstellungsroute: Hintergrund und Autostart (Autostart schaltet Hintergrund ein), ungültige Werte abgelehnt', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-settings2-')), 'launcher.json');
+  let on = false;
+  const autostart = { supported: true, isEnabled: () => on, enable: () => { on = true; }, disable: () => { on = false; } };
+  await withRouter({ appMode: true, settingsFile: file, autostart }, async (base) => {
+    const put = (body) => fetch(`${base}/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await put({})).status, 400);
+    assert.equal((await put({ background: 'ja' })).status, 400);
+    assert.equal((await put({ autostart: 1 })).status, 400);
+    let r = await (await put({ background: true })).json();
+    assert.equal(r.background, true);
+    assert.equal(r.autostart, false);
+    r = await (await put({ background: false })).json();
+    assert.equal(r.background, false);
+    r = await (await put({ autostart: true })).json();
+    assert.equal(r.autostart, true);
+    assert.equal(r.background, true, 'Autostart braucht das Weiterlaufen im Hintergrund');
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).background, true);
+    r = await (await fetch(`${base}/settings`)).json();
+    assert.equal(r.autostartSupported, true);
+  });
+  await withRouter({ appMode: true, settingsFile: file }, async (base) => {
+    const res = await fetch(`${base}/settings`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ autostart: true }) });
+    assert.equal(res.status, 400);
+    assert.equal((await (await fetch(`${base}/settings`)).json()).autostartSupported, false);
+  });
+});
+
+test('Starter im Hintergrund-Betrieb: Fenster zu, Programm läuft weiter; Beenden-Route beendet es', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-bg-'));
+  fs.writeFileSync(path.join(dir, 'launcher.json'), JSON.stringify({ background: true }));
+  const port = await freePort();
+  const fake = writeFakeBrowser(dir, { argsFile: 'unused' });
+  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_MIN_WINDOW_MS: '800', ZEIT_IDLE_MS: '60000', ZEIT_CLOSING_MS: '400', ZEIT_NO_REMINDERS: '1' };
+  delete env.ENCRYPTION_KEY;
+  const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js')], { env, stdio: 'ignore' });
+  let exitedWith = null;
+  launcher.on('exit', (code) => { exitedWith = code; });
+  try {
+    await until(async () => (await get(port, '/api/app/ping?state=probe').catch(() => null)));
+    await sleep(1200);
+    fs.writeFileSync(path.join(dir, 'close'), ''); // Fenster zu
+    await until(() => /läuft im Hintergrund weiter/.test(fs.readFileSync(path.join(dir, 'zeiterfassung.log'), 'utf8')), 10000);
+    await get(port, '/api/app/ping?state=closing'); // auch das Ping-Ende beendet im Hintergrund-Betrieb nichts
+    await sleep(1500);
+    assert.equal(exitedWith, null, 'Starter läuft weiter');
+    assert.notEqual(await get(port, '/api/app/ping?state=probe').catch(() => null), null, 'Server läuft weiter');
+  } finally {
+    launcher.kill();
+  }
+});
+
+test('Hintergrund-Start (--hintergrund): kein Fenster, Server läuft', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-bg2-'));
+  const port = await freePort();
+  const fake = writeFakeBrowser(dir, { argsFile: 'browser-args' });
+  const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_NO_REMINDERS: '1' };
+  delete env.ENCRYPTION_KEY;
+  const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js'), '--hintergrund'], { env, stdio: 'ignore' });
+  try {
+    await until(async () => (await get(port, '/api/app/ping?state=probe').catch(() => null)));
+    await until(() => /Hintergrund-Start: kein Fenster/.test(fs.readFileSync(path.join(dir, 'zeiterfassung.log'), 'utf8')), 10000);
+    assert.equal(fs.existsSync(path.join(dir, 'browser-args')), false, 'kein Browser gestartet');
+  } finally {
+    fs.writeFileSync(path.join(dir, 'close'), '');
+    launcher.kill();
+  }
+});

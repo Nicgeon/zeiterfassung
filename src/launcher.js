@@ -6,6 +6,7 @@
 //
 //   node src/launcher.js              Server (unsichtbar) + App-Fenster; Ende, sobald das Fenster zu ist
 //   node src/launcher.js --mini       statt des grossen Fensters nur das Mini-Fenster (Aufgabe + Zeit)
+//   node src/launcher.js --hintergrund   ohne Fenster starten und im Hintergrund laufen (Autostart; Erinnerungen)
 //   node src/launcher.js --kein-fenster   nur den Server beaufsichtigen (z. B. fuer Tests)
 //
 // Gestartet wird es ueber Zeiterfassung.vbs (Windows), Zeiterfassung.app (macOS) bzw. start-app.sh.
@@ -31,6 +32,8 @@ const NO_WINDOW = process.argv.includes('--kein-fenster') || process.env.ZEIT_NO
 const PORT = parseInt(process.env.PORT || '4711', 10);
 const URL_LOCAL = `http://localhost:${PORT}`;
 const MINI = process.argv.includes('--mini');
+// Autostart beim Anmelden: kein Fenster oeffnen, nur im Hintergrund laufen (Erinnerungen an Aufgaben)
+const BACKGROUND_START = process.argv.includes('--hintergrund');
 const MINI_URL = `${URL_LOCAL}/index.html?mini=1`;
 const MINI_SIZE = [460, 400];
 const windowFor = (kind) => (kind === 'mini' ? { url: MINI_URL, size: MINI_SIZE } : { url: URL_LOCAL, size: null });
@@ -38,6 +41,11 @@ const START_KIND = MINI ? 'mini' : 'main';
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
 const PROFILE_DIR = profileDirFor(DATA_DIR);
+/** Soll das Programm nach dem Schliessen des Fensters weiterlaufen? (Konto -> Programm; wird beim Schliessen frisch gelesen) */
+function keepRunning() {
+  if (BACKGROUND_START) return true;
+  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'launcher.json'), 'utf8')).background === true; } catch { return false; }
+}
 
 // --- Protokoll -----------------------------------------------------------------------------------
 
@@ -222,7 +230,12 @@ function launchApp(choice, { url, size }) {
 function watchClose(state) {
   if (state.exited) return;
   // Lebte der Prozess nur kurz, hat er an eine schon laufende Instanz uebergeben: dann entscheidet der Ping des Servers.
-  state.onExit = (lived) => { if (lived > MIN_WINDOW_MS) { log('Fenster geschlossen - beende Zeiterfassung.'); stopAll(0); } };
+  state.onExit = (lived) => {
+    if (lived <= MIN_WINDOW_MS) return;
+    if (keepRunning()) { log('Fenster geschlossen - Zeiterfassung läuft im Hintergrund weiter.'); return; }
+    log('Fenster geschlossen - beende Zeiterfassung.');
+    stopAll(0);
+  };
 }
 
 /**
@@ -295,7 +308,8 @@ async function main() {
 
   if (!NO_WINDOW) {
     if (await waitForServer(120_000)) {
-      await openFirstWindow(windowFor(START_KIND));
+      if (BACKGROUND_START) log('Hintergrund-Start: kein Fenster geöffnet, Erinnerungen sind aktiv.');
+      else await openFirstWindow(windowFor(START_KIND));
     } else {
       notify('Zeiterfassung', 'Der Server ist nicht rechtzeitig gestartet. Einzelheiten stehen in zeiterfassung.log (im Datenordner).');
     }

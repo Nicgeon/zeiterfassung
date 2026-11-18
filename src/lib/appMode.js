@@ -38,7 +38,7 @@ function createIdleMonitor({ idleMs = 150_000, closingMs = 10_000, onIdle, setTi
  * Ping ist ein GET (die Seite nutzt beim Verlassen fetch mit keepalive), darum prueft er den Herkunfts-
  * Header: Eine fremde Webseite darf den Server nicht per Link/Bild beenden koennen.
  */
-function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, setTimer = setTimeout }) {
+function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, autostart, setTimer = setTimeout }) {
   const router = express.Router();
   router.get('/ping', (req, res) => {
     const site = req.get('sec-fetch-site');
@@ -51,20 +51,48 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
     res.set('Cache-Control', 'no-store');
     res.json({ appMode: !!appMode, seen: !!(monitor && monitor.seen) });
   });
-  // Browser fuer das App-Fenster (gilt ab dem naechsten Start): nur Stichwoerter, nie ein Pfad aus dem Netz
-  router.get('/settings', (req, res) => {
-    let browser = 'auto';
-    try { browser = JSON.parse(fs.readFileSync(settingsFile, 'utf8')).browser || 'auto'; } catch { /* noch keine Datei */ }
-    res.json({ browser, current: currentBrowser || null, options: ['auto', ...KINDS] });
-  });
+  // Programm-Einstellungen: Browser fuers Fenster (gilt ab dem naechsten Start; nur Stichwoerter, nie ein Pfad aus dem
+  // Netz), "im Hintergrund weiterlaufen" und "beim Anmelden im Hintergrund starten".
+  const readSettings = () => { try { return JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch { return {}; } };
+  const describe = () => {
+    const data = readSettings();
+    return {
+      browser: data.browser || 'auto',
+      background: data.background === true,
+      autostart: autostart ? autostart.isEnabled() : false,
+      autostartSupported: !!(autostart && autostart.supported),
+      current: currentBrowser || null,
+      options: ['auto', ...KINDS],
+    };
+  };
+  router.get('/settings', (req, res) => res.json(describe()));
   router.put('/settings', (req, res) => {
-    const browser = req.body && req.body.browser;
-    if (!settingsFile || !['auto', ...KINDS].includes(browser)) return res.status(400).json({ error: 'Ungültige Angabe.' });
-    let data = {};
-    try { data = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); } catch { /* neu */ }
+    const body = req.body || {};
+    if (!settingsFile) return res.status(400).json({ error: 'Ungültige Angabe.' });
+    const data = readSettings();
+    if (body.browser !== undefined) {
+      if (!['auto', ...KINDS].includes(body.browser)) return res.status(400).json({ error: 'Ungültige Angabe.' });
+      data.browser = body.browser;
+    }
+    if (body.background !== undefined) {
+      if (typeof body.background !== 'boolean') return res.status(400).json({ error: 'Ungültige Angabe.' });
+      data.background = body.background;
+    }
+    if (body.autostart !== undefined) {
+      if (typeof body.autostart !== 'boolean') return res.status(400).json({ error: 'Ungültige Angabe.' });
+      if (!autostart || !autostart.supported) return res.status(400).json({ error: 'Autostart wird auf diesem System nicht unterstützt.' });
+      try {
+        if (body.autostart) { autostart.enable(); data.background = true; } else autostart.disable();
+      } catch (err) {
+        return res.status(500).json({ error: `Autostart konnte nicht geändert werden: ${err.message}` });
+      }
+    }
+    if (body.browser === undefined && body.background === undefined && body.autostart === undefined) {
+      return res.status(400).json({ error: 'Ungültige Angabe.' });
+    }
     fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
-    fs.writeFileSync(settingsFile, JSON.stringify({ ...data, browser }, null, 2));
-    res.json({ browser });
+    fs.writeFileSync(settingsFile, JSON.stringify(data, null, 2));
+    res.json(describe());
   });
 
   // Weiteres Programmfenster ("main" = gross, "mini") ueber den Starter oeffnen. Ohne Starter (Browser-Tab):

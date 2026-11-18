@@ -1,5 +1,6 @@
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
@@ -25,6 +26,9 @@ const adminRoutes = require('./routes/admin');
 const updateRoutes = require('./routes/update');
 const berichtsheftRoutes = require('./routes/berichtsheft');
 const appMode = require('./lib/appMode');
+const { createAutostart } = require('./lib/autostart');
+const { startReminderLoop } = require('./lib/taskReminders');
+const systemNotify = require('./lib/notify');
 const updater = require('./lib/updater');
 
 const app = express();
@@ -214,6 +218,11 @@ app.use('/api/account', requireAuth, accountRoutes);
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/api/update', requireAuth, updateRoutes);
 if (config.localMode) {
+  const launcherFile = path.join(config.dataDir, 'launcher.json');
+  const backgroundWanted = () => {
+    if (process.env.ZEIT_BACKGROUND === '1') return true;
+    try { return JSON.parse(fs.readFileSync(launcherFile, 'utf8')).background === true; } catch { return false; }
+  };
   // Programm-Modus: Fenster-Ping, Leerlauf-Ende und "Beenden" (nur lokal). ZEIT_APP_MODE=1 setzt der Starter.
   const appModeOn = process.env.ZEIT_APP_MODE === '1';
   const monitor = appModeOn
@@ -221,6 +230,12 @@ if (config.localMode) {
       idleMs: Number(process.env.ZEIT_IDLE_MS) || 150_000,
       closingMs: Number(process.env.ZEIT_CLOSING_MS) || 10_000,
       onIdle: () => {
+        // Im Hintergrund-Betrieb (Konto -> Programm) bleibt das Programm fuer die Erinnerungen an Aufgaben laufen
+        if (backgroundWanted()) {
+          // eslint-disable-next-line no-console
+          console.log('Das Fenster wurde geschlossen - Zeiterfassung läuft im Hintergrund weiter.');
+          return;
+        }
         // eslint-disable-next-line no-console
         console.log('Das Fenster wurde geschlossen - Zeiterfassung wird beendet.');
         process.exit(0);
@@ -231,7 +246,8 @@ if (config.localMode) {
     monitor,
     appMode: appModeOn,
     quit: () => process.exit(0),
-    settingsFile: path.join(config.dataDir, 'launcher.json'),
+    settingsFile: launcherFile,
+    autostart: createAutostart({ root: path.resolve(__dirname, '..') }),
     currentBrowser: (() => { try { return JSON.parse(process.env.ZEIT_WINDOW_BROWSER || 'null'); } catch { return null; } })(),
     // Der Starter (Elternprozess) oeffnet das Fenster; nur vorhanden, wenn er den Server mit Nachrichtenkanal startet
     openWindow: appModeOn && typeof process.send === 'function' ? (kind) => { process.send({ type: 'open-window', kind }); return true; } : null,
@@ -306,6 +322,15 @@ setInterval(runRetentionCleanup, 24 * 60 * 60 * 1000).unref();
 
 const listenArgs = config.host ? [config.port, config.host] : [config.port];
 const server = app.listen(...listenArgs, () => {
+  // Erinnerungen an faellige Aufgaben als Systembenachrichtigung (nur lokal: dort laeuft das Programm auf dem eigenen Rechner)
+  if (config.localMode && process.env.ZEIT_NO_REMINDERS !== '1') {
+    startReminderLoop({
+      db,
+      decryptField,
+      notify: (n) => systemNotify.notify(n, { log: (m) => console.log(m) }), // eslint-disable-line no-console
+      log: (m) => console.log(m), // eslint-disable-line no-console
+    });
+  }
   if (localMode.announce()) return;
   // eslint-disable-next-line no-console
   console.log(`Zeiterfassung laeuft auf Port ${config.port} (${config.nodeEnv}).`);
