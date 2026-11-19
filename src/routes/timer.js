@@ -8,6 +8,7 @@ const express = require('express');
 const { db } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
 const { convertTicketLinks } = require('../../public/js/tickets');
+const segments = require('../lib/segments');
 
 const router = express.Router();
 
@@ -16,23 +17,25 @@ const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const getTimerStmt = db.prepare('SELECT * FROM active_timers WHERE user_id = ?');
 const startTimerStmt = db.prepare(
-  `INSERT INTO active_timers (user_id, started_at, work_date, start_time, description_enc, jira_key, carry_minutes)
-   VALUES (@user_id, @started_at, @work_date, @start_time, @description_enc, @jira_key, @carry_minutes)
+  `INSERT INTO active_timers (user_id, started_at, work_date, start_time, description_enc, jira_key, carry_minutes, carry_segments_json, task_id)
+   VALUES (@user_id, @started_at, @work_date, @start_time, @description_enc, @jira_key, @carry_minutes, @carry_segments_json, @task_id)
    ON CONFLICT(user_id) DO UPDATE SET
      started_at = excluded.started_at, work_date = excluded.work_date,
      start_time = excluded.start_time, description_enc = excluded.description_enc,
-     jira_key = excluded.jira_key, carry_minutes = excluded.carry_minutes`
+     jira_key = excluded.jira_key, carry_minutes = excluded.carry_minutes,
+     carry_segments_json = excluded.carry_segments_json, task_id = excluded.task_id`
 );
 const updateTimerStmt = db.prepare(
   'UPDATE active_timers SET description_enc = ?, jira_key = ? WHERE user_id = ?'
 );
 const deleteTimerStmt = db.prepare('DELETE FROM active_timers WHERE user_id = ?');
 const insertEntryStmt = db.prepare(
-  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key)
-   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key)`
+  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key, segments_json, task_id)
+   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key, @segments_json, @task_id)`
 );
 const getEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ?');
 const getOwnEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+const getOwnTaskStmt = db.prepare('SELECT id FROM tasks WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
 const trashEntryStmt = db.prepare("UPDATE entries SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?");
 
 function fromMinutes(total) {
@@ -63,6 +66,7 @@ function serializeTimer(row) {
     description: row.description_enc ? decryptField(row.description_enc) : '',
     jiraKey: row.jira_key,
     carryMinutes: row.carry_minutes || 0,
+    taskId: row.task_id || null,
   };
 }
 
@@ -104,6 +108,18 @@ router.post('/', (req, res) => {
     }
   }
 
+  // Gestartet aus der Aufgabenliste: Aufgabe merken (nur eigene, nicht geloeschte)
+  let taskId = null;
+  if (req.body.task_id !== undefined && req.body.task_id !== null) {
+    if (!Number.isInteger(req.body.task_id) || !getOwnTaskStmt.get(req.body.task_id, req.user.id)) {
+      return res.status(400).json({ error: 'Die Aufgabe gibt es nicht (mehr).' });
+    }
+    taskId = req.body.task_id;
+  }
+  // Weitermachen: die echten Zeitraeume des frueheren Teils wandern mit; er gehoerte ggf. zur selben Aufgabe
+  const carrySegments = resumeEntry ? segments.parse(resumeEntry.segments_json) : null;
+  if (resumeEntry && !taskId && resumeEntry.task_id) taskId = resumeEntry.task_id;
+
   const start = db.transaction(() => {
     if (resumeEntry) trashEntryStmt.run(resumeEntry.id, req.user.id);
     startTimerStmt.run({
@@ -114,6 +130,8 @@ router.post('/', (req, res) => {
       description_enc: description ? encryptField(description) : null,
       jira_key: cleanJira(req.body.jira_key),
       carry_minutes: carry,
+      carry_segments_json: carrySegments ? JSON.stringify(carrySegments) : null,
+      task_id: taskId,
     });
   });
   start();
@@ -195,6 +213,10 @@ router.post('/stop', (req, res) => {
     });
   }
 
+  // Echte Arbeitszeit dieses Teils: vom Start bis jetzt (real_end_time, ohne Zuschlag), dazu die frueheren Teile
+  const realEnd = TIME_RE.test(req.body.real_end_time || '') ? req.body.real_end_time : endTime;
+  const parts = [...(segments.parse(timer.carry_segments_json) || []), ...(segments.single(timer.start_time, realEnd) || [])];
+
   const stop = db.transaction(() => {
     const info = insertEntryStmt.run({
       user_id: req.user.id,
@@ -204,6 +226,8 @@ router.post('/stop', (req, res) => {
       duration_minutes: duration,
       description_enc: encryptField(description),
       jira_key: jiraKey,
+      segments_json: segments.stringify(parts),
+      task_id: timer.task_id || null,
     });
     deleteTimerStmt.run(req.user.id);
     return info.lastInsertRowid;
@@ -221,6 +245,8 @@ router.post('/stop', (req, res) => {
       description,
       jiraKey: row.jira_key,
       transferred: false,
+      segments: segments.parse(row.segments_json),
+      taskId: row.task_id || null,
     },
   });
 });

@@ -16,12 +16,12 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
 
   const getOwn = db.prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
   const insert = db.prepare(
-    `INSERT INTO tasks (user_id, title_enc, jira_key, due_date, due_time, priority, repeat_json)
-     VALUES (@user_id, @title_enc, @jira_key, @due_date, @due_time, @priority, @repeat_json)`
+    `INSERT INTO tasks (user_id, title_enc, jira_key, due_date, due_time, priority, repeat_json, note_enc)
+     VALUES (@user_id, @title_enc, @jira_key, @due_date, @due_time, @priority, @repeat_json, @note_enc)`
   );
   const update = db.prepare(
     `UPDATE tasks SET title_enc=@title_enc, jira_key=@jira_key, due_date=@due_date, due_time=@due_time,
-       priority=@priority, repeat_json=@repeat_json, reminded_at=@reminded_at, snooze_until=NULL, updated_at=datetime('now')
+       priority=@priority, repeat_json=@repeat_json, note_enc=@note_enc, reminded_at=@reminded_at, snooze_until=NULL, updated_at=datetime('now')
      WHERE id=@id AND user_id=@user_id AND deleted_at IS NULL`
   );
 
@@ -36,6 +36,7 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
     doneAt: r.done_at,
     repeat: r.repeat_json ? JSON.parse(r.repeat_json) : null,
     snoozeUntil: r.snooze_until,
+    note: r.note_enc ? decryptField(r.note_enc) : '',
     createdAt: r.created_at,
   });
 
@@ -50,10 +51,15 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
       due_time: current ? current.due_time : null,
       priority: current ? current.priority : 0,
       repeat: current && current.repeat_json ? JSON.parse(current.repeat_json) : null,
+      note: current && current.note_enc ? decryptField(current.note_enc) : '',
     };
     if (has('title')) {
       out.title = String(b.title === null ? '' : b.title).trim();
       if (out.title.length > MAX_TITLE) return { error: `Titel ist zu lang (max. ${MAX_TITLE} Zeichen).` };
+    }
+    if (has('note')) {
+      out.note = String(b.note === null ? '' : b.note).replace(/\r\n/g, '\n').trim();
+      if (out.note.length > 4000) return { error: 'Die Notiz ist zu lang (max. 4000 Zeichen).' };
     }
     if (has('jira_key')) {
       let key = b.jira_key ? convertTicketLinks(String(b.jira_key).trim()).slice(0, 40) : null;
@@ -93,8 +99,34 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
       due_time: fields.due_time,
       priority: fields.priority,
       repeat_json: fields.repeat ? JSON.stringify(fields.repeat) : null,
+      note_enc: fields.note ? encryptField(fields.note) : null,
       ...extra,
     };
+  }
+
+  /**
+   * Erfasste Zeit je Aufgabe: Einträge, die mit der Aufgabe gestartet wurden (task_id), dazu Einträge ohne
+   * Aufgabe mit derselben Ticketnummer. Ergebnis: Map id -> {minutes, count}.
+   */
+  function trackedFor(userId, tasks) {
+    const out = new Map(tasks.map((t) => [t.id, { minutes: 0, count: 0 }]));
+    if (!tasks.length) return out;
+    const byTask = db.prepare(
+      `SELECT task_id, SUM(duration_minutes) AS m, COUNT(*) AS c FROM entries
+       WHERE user_id = ? AND deleted_at IS NULL AND task_id IS NOT NULL GROUP BY task_id`
+    ).all(userId);
+    const byKey = db.prepare(
+      `SELECT UPPER(jira_key) AS k, SUM(duration_minutes) AS m, COUNT(*) AS c FROM entries
+       WHERE user_id = ? AND deleted_at IS NULL AND task_id IS NULL AND jira_key IS NOT NULL GROUP BY UPPER(jira_key)`
+    ).all(userId);
+    const keyMap = new Map(byKey.map((r) => [r.k, r]));
+    const taskMap = new Map(byTask.map((r) => [r.task_id, r]));
+    for (const t of tasks) {
+      const a = taskMap.get(t.id);
+      const b = t.jira_key ? keyMap.get(t.jira_key.toUpperCase()) : null;
+      out.set(t.id, { minutes: (a ? a.m : 0) + (b ? b.m : 0), count: (a ? a.c : 0) + (b ? b.c : 0) });
+    }
+    return out;
   }
 
   // Liste: scope=open (Standard) | done (zuletzt erledigte) | all
@@ -111,7 +143,8 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
          ORDER BY (due_date IS NULL), due_date ASC, COALESCE(due_time, '99:99') ASC, priority DESC, id ASC`
       ).all(req.user.id);
     }
-    res.json({ tasks: rows.map(serialize), today: todayLocal(now()) });
+    const tracked = trackedFor(req.user.id, rows);
+    res.json({ tasks: rows.map((r) => ({ ...serialize(r), tracked: tracked.get(r.id) })), today: todayLocal(now()) });
   });
 
   router.post('/', (req, res) => {
@@ -157,6 +190,7 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
           due_time: current.due_time,
           priority: current.priority,
           repeat_json: current.repeat_json,
+          note_enc: current.note_enc,
         });
         next = getOwn.get(info.lastInsertRowid, req.user.id);
       }

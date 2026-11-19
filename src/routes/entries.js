@@ -5,6 +5,7 @@ const { db, audit } = require('../db');
 const { encryptField, decryptField } = require('../lib/crypto');
 const { convertTicketLinks } = require('../../public/js/tickets');
 const { addDays, mondayOf } = require('../lib/dates');
+const segments = require('../lib/segments');
 
 const router = express.Router();
 
@@ -26,13 +27,13 @@ const getOwnStmt = db.prepare(
   'SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
 );
 const insertStmt = db.prepare(
-  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key, school_day)
-   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key, @school_day)`
+  `INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key, school_day, segments_json, task_id)
+   VALUES (@user_id, @work_date, @start_time, @end_time, @duration_minutes, @description_enc, @jira_key, @school_day, @segments_json, @task_id)`
 );
 const updateStmt = db.prepare(
   `UPDATE entries SET work_date=@work_date, start_time=@start_time, end_time=@end_time,
      duration_minutes=@duration_minutes, description_enc=@description_enc, jira_key=@jira_key, school_day=@school_day,
-     updated_at=datetime('now')
+     segments_json=@segments_json, updated_at=datetime('now')
    WHERE id=@id AND user_id=@user_id AND deleted_at IS NULL`
 );
 const softDeleteStmt = db.prepare(
@@ -114,6 +115,8 @@ function serialize(row) {
     jiraKey: row.jira_key,
     transferred: !!row.transferred_to_jira,
     school: !!row.school_day,
+    segments: segments.parse(row.segments_json),
+    taskId: row.task_id || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -233,6 +236,8 @@ router.post('/', (req, res) => {
   // wird auf den neuen Zeitraum draufgelegt, der fruehere Eintrag verschwindet. Der neue Eintrag beginnt
   // um diese Minuten frueher (nie vor dem Start des frueheren Teils); reicht der Tag dafuer nicht, wird
   // das Ende nach hinten geschoben.
+  // Mit echten Uhrzeiten eingegeben (Zeitraum-Modus)? Dann ist start-end ein echter Arbeitszeitraum.
+  const ownPart = body.real_times === true ? segments.single(body.start_time, body.end_time) : null;
   let mergeEntry = null;
   if (body.merge_entry_id !== undefined && body.merge_entry_id !== null) {
     const reject = (error) => res.status(409).json({ error, mergeRejected: true });
@@ -274,6 +279,11 @@ router.post('/', (req, res) => {
       description_enc: encryptField(result.description),
       jira_key: result.jira_key,
       school_day: result.school_day,
+      // Teile nur, wenn alle bekannt sind (sonst steht der Eintrag im Zeitstrahl unter "ohne Uhrzeit")
+      segments_json: ownPart && (!mergeEntry || mergeEntry.segments_json)
+        ? segments.stringify([...(segments.parse(mergeEntry && mergeEntry.segments_json) || []), ...ownPart])
+        : null,
+      task_id: mergeEntry ? mergeEntry.task_id || null : null,
     });
   });
   const info = create();
@@ -290,9 +300,19 @@ router.put('/:id', (req, res) => {
   const result = validateAndCompute(req.body || {});
   if (result.error) return res.status(400).json({ error: result.error });
 
+  // Echte Uhrzeiten eingegeben: ein Zeitraum. Sonst: unverändert, solange die Zeiten gleich bleiben; ein einzelner
+  // Zeitraum wandert mit einer geänderten Dauer mit; mehrere Teile sind dann nicht mehr bekannt.
+  let seg = segments.parse(existing.segments_json);
+  if ((req.body || {}).real_times === true) seg = segments.single(result.start_time, result.end_time);
+  else if (seg && (result.duration_minutes !== existing.duration_minutes || result.work_date !== existing.work_date)) {
+    seg = seg.length === 1 && result.work_date === existing.work_date
+      ? segments.single(seg[0][0], segments.toHM(Math.min(segments.toMin(seg[0][0]) + result.duration_minutes, 23 * 60 + 59)))
+      : null;
+  }
   updateStmt.run({
     id: existing.id,
     user_id: req.user.id,
+    segments_json: segments.stringify(seg),
     work_date: result.work_date,
     start_time: result.start_time,
     end_time: result.end_time,
@@ -402,6 +422,8 @@ router.post('/import', (req, res) => {
         description_enc: encryptField(p.description),
         jira_key: p.jira_key,
         school_day: p.school_day,
+        segments_json: null,
+        task_id: null,
       });
       if (p.transferred) setTransferredStmt.run(1, info.lastInsertRowid, req.user.id);
       imported += 1;

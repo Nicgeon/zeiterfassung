@@ -16,7 +16,8 @@ const fake = { encryptField: (s) => 'enc:' + Buffer.from(s).toString('base64'), 
 const SCHEMA = `CREATE TABLE tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, title_enc TEXT NOT NULL, jira_key TEXT, due_date TEXT, due_time TEXT,
   priority INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', done_at TEXT, repeat_json TEXT, snooze_until TEXT,
-  reminded_at TEXT, deleted_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));`;
+  reminded_at TEXT, deleted_at TEXT, note_enc TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, duration_minutes INTEGER, jira_key TEXT, task_id INTEGER, deleted_at TEXT);`;
 
 // --- Wiederholung -----------------------------------------------------------------------------------
 
@@ -222,5 +223,25 @@ test('Später erinnern, Papierkorb mit kurzer Rückgängig-Frist', async () => {
     await call('DELETE', `/${id}`);
     db.prepare("UPDATE tasks SET deleted_at = datetime('now', '-10 minutes') WHERE id = ?").run(id);
     assert.equal((await call('POST', `/${id}/restore`)).status, 404);
+  });
+});
+
+test('Notiz und erfasste Zeit (Einträge mit der Aufgabe oder mit demselben Ticket ohne Aufgabe)', async () => {
+  await withApp(async ({ call, db }) => {
+    let r = await call('POST', '/', { title: 'Doku', jira_key: 'IT-9', note: '  Switch im 2. OG fehlt noch\r\n ' });
+    const id = r.body.task.id;
+    assert.equal(r.body.task.note, 'Switch im 2. OG fehlt noch');
+    assert.ok(db.prepare('SELECT note_enc FROM tasks WHERE id = ?').get(id).note_enc.startsWith('enc:'));
+    assert.equal((await call('PUT', `/${id}`, { note: 'x'.repeat(4001) })).status, 400);
+    const ins = db.prepare('INSERT INTO entries (user_id, duration_minutes, jira_key, task_id, deleted_at) VALUES (?,?,?,?,?)');
+    ins.run(1, 30, 'IT-9', id, null); // mit der Aufgabe gestartet
+    ins.run(1, 45, 'it-9', null, null); // gleiches Ticket, ohne Aufgabe
+    ins.run(1, 60, 'IT-9', 999, null); // andere Aufgabe
+    ins.run(1, 15, 'IT-9', null, '2026-11-01'); // gelöscht
+    ins.run(2, 90, 'IT-9', null, null); // andere Person
+    r = await call('GET', '/');
+    assert.deepEqual(r.body.tasks.find((t) => t.id === id).tracked, { minutes: 75, count: 2 });
+    r = await call('PUT', `/${id}`, { note: '' });
+    assert.equal(r.body.task.note, '');
   });
 });

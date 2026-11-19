@@ -705,6 +705,7 @@
       const surcharge = Math.max(0, Math.min(rollSurcharge(), 24 * 60 - 1 - nowMin));
       const data = await Api.post('/api/timer/stop', {
         end_time: minutesToHM(nowMin + surcharge),
+        real_end_time: minutesToHM(nowMin), // echte Uhrzeit ohne Zuschlag: für den Zeitstrahl
         description,
         jira_key: jiraKey,
       });
@@ -886,6 +887,7 @@
         start_time: nowHHMM(),
         description: task.title,
         jira_key: task.jiraKey || null,
+        task_id: task.id, // die erfasste Zeit zählt zur Aufgabe
       });
       renderTimer(data.timer);
     } catch (err) {
@@ -1058,6 +1060,8 @@
       description,
       jira_key: jiraKey,
       school: els.schoolDay.checked,
+      // Mit Uhrzeiten eingegeben: echter Arbeitszeitraum (für den Zeitstrahl); nur Dauer: Zeitpunkt unbekannt
+      real_times: loadShowTimes() && formState.mode === 'times',
     };
     const merge = !state.editingId && formState.merge ? { ...formState.merge } : null;
     if (merge) {

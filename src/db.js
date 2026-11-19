@@ -182,7 +182,32 @@ if (!entryColumns.includes('deleted_at')) {
   console.log('[MIGRATION] Spalte "deleted_at" (Papierkorb fuer Undo) zur Tabelle entries hinzugefuegt.');
 }
 
+// Echte Arbeitszeitraeume (Teile) und Verknuepfung mit einer Aufgabe
+if (!entryColumns.includes('segments_json')) {
+  db.exec('ALTER TABLE entries ADD COLUMN segments_json TEXT');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "segments_json" (echte Arbeitszeitraeume) zur Tabelle entries hinzugefuegt.');
+}
+if (!entryColumns.includes('task_id')) {
+  db.exec('ALTER TABLE entries ADD COLUMN task_id INTEGER');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "task_id" (zugehoerige Aufgabe) zur Tabelle entries hinzugefuegt.');
+}
+const taskColumns = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
+if (!taskColumns.includes('note_enc')) {
+  db.exec('ALTER TABLE tasks ADD COLUMN note_enc TEXT');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "note_enc" (Notiz) zur Tabelle tasks hinzugefuegt.');
+}
+
 const timerColumns = db.prepare('PRAGMA table_info(active_timers)').all().map((c) => c.name);
+for (const [col, def] of [['carry_segments_json', 'TEXT'], ['task_id', 'INTEGER']]) {
+  if (!timerColumns.includes(col)) {
+    db.exec(`ALTER TABLE active_timers ADD COLUMN ${col} ${def}`);
+    // eslint-disable-next-line no-console
+    console.log(`[MIGRATION] Spalte "${col}" zur Tabelle active_timers hinzugefuegt.`);
+  }
+}
 if (!timerColumns.includes('carry_minutes')) {
   db.exec('ALTER TABLE active_timers ADD COLUMN carry_minutes INTEGER NOT NULL DEFAULT 0');
   // eslint-disable-next-line no-console
