@@ -49,10 +49,18 @@
       <select id="taskDue" class="tasks__due">
         <option value="today">Heute</option>
         <option value="tomorrow">Morgen</option>
-        <option value="monday">Montag</option>
+        <option value="dayafter">Übermorgen</option>
+        <option value="monday">Nächsten Montag</option>
+        <option value="week">In einer Woche</option>
+        <option value="month">In einem Monat</option>
+        <option value="custom">Datum wählen</option>
         <option value="none">Ohne Datum</option>
       </select>
     </form>
+    <div class="tasks__custom hidden" id="taskCustom">
+      <label class="tasks__custom-field">Datum <input type="date" id="taskDueDate" /></label>
+      <label class="tasks__custom-field">Uhrzeit (optional) <input type="time" id="taskDueTime" /></label>
+    </div>
     <div id="taskError" class="tasks__error"></div>
 
     <div id="taskList" class="tasks__list"></div>

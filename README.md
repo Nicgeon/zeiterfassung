@@ -425,7 +425,8 @@ Links neben der Erfassung steht die Aufgabenliste (im Mini-Fenster als kompakte 
 Datenbank gespeichert (Titel verschlüsselt wie die Einträge) und gelten damit für alle Fenster.
 
 - **Anlegen:** Text eintragen, Enter. Eine Ticketnummer im Text (z. B. `ITPKK-123`) oder ein eingefügter Jira-Link wird
-  zum Ticket der Aufgabe. Daneben wählst du „Heute“, „Morgen“, „Montag“ oder „Ohne Datum“.
+  zum Ticket der Aufgabe. Daneben wählst du Heute, Morgen, Übermorgen, Nächsten Montag, In einer Woche, In einem Monat,
+  „Datum wählen“ (eigenes Datum, optional mit Uhrzeit für die Erinnerung) oder Ohne Datum.
 - **Ansichten:** *Heute* (überfällig und heute), *Demnächst*, *Alle*; „Erledigte anzeigen“ listet zuletzt Erledigtes
   (Klick auf den Haken öffnet wieder).
 - **Bearbeiten:** Klick auf den Titel öffnet Titel, Ticket, Datum, Uhrzeit, „Wichtig“ und Wiederholung
@@ -446,8 +447,9 @@ erinnern“ (`POST /api/tasks/:id/snooze`), eine Schaltfläche dafür gibt es no
 
 **Oberfläche:** Ab 1000 px Breite steht die Navigation links als Seitenleiste (Farben und Themes unverändert), darunter
 auf der Erfassungsseite links die Aufgaben und rechts Erfassung, Tagesband (erfasst / in Jira / offen) und Einträge.
-Die Seitenleiste lässt sich über das Symbol oben ein- und ausklappen (eingeklappt nur Symbole; die Wahl wird pro Browser
-gemerkt, ohne Wahl ist sie auf Fenstern unter 1280 px eingeklappt). Unten stehen Profil (Anfangsbuchstabe, Name),
+Das Symbol oben in der Seitenleiste schaltet durch drei Zustände: fest ausgeklappt → nur Symbole, fährt beim
+Darüberfahren mit der Maus aus → nur Symbole ohne Ausfahren (die Wahl wird pro Browser gemerkt, ohne Wahl ist es auf
+Fenstern unter 1280 px „fährt aus“). Unten stehen Profil (Anfangsbuchstabe, Name),
 Farbschema und Abmelden.
 
 ## Berichtsheft-Text mit KI

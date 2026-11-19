@@ -43,14 +43,22 @@
     document.documentElement.classList.add('no-times');
   }
 
-  // Seitenleiste ein-/ausgeklappt: gemerkt pro Browser; ohne Wahl ist sie auf schmalen Fenstern (< 1280 px) eingeklappt
-  const NAV_KEY = 'zeit.nav';
-  const navCollapsed = () => {
+  // Seitenleiste: "expanded" (fest ausgeklappt), "hover" (Symbole, fährt beim Darüberfahren aus) oder "collapsed"
+  // (nur Symbole). Gemerkt pro Browser; ohne Wahl ist sie auf Fenstern unter 1280 px im Modus "hover".
+  const NAV_KEY = 'zeit.nav2';
+  const NAV_MODES = ['expanded', 'hover', 'collapsed'];
+  const navMode = () => {
     let saved = null;
     try { saved = localStorage.getItem(NAV_KEY); } catch { /* nur Komfort */ }
-    return saved === 'collapsed' || (saved !== 'expanded' && window.innerWidth < 1280);
+    return NAV_MODES.includes(saved) ? saved : window.innerWidth < 1280 ? 'hover' : 'expanded';
   };
-  document.documentElement.classList.toggle('nav-collapsed', navCollapsed());
+  function applyNav(mode) {
+    const root = document.documentElement;
+    root.classList.toggle('nav-collapsed', mode !== 'expanded');
+    root.classList.toggle('nav-hover', mode === 'hover');
+    if (mode !== 'hover') root.classList.remove('nav-peek');
+  }
+  applyNav(navMode());
 
   // Auswahlmenue statt Durchschalten: Knopf mit aktuellem Schema, darunter die Liste.
   // Mini-Fenster (index.html?mini=1): nur Aufgabe und Zeit, siehe styles.css ".mini"
@@ -92,21 +100,42 @@
       t.type = 'button';
       t.className = 'nav-toggle';
       t.innerHTML = icon(NAV_ICONS.toggle, 'nav-toggle__icon');
+      const TITLES = {
+        expanded: 'Menü: fest ausgeklappt – Klick: nur Symbole, fährt beim Darüberfahren aus',
+        hover: 'Menü: fährt beim Darüberfahren aus – Klick: nur Symbole (ohne Ausfahren)',
+        collapsed: 'Menü: nur Symbole – Klick: fest ausklappen',
+      };
       const sync = () => {
-        const collapsed = document.documentElement.classList.contains('nav-collapsed');
-        t.title = collapsed ? 'Menü ausklappen' : 'Menü einklappen';
+        const mode = navMode();
+        t.dataset.mode = mode;
+        t.title = TITLES[mode];
         t.setAttribute('aria-label', t.title);
-        t.setAttribute('aria-expanded', String(!collapsed));
+        t.setAttribute('aria-expanded', String(mode === 'expanded'));
       };
       t.addEventListener('click', () => {
-        const collapsed = !document.documentElement.classList.contains('nav-collapsed');
-        document.documentElement.classList.toggle('nav-collapsed', collapsed);
-        try { localStorage.setItem(NAV_KEY, collapsed ? 'collapsed' : 'expanded'); } catch { /* nur Komfort */ }
+        const next = NAV_MODES[(NAV_MODES.indexOf(navMode()) + 1) % NAV_MODES.length];
+        try { localStorage.setItem(NAV_KEY, next); } catch { /* nur Komfort */ }
+        applyNav(next);
         sync();
       });
       brand.appendChild(t);
       sync();
     }
+
+    // Ausfahren beim Darüberfahren (nur im Modus "hover"); bleibt offen, solange das Farbschema-Menü offen ist
+    let peekTimer = null;
+    const root = document.documentElement;
+    const menuOpen = () => { const l = bar.querySelector('.theme-menu__list'); return !!l && !l.classList.contains('hidden'); };
+    const peek = (on) => {
+      clearTimeout(peekTimer);
+      if (on) { if (root.classList.contains('nav-hover')) root.classList.add('nav-peek'); return; }
+      peekTimer = setTimeout(() => { if (!menuOpen() && !bar.matches(':hover') && !bar.querySelector(':focus-visible')) root.classList.remove('nav-peek'); }, 200);
+    };
+    bar.addEventListener('mouseenter', () => peek(true));
+    bar.addEventListener('mouseleave', () => peek(false));
+    bar.addEventListener('focusin', () => peek(true));
+    bar.addEventListener('focusout', () => peek(false));
+    document.addEventListener('click', () => peek(false));
 
     const out = document.getElementById('logoutBtn');
     if (out && !out.querySelector('svg')) {

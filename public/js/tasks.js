@@ -10,6 +10,9 @@
     form: $('#taskAddForm'),
     title: $('#taskTitle'),
     due: $('#taskDue'),
+    custom: $('#taskCustom'),
+    dueDate: $('#taskDueDate'),
+    dueTime: $('#taskDueTime'),
     error: $('#taskError'),
     list: $('#taskList'),
     doneToggle: $('#taskDoneToggle'),
@@ -235,12 +238,35 @@
     }
   }
 
+  function addMonthsISO(dateStr, months) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const total = y * 12 + (m - 1) + months;
+    const ny = Math.floor(total / 12);
+    const nm = total % 12;
+    const last = new Date(ny, nm + 1, 0).getDate(); // 31. Jan + 1 Monat = Monatsende
+    return `${ny}-${pad(nm + 1)}-${pad(Math.min(d, last))}`;
+  }
+
+  /** Datum zur Auswahl neben dem Eingabefeld (null = ohne Datum; undefined = "Datum wählen" ohne Eingabe). */
   function dueFromChoice(choice) {
     const today = todayISO();
-    if (choice === 'today') return today;
-    if (choice === 'tomorrow') return addDaysISO(today, 1);
-    if (choice === 'monday') return nextMonday(today);
-    return null;
+    switch (choice) {
+      case 'today': return today;
+      case 'tomorrow': return addDaysISO(today, 1);
+      case 'dayafter': return addDaysISO(today, 2);
+      case 'monday': return nextMonday(today);
+      case 'week': return addDaysISO(today, 7);
+      case 'month': return addMonthsISO(today, 1);
+      case 'custom': return el.dueDate.value || undefined;
+      default: return null;
+    }
+  }
+
+  function syncCustom() {
+    const custom = el.due.value === 'custom';
+    el.custom.classList.toggle('hidden', !custom);
+    if (custom && !el.dueDate.value) el.dueDate.value = todayISO();
+    if (custom) el.dueDate.focus();
   }
 
   async function addTask(text) {
@@ -250,8 +276,11 @@
     // Steht nur ein Ticket da, bleibt es der Titel-Ersatz; sonst wird die Nummer aus dem Titel genommen
     const title = key ? raw.replace(key, '').replace(/\s{2,}/g, ' ').replace(/^[\s\-–:,]+|[\s\-–:,]+$/g, '') : raw;
     setError('');
+    const dueDate = dueFromChoice(el.due.value);
+    if (dueDate === undefined) { setError('Bitte ein Datum wählen.'); el.dueDate.focus(); return; }
+    const dueTime = el.due.value === 'custom' && el.dueTime.value ? el.dueTime.value : null;
     try {
-      await Api.post('/api/tasks', { title, jira_key: key, due_date: dueFromChoice(el.due.value) });
+      await Api.post('/api/tasks', { title, jira_key: key, due_date: dueDate, due_time: dueDate ? dueTime : null });
       el.title.value = '';
       await load();
     } catch (err) {
@@ -320,6 +349,7 @@
 
   // --- Ereignisse -------------------------------------------------------------------------------
 
+  el.due.addEventListener('change', syncCustom);
   el.form.addEventListener('submit', (e) => {
     e.preventDefault();
     addTask(el.title.value);
