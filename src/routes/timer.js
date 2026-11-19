@@ -67,6 +67,7 @@ function serializeTimer(row) {
     jiraKey: row.jira_key,
     carryMinutes: row.carry_minutes || 0,
     taskId: row.task_id || null,
+    carrySegments: segments.parse(row.carry_segments_json),
   };
 }
 

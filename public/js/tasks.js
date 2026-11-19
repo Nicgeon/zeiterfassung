@@ -24,8 +24,11 @@
   if (!el.list) return;
 
   const isMini = document.documentElement.classList.contains('mini');
+  // Kompakt (Mini-Fenster und "Als Nächstes" auf Heute): nur überfällig + heute, wenige Zeilen
+  const colEl = document.getElementById('tasksCol');
+  const compact = isMini || !!(colEl && colEl.dataset.compact === '1');
   const VIEW_KEY = 'zeit.taskView';
-  const MINI_MAX = 3;
+  const MINI_MAX = isMini ? 3 : 6;
   const KEY_RE = /\b[A-Z][A-Z0-9_]+-\d+\b/;
 
   const ICON = {
@@ -175,7 +178,7 @@
 
   function render() {
     const today = todayISO();
-    const view = isMini ? 'today' : state.view;
+    const view = compact ? 'today' : state.view;
     const open = state.tasks;
     const overdue = open.filter((t) => t.dueDate && t.dueDate < today);
     const todays = open.filter((t) => t.dueDate === today);
@@ -183,11 +186,13 @@
     const none = open.filter((t) => !t.dueDate);
 
     let html;
-    if (isMini) {
+    if (compact) {
       const rows = [...overdue, ...todays];
       const shown = rows.slice(0, MINI_MAX);
       html = shown.length ? shown.map((t) => rowHtml(t, today)).join('') : '<div class="tasks__empty">Nichts offen für heute.</div>';
-      if (rows.length > MINI_MAX) html += `<div class="tasks__more-hint">+ ${rows.length - MINI_MAX} weitere im großen Fenster</div>`;
+      if (rows.length > MINI_MAX) html += isMini
+        ? `<div class="tasks__more-hint">+ ${rows.length - MINI_MAX} weitere im großen Fenster</div>`
+        : `<a class="tasks__more-hint" href="/aufgaben.html">+ ${rows.length - MINI_MAX} weitere unter „Aufgaben“</a>`;
     } else if (view === 'today') {
       html = section('Überfällig', 'overdue', overdue, today) + section('Heute', '', todays, today);
       if (!html) html = `<div class="tasks__empty">Nichts offen für heute.${soon.length + none.length ? ' Unter „Demnächst“ und „Alle“ stehen weitere Aufgaben.' : ''}</div>`;
@@ -382,6 +387,8 @@
     switch (btn.dataset.act) {
       case 'done': return setDone(id, true);
       case 'edit':
+        // Auf "Heute" öffnet ein Klick die Aufgabe auf der Aufgaben-Seite (dort mit Notiz, erfasster Zeit usw.)
+        if (compact && !isMini) { window.location.href = `/aufgaben.html#aufgabe-${id}`; return undefined; }
         state.editingId = state.editingId === id ? null : id;
         return render();
       case 'cancel':

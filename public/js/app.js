@@ -94,6 +94,7 @@
     startIsDefault: true, // Start wurde noch nicht von Hand geaendert
     durationError: '',
     merge: null, // { entryId, minutes, carry, label }: fruehere Zeit, die auf diesen Eintrag draufgelegt wird
+    gapFill: false, // aus einer Luecke im Zeitstrahl: Start ist eine echte Uhrzeit
   };
 
   /** "= 45 Min + 35 Min aus dem unterbrochenen Teil + 5 Min Zuschlag = 1 Std 25 Min" */
@@ -239,6 +240,87 @@
     return `${formatSurchargeRange(range)} Min Zuschlag${surchargeIsRandom(range) ? ' (zufällig)' : ''}`;
   }
 
+  // --- Jetzt-Karte: "Jetzt starten" (eine Zeile + Timer) oder "Nachtragen" (ganzes Formular) ------------------
+  const composeView = () => els.composer.dataset.view || 'add';
+  function setComposeView(view) {
+    const v = document.documentElement.classList.contains('mini') ? 'add' : view;
+    els.composer.dataset.view = v;
+    els.jiraKey.placeholder = v === 'start' ? 'Ticket (optional)' : 'z. B. ITPKK-123 oder Link';
+    els.composer.querySelectorAll('[data-compose]').forEach((b) => {
+      const on = b.dataset.compose === v;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  }
+  els.composer.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-compose]');
+    if (!b) return;
+    setComposeView(b.dataset.compose);
+    (b.dataset.compose === 'add' ? (formState.mode === 'duration' ? els.duration : els.startTime) : els.description).focus();
+  });
+
+  /** Ende des letzten erfassten Zeitraums heute ("HH:MM") oder ''. */
+  function lastEnd() {
+    let last = '';
+    for (const e of state.entries) {
+      const end = e.segments ? e.segments[e.segments.length - 1][1] : loadShowTimes() ? e.endTime : '';
+      if (end > last) last = end;
+    }
+    return last;
+  }
+
+  function renderSinceHint() {
+    const el = document.getElementById('sinceHint');
+    if (!el) return;
+    let text = '';
+    if (isTodayISO(state.viewDate) && !state.timer && !state.editingId) {
+      const last = lastEnd();
+      const gap = last ? hmToMinutes(nowHHMM()) - hmToMinutes(last) : 0;
+      if (last && gap >= 10) text = `Letzter Eintrag endete um ${last} – seitdem ${formatDurationLong(gap)} ohne Eintrag.`;
+    }
+    el.textContent = text;
+  }
+
+  function renderTimeline() {
+    if (!window.ZeitTimeline) return;
+    window.ZeitTimeline.render(document.getElementById('timeline'), {
+      entries: state.entries,
+      timer: state.timer && state.timer.workDate === state.viewDate ? state.timer : null,
+      showTimes: loadShowTimes(),
+      isToday: isTodayISO(state.viewDate),
+      now: nowHHMM(),
+      onGap: fillGap,
+    });
+    renderSinceHint();
+  }
+  setInterval(renderTimeline, 60_000);
+
+  /** Lücke im Zeitstrahl nachtragen: Nachtragen-Ansicht mit genau diesem Zeitraum. */
+  function fillGap(start, end) {
+    if (state.timer) { showToast('Bitte zuerst den Timer stoppen oder unterbrechen.'); return; }
+    resetFormForNewEntry();
+    setComposeView('add');
+    const minutes = hmToMinutes(end) - hmToMinutes(start);
+    if (loadShowTimes()) {
+      setEntryMode('times');
+      els.startTime.value = start;
+      els.endTime.value = end;
+      formState.anchor = 'times';
+      formState.startIsDefault = false;
+      syncDurationFromTimes();
+      updateDurationHint();
+    } else {
+      els.startTime.value = start;
+      formState.startIsDefault = false;
+      els.duration.value = formatDurationField(minutes);
+      applyDuration();
+    }
+    formState.gapFill = true;
+    els.composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    els.description.focus();
+    showToast(`Zeitraum ${start}–${end} übernommen – jetzt Aufgabe eintragen.`);
+  }
+
   /** Ende, wie es mit Zuschlag gespeichert wuerde ("HH:MM"), oder null, wenn es nach Mitternacht laege. */
   function effectiveEnd(end) {
     const total = hmToMinutes(end) + currentSurcharge();
@@ -282,6 +364,7 @@
     state.editingId = null;
     state.editSurcharge = 0;
     formState.merge = null;
+    formState.gapFill = false;
     renderMergeBanner();
     els.composer.classList.remove('composer--editing');
     els.formTitle.textContent = state.timer ? 'Timer läuft' : 'Neuer Eintrag';
@@ -305,6 +388,7 @@
   }
 
   function fillFormForEdit(entry) {
+    setComposeView('add');
     state.editingId = entry.id;
     formState.merge = null;
     renderMergeBanner();
@@ -356,11 +440,12 @@
     const label = e.transferred ? 'In Jira eingetragen – Markierung entfernen' : 'Als in Jira eingetragen markieren';
     return `
       <div class="entry${e.transferred ? ' entry--done' : ''}" data-id="${e.id}">
+        <span class="entry__dot${e.transferred ? ' is-done' : ''}" aria-hidden="true"></span>
         <div class="entry__time mono"><strong>${e.startTime}</strong>&ndash;${e.endTime}</div>
         <div class="entry__body">
           ${e.description
             ? `<div class="entry__desc">${escapeHtml(e.description)}</div>
-          ${e.jiraKey || e.school ? `<div class="entry__meta">${e.jiraKey ? `<span class="jira-tag" data-jira-open="${escapeHtml(e.jiraKey)}">${escapeHtml(e.jiraKey)}</span>` : ''}${e.school ? '<span class="badge badge--school">Berufsschule</span>' : ''}</div>` : ''}`
+          ${e.jiraKey || e.school || (e.segments && e.segments.length > 1) ? `<div class="entry__meta">${e.jiraKey ? `<span class="jira-tag" data-jira-open="${escapeHtml(e.jiraKey)}">${escapeHtml(e.jiraKey)}</span>` : ''}${e.school ? '<span class="badge badge--school">Berufsschule</span>' : ''}${e.segments && e.segments.length > 1 ? `<span class="badge" title="${e.segments.map((p) => p.join('–')).join(', ')}">${e.segments.length} Teile</span>` : ''}</div>` : ''}`
             : `<div class="entry__desc mono">${escapeHtml(e.jiraKey || '')}</div>${e.school ? '<div class="entry__meta"><span class="badge badge--school">Berufsschule</span></div>' : ''}`}
         </div>
         <div class="entry__dur mono">${formatDurationLong(e.durationMinutes)}</div>
@@ -426,6 +511,7 @@
     els.entryCount.textContent = state.entries.length ? `· ${state.entries.length}` : '';
     renderSummary();
     renderMiniRecent();
+    renderTimeline();
 
     if (state.entries.length === 0) {
       setHtml(els.ledger, '<div class="list-empty">Noch keine Einträge für diesen Tag.</div>');
@@ -583,6 +669,11 @@
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       els.form.requestSubmit();
+    } else if (e.key === 'Enter' && !e.shiftKey && composeView() === 'start' && !state.timer && !state.editingId) {
+      // "Jetzt starten": eine Zeile wie ein Suchfeld, Enter startet den Timer
+      e.preventDefault();
+      els.suggestList.classList.add('hidden');
+      els.timerStartBtn.click();
     }
   });
 
@@ -596,6 +687,7 @@
     els.composer.classList.toggle('composer--timer', !!timer);
     renderResumeBar();
     if (window.ZeitTasks) window.ZeitTasks.render();
+    renderTimeline();
     els.formTitle.textContent = timer ? 'Timer läuft' : state.editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
     clearInterval(elapsedInterval);
 
@@ -1061,7 +1153,8 @@
       jira_key: jiraKey,
       school: els.schoolDay.checked,
       // Mit Uhrzeiten eingegeben: echter Arbeitszeitraum (für den Zeitstrahl); nur Dauer: Zeitpunkt unbekannt
-      real_times: loadShowTimes() && formState.mode === 'times',
+      real_times: (loadShowTimes() && formState.mode === 'times') || formState.gapFill,
+      real_end_time: els.endTime.value, // Ende ohne Zuschlag: so endet der Block im Zeitstrahl
     };
     const merge = !state.editingId && formState.merge ? { ...formState.merge } : null;
     if (merge) {
@@ -1123,6 +1216,7 @@
 
   els.form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (composeView() === 'start' && !state.timer && !state.editingId) { els.timerStartBtn.click(); return; }
     saveEntry();
   });
   // Aufklappmenue am Speichern-Knopf
@@ -1355,6 +1449,7 @@
   window.addEventListener('focus', syncFromServer);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncFromServer(); });
 
+  setComposeView(composeView());
   if (window.ZeitTasks) window.ZeitTasks.init({ startTimer: startTimerForTask, running: () => state.timer });
   init().then(fitMini);
 })();

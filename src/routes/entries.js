@@ -237,7 +237,9 @@ router.post('/', (req, res) => {
   // um diese Minuten frueher (nie vor dem Start des frueheren Teils); reicht der Tag dafuer nicht, wird
   // das Ende nach hinten geschoben.
   // Mit echten Uhrzeiten eingegeben (Zeitraum-Modus)? Dann ist start-end ein echter Arbeitszeitraum.
-  const ownPart = body.real_times === true ? segments.single(body.start_time, body.end_time) : null;
+  const ownPart = body.real_times === true
+    ? segments.single(body.start_time, TIME_RE.test(body.real_end_time || '') && body.real_end_time > body.start_time ? body.real_end_time : body.end_time)
+    : null;
   let mergeEntry = null;
   if (body.merge_entry_id !== undefined && body.merge_entry_id !== null) {
     const reject = (error) => res.status(409).json({ error, mergeRejected: true });
