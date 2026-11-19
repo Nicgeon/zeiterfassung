@@ -29,10 +29,16 @@
   </div>
 </div>
 
-<div class="shell">
+<div class="shell shell--page settings-page">
+  <aside class="st-nav" aria-label="Bereiche der Einstellungen">
+    <h1 class="page-title st-title">Einstellungen</h1>
+    <div class="st-tabs" id="stTabs" role="tablist"></div>
+  </aside>
+  <main class="st-main" id="stMain">
+  <div class="st-head"><h2 id="stHeading"></h2><p class="text-muted text-sm" id="stLead"></p></div>
 
   <!-- Einstellungen -->
-  <div class="card" id="settingsCard">
+  <div data-tab="allgemein" class="card" id="settingsCard">
     <div class="card__header"><h2>Einstellungen</h2></div>
     <label class="checkbox-label">
       <input type="checkbox" id="showTimesToggle" />
@@ -76,7 +82,7 @@
   </div>
 
   <!-- Jira-Anbindung (optional, nur lesend) -->
-  <div class="card" id="jiraCard">
+  <div data-tab="jira" class="card" id="jiraCard">
     <div class="card__header">
       <h2>Jira-Anbindung</h2>
       <span class="badge" id="jiraBadge">–</span>
@@ -111,7 +117,7 @@
   </div>
 
   <!-- Berichtsheft-KI -->
-  <div class="card" id="bhSettingsCard">
+  <div data-tab="ki" class="card" id="bhSettingsCard">
     <div class="card__header">
       <h2>Berichtsheft-KI</h2>
       <span class="badge" id="bhKeyBadge">–</span>
@@ -168,7 +174,7 @@
   </div>
 
   <!-- Programm beenden (nur lokaler Betrieb) -->
-  <div class="card local-only" id="quitCard">
+  <div data-tab="programm" class="card local-only" id="quitCard">
     <div class="card__header"><h2>Programm</h2></div>
     <p class="text-muted text-sm">
       Die Zeiterfassung läuft unsichtbar im Hintergrund und beendet sich, sobald dieses Fenster geschlossen wird – außer
@@ -197,7 +203,7 @@
   </div>
 
   <!-- Updates (nur lokaler Betrieb) -->
-  <div class="card local-only" id="updateCard">
+  <div data-tab="programm" class="card local-only" id="updateCard">
     <div class="card__header">
       <h2>Updates</h2>
       <span class="badge" id="updateBadge">–</span>
@@ -211,7 +217,7 @@
   </div>
 
   <!-- Datensicherung (beide Betriebsarten) -->
-  <div class="card">
+  <div data-tab="daten" class="card">
     <div class="card__header"><h2>Datensicherung</h2></div>
     <div id="backupError"></div>
     <p class="text-muted text-sm">
@@ -230,7 +236,7 @@
   </div>
 
   <!-- Passwort -->
-  <div class="card local-hide">
+  <div data-tab="sicherheit" class="card local-hide">
     <div class="card__header"><h2>Passwort</h2></div>
     <div id="pwError"></div>
     <form id="pwForm">
@@ -253,7 +259,7 @@
   </div>
 
   <!-- 2FA -->
-  <div class="card local-hide">
+  <div data-tab="sicherheit" class="card local-hide">
     <div class="card__header">
       <h2>Zwei-Faktor-Authentifizierung</h2>
       <span class="badge" id="totpStatusBadge">–</span>
@@ -299,7 +305,7 @@
   </div>
 
   <!-- Passkeys -->
-  <div class="card local-hide">
+  <div data-tab="sicherheit" class="card local-hide">
     <div class="card__header">
       <h2>Passkeys</h2>
       <button type="button" class="btn btn--secondary btn--sm" id="addPasskeyBtn">Passkey hinzufuegen</button>
@@ -313,6 +319,7 @@
     <div id="passkeyList"></div>
   </div>
 
+  </main>
 </div>
 
 <!-- Passwort-Bestaetigungs-Dialog (fuer 2FA deaktivieren / Backup-Codes neu erzeugen) -->
@@ -337,6 +344,7 @@
 <script src="/js/update.js"></script>
 <script src="/js/account.js"></script>
 <script src="/js/jira.js"></script>
+<script src="/js/settings-tabs.js"></script>
 <script src="/js/berichtsheft.js"></script>
 </body>
 </html>

@@ -419,6 +419,36 @@ Mittwoch, 23.09.2026
 Tage ohne Einträge werden weggelassen. Auch hier gilt die Datentrennung:
 Azubis sehen ausschließlich ihre eigenen Einträge.
 
+## Bereiche und Seite „Heute“
+
+Die Seitenleiste hat fünf Bereiche: **Heute** (Erfassung), **Aufgaben**, **Auswertung** (bisher „Übersicht“),
+**Berichte** (Wochenbericht und Berichtsheft-Text, für Azubis) und **Einstellungen** (bisher „Konto“); Admins sehen
+zusätzlich **Team**. Am Menüpunkt „Aufgaben“ steht die Zahl der heute fälligen bzw. überfälligen Aufgaben.
+
+**Heute**
+- **Jetzt-Karte:** „Jetzt starten“ ist eine Zeile (Aufgabe, Ticket, *Timer starten*; Enter startet den Timer),
+  „Nachtragen“ zeigt das ganze Formular (Dauer bzw. Zeitraum, Berufsschule, Speichern). Läuft der Timer, zeigt die Karte
+  die Uhr, Aufgabe, Ticket und Verwerfen / Unterbrechen / Stoppen. Ohne Timer steht dort, wie lange seit dem letzten
+  Eintrag nichts erfasst ist.
+- **Zeitstrahl:** zeigt die echten Arbeitszeiträume des Tages (grün = in Jira, blau = offen, gestreift = läuft gerade,
+  rote Linie = jetzt). Der Bereich passt sich an (volle Stunde vor dem ersten bis eine Stunde nach dem letzten Block).
+  Eine unterbrochene und später fortgesetzte Aufgabe erscheint als mehrere Blöcke; in der Liste trägt der Eintrag dann
+  „2 Teile“. **Ein Klick in eine Lücke** öffnet „Nachtragen“ mit genau diesem Zeitraum. Einträge, deren Uhrzeit nicht
+  bekannt ist (nur Dauer eingegeben, ältere Einträge ohne Uhrzeiten), stehen darunter unter „Ohne Uhrzeit erfasst“.
+  Echte Zeiträume speichert das Programm beim Timer (Start bis Stopp, ohne Zuschlag; beim Weitermachen bleiben alle
+  Teile erhalten), beim Nachtragen mit Uhrzeiten und beim Nachtragen aus einer Lücke.
+- **Als Nächstes:** pausierte Aufgaben und die Aufgaben für heute; ein Klick auf eine Aufgabe öffnet sie auf der
+  Aufgaben-Seite.
+
+**Aufgaben-Seite:** links die Ansichten (Heute, Demnächst, Ohne Datum, Alle offenen, Erledigt) und „Meine Tickets
+holen“ (Jira), in der Mitte die Liste, rechts die gewählte Aufgabe: Titel, Ticket (mit Jira-Status und „In Jira“),
+Fälligkeit mit Schnellwahl, Wiederholung, Wichtig, **Notiz** (verschlüsselt) und **„Schon erfasst“** – die Zeit der
+Einträge, die mit dieser Aufgabe gestartet wurden, dazu Einträge ohne Aufgabe mit derselben Ticketnummer. Änderungen
+werden automatisch gespeichert. *Timer starten* merkt sich die Aufgabe am Eintrag.
+
+**Einstellungen** sind in Unterreiter geteilt: Allgemein, Programm & Updates (nur lokal), Jira, Berichtsheft-KI,
+Sicherheit (nur Serverbetrieb) und Daten; der Reiter steht in der Adresse (z. B. `account.html#jira`).
+
 ## Aufgabenliste
 
 Links neben der Erfassung steht die Aufgabenliste (im Mini-Fenster als kompakte Karte). Aufgaben werden in der

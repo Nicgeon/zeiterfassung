@@ -2037,3 +2037,33 @@ a.tasks__more-hint { color: var(--accent); text-decoration: none; }
 .tasks-page .tp-title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
 .tp-actions .btn { min-height: 46px; padding: 0 18px; font-size: 14px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
 @media (max-width: 999px) { .nav-badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; } }
+
+/* --- Einstellungen mit Unterreitern ------------------------------------------------------------------------- */
+.settings-page { max-width: 1200px; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; align-items: start; padding: 24px 28px 56px; }
+.st-nav { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 4px; }
+.settings-page .st-title { margin: 0 0 14px 6px; font-size: 26px; font-weight: 600; }
+.st-tabs { display: flex; flex-direction: column; gap: 2px; }
+.st-tab {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 52px; padding: 6px 12px;
+  border: 0; border-radius: 14px; background: transparent; color: var(--ink); text-align: left;
+}
+.st-tab:hover { background: var(--surface-alt); }
+.st-tab.is-active { background: var(--accent-wash); }
+.st-tab__label { font-size: 14px; font-weight: 600; }
+.st-tab__hint { font-size: 12px; color: var(--ink-faint); }
+.st-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; max-width: 860px; }
+.st-main > .card + .card { margin-top: 0; }
+.st-head h2 { margin: 0 0 4px; font-size: 24px; }
+.st-head p { margin: 0; }
+.st-hidden { display: none !important; }
+[data-theme='marine'] .st-tab, [data-theme='marine'] .st-head h2 { color: #fafafa; }
+[data-theme='marine'] .st-tab.is-active { color: var(--ink); }
+[data-theme='marine'] .st-tab__hint, [data-theme='marine'] .st-head p { color: #d5e4ff; }
+[data-theme='marine'] .st-tab.is-active .st-tab__hint { color: var(--ink-muted); }
+@media (max-width: 899px) {
+  .settings-page { grid-template-columns: minmax(0, 1fr); padding: 16px 14px 48px; }
+  .st-nav { position: static; }
+  .st-tabs { flex-direction: row; flex-wrap: wrap; }
+  .st-tab__hint { display: none; }
+  .st-tab { min-height: 40px; justify-content: center; }
+}

@@ -1,0 +1,55 @@
+'use strict';
+
+// Einstellungen in Unterreitern: jede Karte gehört über data-tab zu einem Bereich. Bereiche ohne sichtbare Karte
+// (z. B. "Sicherheit" im lokalen Betrieb, "Programm" auf dem Server) werden ausgeblendet. Der Bereich steht in der
+// Adresse (#jira usw.), damit er sich verlinken lässt.
+(function () {
+  const tabsEl = document.getElementById('stTabs');
+  if (!tabsEl) return;
+  const TABS = [
+    { id: 'allgemein', label: 'Allgemein', hint: 'Uhrzeiten, Zuschlag, Azubi', lead: 'Wie die Zeiterfassung Zeiten aufnimmt und anzeigt.' },
+    { id: 'programm', label: 'Programm & Updates', hint: 'Browser, Hintergrund, Autostart', lead: 'Das Programmfenster auf diesem Rechner, Hintergrundbetrieb und Updates.' },
+    { id: 'jira', label: 'Jira', hint: 'Tickets, Titel, Links', lead: 'Nur lesend: Titel nachladen, eigene Tickets holen, Tickets öffnen.' },
+    { id: 'ki', label: 'Berichtsheft-KI', hint: 'Anbieter, Namenslisten', lead: 'KI-Anbieter und Anonymisierung für den Berichtsheft-Text.' },
+    { id: 'sicherheit', label: 'Sicherheit', hint: 'Passwort, 2FA, Passkeys', lead: 'Anmeldung und Schutz deines Kontos.' },
+    { id: 'daten', label: 'Daten', hint: 'Sicherung, Export, Import', lead: 'Deine Daten sichern und übernehmen.' },
+  ];
+  const cards = [...document.querySelectorAll('[data-tab]')];
+  let current = null;
+
+  // Sichtbar = nicht durch Betriebsart (local-only/local-hide) ausgeblendet
+  const available = (tab) => cards.some((c) => c.dataset.tab === tab.id && !(
+    (c.classList.contains('local-only') && !document.body.classList.contains('local-mode')) ||
+    (c.classList.contains('local-hide') && document.body.classList.contains('local-mode'))));
+
+  function render() {
+    const tabs = TABS.filter(available);
+    if (!tabs.some((t) => t.id === current)) current = tabs.length ? tabs[0].id : null;
+    tabsEl.innerHTML = tabs.map((t) => `
+      <button type="button" role="tab" class="st-tab${t.id === current ? ' is-active' : ''}" aria-selected="${t.id === current}" data-tab-id="${t.id}">
+        <span class="st-tab__label">${t.label}</span><span class="st-tab__hint">${t.hint}</span>
+      </button>`).join('');
+    cards.forEach((c) => c.classList.toggle('st-hidden', c.dataset.tab !== current));
+    const t = TABS.find((x) => x.id === current);
+    document.getElementById('stHeading').textContent = t ? t.label : '';
+    document.getElementById('stLead').textContent = t ? t.lead : '';
+  }
+
+  function select(id, push) {
+    current = id;
+    render();
+    if (push) history.replaceState(null, '', `#${id}`);
+    window.scrollTo({ top: 0 });
+  }
+
+  tabsEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tab-id]');
+    if (b) select(b.dataset.tabId, true);
+  });
+  window.addEventListener('hashchange', () => select(location.hash.slice(1), false));
+
+  current = location.hash.slice(1) || 'allgemein';
+  render();
+  // Die Betriebsart steht erst nach der Anmeldeprüfung fest (body.local-mode): dann neu sortieren
+  new MutationObserver(render).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+})();
