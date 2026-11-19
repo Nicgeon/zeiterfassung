@@ -104,6 +104,13 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status);
 
+-- Jira-Anbindung (optional): Adresse, E-Mail und API-Token pro Person als verschluesselter JSON-Block.
+CREATE TABLE IF NOT EXISTS jira_settings (
+  user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  config_enc  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Einstellungen fuer den Befehl "berichtsheft" (KI-Anbieter, Schluessel, Namenslisten),
 -- pro Person als verschluesselter JSON-Block.
 CREATE TABLE IF NOT EXISTS berichtsheft_settings (

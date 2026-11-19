@@ -7,7 +7,7 @@ das Ende des letzten Eintrags angehängt), die Minuten werden automatisch
 berechnet. Der fertige Eintrag lässt sich mit einem Klick als Text kopieren,
 um ihn in ein Jira-Ticket/-Worklog einzufügen.
 
-Bewusst **kein** direkter Jira-API-Zugriff: Das Tool verwaltet keine
+Standardmäßig **kein** Jira-API-Zugriff (optional und nur lesend einschaltbar, siehe „Jira-Anbindung“): Das Tool verwaltet keine
 Jira-Zugangsdaten oder -Berechtigungen, sondern erzeugt nur den fertigen
 Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
 
@@ -451,6 +451,22 @@ Das Symbol oben in der Seitenleiste schaltet durch drei Zustände: fest ausgekla
 Darüberfahren mit der Maus aus → nur Symbole ohne Ausfahren (die Wahl wird pro Browser gemerkt, ohne Wahl ist es auf
 Fenstern unter 1280 px „fährt aus“). Unten stehen Profil (Anfangsbuchstabe, Name),
 Farbschema und Abmelden.
+
+## Jira-Anbindung (optional, nur lesend)
+
+Unter **Konto → Jira-Anbindung** lässt sich Jira Cloud verbinden: Adresse (`https://firma.atlassian.net`), E-Mail deines
+Atlassian-Kontos und ein **API-Token** (id.atlassian.com → Sicherheit → „API-Token erstellen“; der Token hat die Rechte
+deines Kontos und lässt sich dort jederzeit widerrufen). Die Angaben werden pro Person verschlüsselt gespeichert, das
+Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prüft sie. Es werden nur Adressen der Form
+`*.atlassian.net` akzeptiert. **Das Tool schreibt nichts nach Jira.**
+
+- **Meine Jira-Tickets holen** (über der Aufgabenliste): zeigt deine offenen Tickets (`assignee = currentUser() AND
+  statusCategory != Done`), die noch keine Aufgabe sind; ausgewählte werden mit Titel, Ticket, Priorität (High/Highest
+  = „Wichtig“) und wahlweise dem Jira-Termin, heute oder ohne Datum übernommen.
+- **Titel nachladen:** Gibst du nur eine Ticketnummer ein (neue Aufgabe oder Ticketfeld im Erfassungsformular bei noch
+  leerer Beschreibung), wird der Jira-Titel als Text vorgeschlagen.
+- Fehler (falsche Zugangsdaten, kein Zugriff, nicht erreichbar) erscheinen als verständliche Meldung; ohne Einrichtung
+  bleibt alles wie bisher.
 
 ## Berichtsheft-Text mit KI
 

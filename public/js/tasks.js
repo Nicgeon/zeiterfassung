@@ -17,6 +17,9 @@
     list: $('#taskList'),
     doneToggle: $('#taskDoneToggle'),
     doneList: $('#taskDoneList'),
+    jiraBar: $('#jiraBar'),
+    jiraBtn: $('#jiraImportBtn'),
+    jiraPanel: $('#jiraImport'),
   };
   if (!el.list) return;
 
@@ -276,11 +279,17 @@
     // Steht nur ein Ticket da, bleibt es der Titel-Ersatz; sonst wird die Nummer aus dem Titel genommen
     const title = key ? raw.replace(key, '').replace(/\s{2,}/g, ' ').replace(/^[\s\-–:,]+|[\s\-–:,]+$/g, '') : raw;
     setError('');
+    // Nur eine Ticketnummer eingegeben: Titel aus Jira holen (falls eingerichtet), sonst bleibt die Nummer der Titel
+    let finalTitle = title;
+    if (!finalTitle && key && window.ZeitJira) {
+      const issue = await window.ZeitJira.issue(key);
+      if (issue && issue.summary) finalTitle = issue.summary;
+    }
     const dueDate = dueFromChoice(el.due.value);
     if (dueDate === undefined) { setError('Bitte ein Datum wählen.'); el.dueDate.focus(); return; }
     const dueTime = el.due.value === 'custom' && el.dueTime.value ? el.dueTime.value : null;
     try {
-      await Api.post('/api/tasks', { title, jira_key: key, due_date: dueDate, due_time: dueDate ? dueTime : null });
+      await Api.post('/api/tasks', { title: finalTitle, jira_key: key, due_date: dueDate, due_time: dueDate ? dueTime : null });
       el.title.value = '';
       await load();
     } catch (err) {
@@ -406,6 +415,78 @@
       state.view = b.dataset.view;
       try { localStorage.setItem(VIEW_KEY, state.view); } catch { /* nur Komfort */ }
       render();
+    });
+  }
+
+  // --- Eigene Jira-Tickets übernehmen (nur sichtbar, wenn Jira unter Konto eingerichtet ist) ----------------
+
+  function importHtml(issues, dueMode) {
+    const rows = issues.map((i, n) => `
+      <label class="import__row">
+        <input type="checkbox" data-n="${n}" checked />
+        <span class="import__text">
+          <span class="import__title">${escapeHtml(i.summary || i.key)}</span>
+          <span class="import__sub mono">${escapeHtml(i.key)}${i.status ? ` · ${escapeHtml(i.status)}` : ''}${i.dueDate ? ` · fällig ${escapeHtml(i.dueDate)}` : ''}</span>
+        </span>
+      </label>`).join('');
+    return `
+      <div class="import__head">Offene Jira-Tickets von dir</div>
+      ${rows}
+      <label class="import__due">Fällig am
+        <select id="jiraDueMode">
+          <option value="jira"${dueMode === 'jira' ? ' selected' : ''}>Jira-Termin (sonst ohne Datum)</option>
+          <option value="today"${dueMode === 'today' ? ' selected' : ''}>Heute</option>
+          <option value="none"${dueMode === 'none' ? ' selected' : ''}>Ohne Datum</option>
+        </select>
+      </label>
+      <div class="import__actions">
+        <button type="button" class="btn btn--ghost btn--sm" data-act="import-close">Schließen</button>
+        <span class="task-edit__spacer"></span>
+        <button type="button" class="btn btn--sm" data-act="import-apply">Übernehmen</button>
+      </div>`;
+  }
+
+  let importIssues = [];
+  async function openImport() {
+    el.jiraPanel.classList.remove('hidden');
+    el.jiraPanel.textContent = 'Lade deine Tickets …';
+    try {
+      const all = await window.ZeitJira.myIssues();
+      const have = new Set(state.tasks.map((t) => (t.jiraKey || '').toUpperCase()));
+      importIssues = all.filter((i) => !have.has(i.key.toUpperCase()));
+      el.jiraPanel.innerHTML = importIssues.length
+        ? importHtml(importIssues, 'jira')
+        : '<div class="tasks__empty">Alle deine offenen Tickets sind schon in der Liste (oder es gibt keine).</div><button type="button" class="btn btn--ghost btn--sm" data-act="import-close">Schließen</button>';
+    } catch (err) {
+      el.jiraPanel.innerHTML = `<div class="tasks__error">${escapeHtml(err.message)}</div><button type="button" class="btn btn--ghost btn--sm" data-act="import-close">Schließen</button>`;
+    }
+  }
+
+  async function applyImport() {
+    const mode = el.jiraPanel.querySelector('#jiraDueMode').value;
+    const picked = [...el.jiraPanel.querySelectorAll('input[data-n]:checked')].map((c) => importIssues[Number(c.dataset.n)]);
+    if (!picked.length) { el.jiraPanel.classList.add('hidden'); return; }
+    let ok = 0;
+    for (const i of picked) {
+      const due = mode === 'today' ? todayISO() : mode === 'jira' ? i.dueDate : null;
+      try {
+        await Api.post('/api/tasks', { title: i.summary, jira_key: i.key, due_date: due || null, priority: /^(highest|high)$/i.test(i.priority) ? 1 : 0 });
+        ok += 1;
+      } catch (err) { setError(err.message); }
+    }
+    el.jiraPanel.classList.add('hidden');
+    await load();
+    showToast(`${ok} Aufgabe${ok === 1 ? '' : 'n'} aus Jira übernommen.`);
+  }
+
+  if (el.jiraBtn && window.ZeitJira && !isMini) {
+    window.ZeitJira.settings().then((s) => { if (s.configured) el.jiraBar.classList.remove('hidden'); });
+    el.jiraBtn.addEventListener('click', openImport);
+    el.jiraPanel.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.dataset.act === 'import-close') el.jiraPanel.classList.add('hidden');
+      else if (act.dataset.act === 'import-apply') applyImport();
     });
   }
 

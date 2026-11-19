@@ -29,6 +29,7 @@ const EVENT_LABELS = {
   update_installed: 'Update installiert',
   berichtsheft_generated: 'Berichtsheft-Text erzeugt',
   berichtsheft_settings_changed: 'Berichtsheft-Einstellungen geaendert',
+  jira_settings_changed: 'Jira-Anbindung geaendert',
 };
 
 function labelFor(event) {

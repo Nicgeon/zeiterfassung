@@ -62,6 +62,10 @@
       <label class="tasks__custom-field">Uhrzeit (optional) <input type="time" id="taskDueTime" /></label>
     </div>
     <div id="taskError" class="tasks__error"></div>
+    <div class="tasks__jira hidden" id="jiraBar">
+      <button type="button" class="btn btn--ghost btn--sm" id="jiraImportBtn" title="Deine offenen Jira-Tickets als Aufgaben übernehmen">Meine Jira-Tickets holen</button>
+    </div>
+    <div class="tasks__import hidden" id="jiraImport"></div>
 
     <div id="taskList" class="tasks__list"></div>
 
@@ -262,6 +266,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
 <script src="/js/tickets.js"></script>
+<script src="/js/jira.js"></script>
 <script src="/js/tasks.js"></script>
 <script src="/js/app.js"></script>
 </body>

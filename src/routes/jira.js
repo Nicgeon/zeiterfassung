@@ -1,0 +1,78 @@
+'use strict';
+
+// Jira-Anbindung (optional, lesend): Zugangsdaten pro Person verschlüsselt speichern, testen, Ticket-Titel und eigene
+// offene Tickets holen. Das API-Token wird nie ausgegeben.
+
+const express = require('express');
+const jira = require('../lib/jira');
+
+function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchImpl }) {
+  const router = express.Router();
+  const getStmt = db.prepare('SELECT config_enc FROM jira_settings WHERE user_id = ?');
+  const putStmt = db.prepare(
+    `INSERT INTO jira_settings (user_id, config_enc, updated_at) VALUES (?, ?, datetime('now'))
+     ON CONFLICT(user_id) DO UPDATE SET config_enc = excluded.config_enc, updated_at = excluded.updated_at`
+  );
+  const delStmt = db.prepare('DELETE FROM jira_settings WHERE user_id = ?');
+
+  function load(userId) {
+    const row = getStmt.get(userId);
+    if (!row) return null;
+    try { return JSON.parse(decryptField(row.config_enc)); } catch { return null; }
+  }
+  const describe = (c) => ({ configured: !!(c && c.baseUrl && c.email && c.token), baseUrl: (c && c.baseUrl) || '', email: (c && c.email) || '', hasToken: !!(c && c.token) });
+  const clientFor = (userId) => {
+    const c = load(userId);
+    if (!c || !c.token) throw new jira.JiraError('Jira ist noch nicht eingerichtet (Konto → Jira-Anbindung).', 409);
+    return jira.createClient({ baseUrl: c.baseUrl, email: c.email, token: c.token, fetchImpl });
+  };
+  const wrap = (fn) => async (req, res) => {
+    try { await fn(req, res); } catch (err) {
+      if (err instanceof jira.JiraError) // 401/403 von Jira nie 1:1 weitergeben: die Seite würde das für ihre eigene Anmeldung bzw. den CSRF-Schutz halten
+      return res.status([401, 403].includes(err.status) ? 400 : err.status >= 500 ? 502 : err.status).json({ error: err.message });
+      // eslint-disable-next-line no-console
+      console.error('[jira]', err && err.message);
+      res.status(500).json({ error: 'Unerwarteter Fehler bei der Jira-Anbindung.' });
+    }
+  };
+
+  router.get('/settings', wrap((req, res) => res.json(describe(load(req.user.id)))));
+
+  router.put('/settings', wrap((req, res) => {
+    const body = req.body || {};
+    const current = load(req.user.id) || {};
+    const baseUrl = jira.normalizeBaseUrl(body.baseUrl);
+    const email = String(body.email || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) throw new jira.JiraError('Bitte die E-Mail-Adresse deines Atlassian-Kontos eintragen.', 400);
+    let token = typeof body.apiToken === 'string' ? body.apiToken.trim() : '';
+    if (!token) token = current.token || '';
+    if (!token) throw new jira.JiraError('Bitte den API-Token eintragen.', 400);
+    if (token.length > 400) throw new jira.JiraError('Der API-Token ist zu lang.', 400);
+    putStmt.run(req.user.id, encryptField(JSON.stringify({ baseUrl, email, token })));
+    audit(req.user.id, 'jira_settings_changed', baseUrl, req.ip);
+    res.json(describe({ baseUrl, email, token }));
+  }));
+
+  router.delete('/settings', wrap((req, res) => {
+    delStmt.run(req.user.id);
+    audit(req.user.id, 'jira_settings_changed', 'entfernt', req.ip);
+    res.json(describe(null));
+  }));
+
+  router.post('/test', wrap(async (req, res) => {
+    const me = await clientFor(req.user.id).myself();
+    res.json({ ok: true, displayName: me.displayName });
+  }));
+
+  router.get('/issue/:key', wrap(async (req, res) => {
+    res.json({ issue: await clientFor(req.user.id).issue(req.params.key) });
+  }));
+
+  router.get('/my-issues', wrap(async (req, res) => {
+    res.json({ issues: await clientFor(req.user.id).myIssues() });
+  }));
+
+  return router;
+}
+
+module.exports = { createRouter };

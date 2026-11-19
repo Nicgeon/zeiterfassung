@@ -1574,6 +1574,22 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .task-edit__spacer { flex: 1; }
 .task-edit__delete { color: var(--danger); }
 
+/* Jira-Import */
+.tasks__jira { display: flex; }
+.tasks__import { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1.5px solid var(--accent); }
+.import__head { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.import__row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 4px; border-radius: 10px; font-weight: 400; cursor: pointer; }
+.import__row:hover { background: var(--surface-alt); }
+.import__row input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
+.import__text { display: flex; flex-direction: column; min-width: 0; }
+.import__title { font-size: 14px; font-weight: 500; color: var(--ink); }
+.import__sub { font-size: 12px; color: var(--ink-faint); }
+.import__due { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.import__due select { min-height: 40px; font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--ink); }
+.import__actions { display: flex; align-items: center; gap: 8px; }
+.mini .tasks__jira, .mini .tasks__import { display: none !important; }
+[data-theme='marine'] .tasks__jira .btn--ghost { color: #d5e4ff; }
+
 /* Marine (hell): Texte, die direkt auf dem blauen Hintergrund stehen */
 [data-theme='marine'] .tasks-col > .tasks__head h2,
 [data-theme='marine'] .tasks-col > .tasks__empty,
@@ -1610,7 +1626,7 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .summary--band .legend-key { white-space: nowrap; }
 .work-col .page-title { font-size: 34px; }
 .summary--band .summary__actions { grid-area: actions; margin: 0; flex-direction: column; min-width: 190px; }
-@media (max-width: 1279px) {
+@media (max-width: 1499px) {
   .summary--band { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'label bar' 'total legend' 'actions actions'; }
   .summary--band .summary__actions { flex-direction: row; margin-top: 12px; min-width: 0; }
   .summary--band .summary__actions .btn { flex: 1; }

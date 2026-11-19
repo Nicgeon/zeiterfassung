@@ -679,6 +679,19 @@
   els.description.addEventListener('change', saveTimerFields);
   els.jiraKey.addEventListener('change', saveTimerFields);
 
+  // Ticketnummer eingetragen, Beschreibung noch leer: Titel aus Jira vorschlagen (nur wenn Jira unter Konto eingerichtet ist)
+  els.jiraKey.addEventListener('change', async () => {
+    if (!window.ZeitJira || els.description.value.trim()) return;
+    const key = convertTicketLinks(els.jiraKey.value).trim();
+    if (!/^[A-Z][A-Z0-9_]+-\d+$/.test(key)) return;
+    const issue = await window.ZeitJira.issue(key);
+    if (issue && issue.summary && !els.description.value.trim()) {
+      els.description.value = issue.summary;
+      els.description.dispatchEvent(new Event('input', { bubbles: true }));
+      saveTimerFields();
+    }
+  });
+
   /** Timer beenden und als Eintrag speichern; mit pause wird die Aufgabe zum Weitermachen gemerkt. */
   async function stopTimer({ pause = false } = {}) {
     setFormError(els.formError, '');

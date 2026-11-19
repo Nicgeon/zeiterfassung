@@ -74,6 +74,41 @@
     </div>
   </div>
 
+  <!-- Jira-Anbindung (optional, nur lesend) -->
+  <div class="card" id="jiraCard">
+    <div class="card__header">
+      <h2>Jira-Anbindung</h2>
+      <span class="badge" id="jiraBadge">–</span>
+    </div>
+    <div id="jiraError"></div>
+    <p class="text-muted text-sm">
+      Optional und nur lesend (Jira Cloud): Das Tool kann damit den Titel zu einer Ticketnummer nachladen und deine
+      offenen Tickets als Aufgaben übernehmen. Es schreibt nichts nach Jira. Adresse, E-Mail und Token liegen
+      verschlüsselt nur in deinem Konto.
+    </p>
+    <div class="field">
+      <label for="jiraUrl">Jira-Adresse</label>
+      <input type="text" id="jiraUrl" placeholder="https://firma.atlassian.net" autocomplete="off" maxlength="200" />
+    </div>
+    <div class="field">
+      <label for="jiraEmail">E-Mail deines Atlassian-Kontos</label>
+      <input type="text" id="jiraEmail" autocomplete="off" maxlength="200" />
+    </div>
+    <div class="field">
+      <label for="jiraToken">API-Token</label>
+      <input type="password" id="jiraToken" autocomplete="off" maxlength="400" />
+      <p class="field-hint">
+        Erzeugen unter id.atlassian.com → Sicherheit → „API-Token erstellen“ (Name z. B. „Zeiterfassung“). Der Token hat
+        die Rechte deines Kontos; du kannst ihn dort jederzeit widerrufen.
+      </p>
+    </div>
+    <div class="flex gap-sm flex-wrap">
+      <button type="button" class="btn" id="jiraSaveBtn">Speichern</button>
+      <button type="button" class="btn btn--secondary btn--sm" id="jiraTestBtn" disabled>Verbindung testen</button>
+      <button type="button" class="btn btn--ghost btn--sm" id="jiraClearBtn" disabled>Entfernen</button>
+    </div>
+  </div>
+
   <!-- Berichtsheft-KI -->
   <div class="card" id="bhSettingsCard">
     <div class="card__header">
@@ -300,6 +335,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
 <script src="/js/account.js"></script>
+<script src="/js/jira.js"></script>
 <script src="/js/berichtsheft.js"></script>
 </body>
 </html>
