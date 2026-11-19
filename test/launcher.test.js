@@ -447,6 +447,7 @@ test('Ticket im Standardbrowser öffnen: nur feste Jira-Adressen, keine Shell, k
   openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'win32', spawnImpl });
   openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'darwin', spawnImpl });
   openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'linux', spawnImpl });
-  assert.deepEqual(calls.map((c) => c[0]), ['rundll32', 'open', 'xdg-open']);
+  assert.deepEqual(calls.map((c) => c[0]), ['cmd', 'open', 'xdg-open']);
+  assert.deepEqual(calls[0][1], ['/c', 'start', '""', 'https://f.atlassian.net/browse/IT-1']);
   assert.equal(openInDefaultBrowser('x', { spawnImpl: () => { throw new Error('weg'); } }), false);
 });

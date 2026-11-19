@@ -62,7 +62,9 @@ function openDetached({ url, dataDir, env = process.env, size = null, log = () =
 
 /** Adresse im Standardbrowser des Systems öffnen (Aufrufer prüft die Adresse vorher; es wird keine Shell benutzt). */
 function openInDefaultBrowser(url, { platform = process.platform, spawnImpl = spawn } = {}) {
-  const [cmd, args] = platform === 'win32' ? ['rundll32', ['url.dll,FileProtocolHandler', url]]
+  // Windows: "start" geht über ShellExecute und beachtet die Standardbrowser-Wahl des Nutzers (UserChoice).
+  // rundll32 url.dll liest dagegen die alte, systemweite Zuordnung und erwischt oft einen anderen Browser.
+  const [cmd, args] = platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
     : platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
   try {
     const child = spawnImpl(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
