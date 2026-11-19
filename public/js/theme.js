@@ -65,10 +65,11 @@
   if (/[?&]mini=1(&|$)/.test(location.search)) document.documentElement.classList.add('mini');
 
   const NAV_ICONS = {
-    'index.html': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12.5l3 3 5-6"/>',
+    'index.html': '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    'aufgaben.html': '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12.5l3 3 5-6"/>',
     'uebersicht.html': '<path d="M5 20V10M12 20V4M19 20v-7"/>',
     'wochenbericht.html': '<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h7"/>',
-    'account.html': '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+    'account.html': '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/>',
     'admin.html': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.2-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.6 5.2"/>',
     logout: '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/>',
     toggle: '<path d="M4 5h16v14H4z"/><path d="M9 5v14"/>',
@@ -120,6 +121,26 @@
       });
       brand.appendChild(t);
       sync();
+    }
+
+    // Zähler am Menüpunkt "Aufgaben": überfällig + heute (still, wenn nicht angemeldet)
+    const tasksLink = bar.querySelector('.topbar__nav a[href="/aufgaben.html"]');
+    if (tasksLink && !document.documentElement.classList.contains('mini')) {
+      fetch('/api/tasks', { credentials: 'same-origin', cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data || !Array.isArray(data.tasks)) return;
+          const d = new Date();
+          const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const n = data.tasks.filter((t) => t.dueDate && t.dueDate <= today).length;
+          if (!n) return;
+          const badge = document.createElement('span');
+          badge.className = 'nav-badge';
+          badge.textContent = n > 99 ? '99+' : String(n);
+          badge.title = `${n} Aufgabe${n === 1 ? '' : 'n'} heute fällig oder überfällig`;
+          tasksLink.appendChild(badge);
+        })
+        .catch(() => {});
     }
 
     // Ausfahren beim Darüberfahren (nur im Modus "hover"); bleibt offen, solange das Farbschema-Menü offen ist

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Aufgaben – Zeiterfassung</title>
+<link rel="stylesheet" href="/css/fonts.css" />
+<link rel="stylesheet" href="/css/styles.css" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+<script src="/js/theme.js"></script>
+<script src="/js/appmode.js" defer></script>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar__brand"><span class="mark"></span><strong>Zeiterfassung</strong></div>
+  <div class="topbar__nav">
+    <a href="/index.html"><span class="label">Heute</span></a>
+    <a href="/aufgaben.html" class="active"><span class="label">Aufgaben</span></a>
+    <a href="/uebersicht.html"><span class="label">Auswertung</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Berichte</span></a>
+    <a href="/account.html"><span class="label">Einstellungen</span></a>
+    <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
+  </div>
+  <div class="topbar__user">
+    <span id="userLabel"></span>
+    <button class="btn btn--ghost btn--sm" id="logoutBtn">Abmelden</button>
+  </div>
+</div>
+
+<div class="shell shell--page tasks-page">
+
+  <!-- Ansichten -->
+  <aside class="tp-views" aria-label="Ansichten">
+    <h1 class="page-title tp-title">Aufgaben</h1>
+    <div class="tp-viewlist" role="tablist" aria-label="Ansicht">
+      <button type="button" class="tp-view" role="tab" data-view="today">Heute <span class="tp-count" data-count="today"></span></button>
+      <button type="button" class="tp-view" role="tab" data-view="soon">Demnächst <span class="tp-count" data-count="soon"></span></button>
+      <button type="button" class="tp-view" role="tab" data-view="none">Ohne Datum <span class="tp-count" data-count="none"></span></button>
+      <button type="button" class="tp-view" role="tab" data-view="all">Alle offenen <span class="tp-count" data-count="all"></span></button>
+      <button type="button" class="tp-view" role="tab" data-view="done">Erledigt <span class="tp-count" data-count="done"></span></button>
+    </div>
+    <div class="tp-jira hidden" id="tpJira">
+      <div class="tp-label">Jira</div>
+      <button type="button" class="tp-jira-btn" id="tpJiraBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>
+        Meine Tickets holen
+      </button>
+    </div>
+  </aside>
+
+  <!-- Liste -->
+  <main class="tp-main" aria-label="Aufgabenliste">
+    <div class="tp-head">
+      <h2 id="tpHeading">Heute</h2>
+      <span class="tp-hint" id="tpHint">Sortiert nach Fälligkeit</span>
+    </div>
+    <form class="tasks__add" id="tpAdd" autocomplete="off">
+      <svg class="tasks__add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <label class="visually-hidden" for="tpTitle">Neue Aufgabe</label>
+      <input type="text" id="tpTitle" maxlength="500" placeholder="Neue Aufgabe oder Ticketnummer" />
+      <label class="visually-hidden" for="tpDue">Fällig</label>
+      <select id="tpDue" class="tasks__due">
+        <option value="today">Heute</option>
+        <option value="tomorrow">Morgen</option>
+        <option value="dayafter">Übermorgen</option>
+        <option value="monday">Montag</option>
+        <option value="week">In 1 Woche</option>
+        <option value="month">In 1 Monat</option>
+        <option value="custom">Datum …</option>
+        <option value="none">Ohne Datum</option>
+      </select>
+    </form>
+    <div class="tasks__custom hidden" id="tpCustom">
+      <label class="tasks__custom-field">Datum <input type="date" id="tpDueDate" /></label>
+      <label class="tasks__custom-field">Uhrzeit (optional) <input type="time" id="tpDueTime" /></label>
+    </div>
+    <div class="tasks__error" id="tpError"></div>
+    <div class="tasks__import hidden" id="tpImport"></div>
+    <div class="tasks__list" id="tpList"></div>
+  </main>
+
+  <!-- Gewählte Aufgabe -->
+  <aside class="tp-detail hidden" id="tpDetail" aria-label="Aufgabe bearbeiten"></aside>
+</div>
+
+<script src="/js/util.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/update.js"></script>
+<script src="/js/tickets.js"></script>
+<script src="/js/jira.js"></script>
+<script src="/js/aufgaben.js"></script>
+</body>
+</html>

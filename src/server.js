@@ -291,7 +291,7 @@ function sessionUser(req) {
 }
 
 const PROTECTED_PAGES = new Set([
-  '/index.html', '/account.html', '/admin.html', '/wochenbericht.html', '/uebersicht.html',
+  '/index.html', '/aufgaben.html', '/account.html', '/admin.html', '/wochenbericht.html', '/uebersicht.html',
 ]);
 
 app.get('/', (req, res) => {
