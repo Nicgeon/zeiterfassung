@@ -31,6 +31,7 @@
   const ICON = {
     play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
     repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5M20 4v4.5h-4.5M20 12a8 8 0 0 1-13.7 5.6L4 15.5M4 20v-4.5h4.5"/></svg>',
   };
 
@@ -115,6 +116,7 @@
           <span class="task__sub mono">${running ? 'läuft gerade' : escapeHtml(sub)}${t.repeat ? ` <span class="task__repeat">${ICON.repeat}</span>` : ''}</span>
         </button>
         ${t.priority ? '<span class="task__prio" title="Wichtig" aria-label="Wichtig">!</span>' : ''}
+        ${t.jiraKey ? `<button type="button" class="task__jira" data-jira-open="${escapeHtml(t.jiraKey)}" aria-label="Ticket ${escapeHtml(t.jiraKey)} in Jira öffnen" title="In Jira öffnen">${ICON.external}</button>` : ''}
         <button type="button" class="task__play" data-act="start" aria-label="Timer starten" title="${running ? 'Timer läuft für diese Aufgabe' : 'Timer mit dieser Aufgabe starten'}"${running ? ' disabled' : ''}>${ICON.play}</button>
       </div>`;
   }

@@ -1481,6 +1481,7 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
   max-height: calc(100vh / var(--ui-zoom) - 48px); overflow-y: auto; padding: 2px 4px 2px 0;
 }
 @media (max-width: 999px) { .tasks-col { position: static; max-height: none; overflow: visible; } }
+.tasks-col > * { flex-shrink: 0; } /* sonst werden Kopf und Eingabe bei wenig Höhe gestaucht und überlappen */
 .tasks__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 40px; }
 .tasks__head h2 { margin: 0; }
 .tasks__tabs .seg__btn { min-height: 30px; padding: 0 10px; font-size: 12px; }
@@ -1494,9 +1495,18 @@ input[type='number']:focus { border-color: var(--accent); box-shadow: 0 0 0 3px 
 .tasks__add-icon { flex: none; width: 18px; height: 18px; color: var(--accent); }
 .tasks__add input[type='text'] { flex: 1; min-width: 0; min-height: 44px; height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; outline: none; }
 .tasks__due {
-  flex: none; width: auto; max-width: 136px; min-height: 36px; height: 36px; padding: 0 12px; border-radius: 999px;
+  flex: none; width: 126px; min-height: 36px; height: 36px; padding: 0 8px 0 12px; border-radius: 999px; text-overflow: ellipsis;
   border: 0; background: var(--surface-alt); color: var(--ink-muted); font-size: 12px; font-weight: 600;
 }
+.task__jira {
+  display: none; flex: none; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-faint); align-items: center; justify-content: center;
+}
+.jira-on .task__jira { display: inline-flex; }
+.task__jira:hover { background: var(--surface-alt); color: var(--accent); }
+.task__jira svg { width: 15px; height: 15px; }
+.jira-on [data-jira-open]:not(.task__jira) { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.jira-on [data-jira-open]:not(.task__jira):hover { color: var(--accent); }
 .tasks__custom { display: flex; gap: 10px; padding: 2px 4px; }
 .tasks__custom-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
 .tasks__custom-field input { min-height: 40px; height: 40px; font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 400; color: var(--ink); }

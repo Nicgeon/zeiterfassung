@@ -29,6 +29,31 @@
   };
   window.ZeitJira = ZeitJira;
 
+  // Ticketnummern auf der Seite (data-jira-open) öffnen das Ticket in Jira, sobald Jira eingerichtet ist.
+  // Im Programmfenster geht der Link über den Server in den Standardbrowser (dort ist man bei Jira angemeldet).
+  let base = '';
+  ZeitJira.settings().then((s) => {
+    if (!s.configured) return;
+    base = s.baseUrl;
+    document.documentElement.classList.add('jira-on');
+  });
+  ZeitJira.ticketUrl = (key) => (base ? `${base}/browse/${encodeURIComponent(String(key).toUpperCase())}` : '');
+  document.addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-jira-open]');
+    if (!el || !base) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const url = ZeitJira.ticketUrl(el.dataset.jiraOpen);
+    if (!url) return;
+    if (window.zeitAppMode) {
+      try {
+        const r = await Api.post('/api/app/open-external', { url });
+        if (r.opened) return;
+      } catch { /* weiter mit dem Fallback */ }
+    }
+    window.open(url, '_blank', 'noopener');
+  });
+
   // --- Einstellungskarte (account.html) ------------------------------------------------------------
   const card = document.getElementById('jiraCard');
   if (!card) return;

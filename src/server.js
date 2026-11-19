@@ -250,6 +250,7 @@ if (config.localMode) {
     quit: () => process.exit(0),
     settingsFile: launcherFile,
     autostart: createAutostart({ root: path.resolve(__dirname, '..') }),
+    openExternal: require('./lib/appWindow').openInDefaultBrowser,
     currentBrowser: (() => { try { return JSON.parse(process.env.ZEIT_WINDOW_BROWSER || 'null'); } catch { return null; } })(),
     // Der Starter (Elternprozess) oeffnet das Fenster; nur vorhanden, wenn er den Server mit Nachrichtenkanal startet
     openWindow: appModeOn && typeof process.send === 'function' ? (kind) => { process.send({ type: 'open-window', kind }); return true; } : null,

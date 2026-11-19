@@ -425,8 +425,8 @@ Links neben der Erfassung steht die Aufgabenliste (im Mini-Fenster als kompakte 
 Datenbank gespeichert (Titel verschlüsselt wie die Einträge) und gelten damit für alle Fenster.
 
 - **Anlegen:** Text eintragen, Enter. Eine Ticketnummer im Text (z. B. `ITPKK-123`) oder ein eingefügter Jira-Link wird
-  zum Ticket der Aufgabe. Daneben wählst du Heute, Morgen, Übermorgen, Nächsten Montag, In einer Woche, In einem Monat,
-  „Datum wählen“ (eigenes Datum, optional mit Uhrzeit für die Erinnerung) oder Ohne Datum.
+  zum Ticket der Aufgabe. Daneben wählst du Heute, Morgen, Übermorgen, Montag, In 1 Woche, In 1 Monat,
+  „Datum …“ (eigenes Datum, optional mit Uhrzeit für die Erinnerung) oder Ohne Datum.
 - **Ansichten:** *Heute* (überfällig und heute), *Demnächst*, *Alle*; „Erledigte anzeigen“ listet zuletzt Erledigtes
   (Klick auf den Haken öffnet wieder).
 - **Bearbeiten:** Klick auf den Titel öffnet Titel, Ticket, Datum, Uhrzeit, „Wichtig“ und Wiederholung
@@ -465,6 +465,10 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
   = „Wichtig“) und wahlweise dem Jira-Termin, heute oder ohne Datum übernommen.
 - **Titel nachladen:** Gibst du nur eine Ticketnummer ein (neue Aufgabe oder Ticketfeld im Erfassungsformular bei noch
   leerer Beschreibung), wird der Jira-Titel als Text vorgeschlagen.
+- **Ticket in Jira öffnen:** Mit eingerichtetem Jira sind Ticketnummern anklickbar (in der Tagesliste, unter „Nach
+  Ticket“) und jede Aufgabe mit Ticket hat ein ↗-Symbol. Im Programmfenster öffnet sich das Ticket
+  (`https://…atlassian.net/browse/<TICKET>`) im Standardbrowser, nicht im Programmfenster; der Server nimmt dafür nur
+  genau diese Adressform an.
 - Fehler (falsche Zugangsdaten, kein Zugriff, nicht erreichbar) erscheinen als verständliche Meldung; ohne Einrichtung
   bleibt alles wie bisher.
 

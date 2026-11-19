@@ -428,3 +428,25 @@ test('Hintergrund-Start (--hintergrund): kein Fenster, Server läuft', async () 
     launcher.kill();
   }
 });
+
+test('Ticket im Standardbrowser öffnen: nur feste Jira-Adressen, keine Shell, keine beliebige Adresse', async () => {
+  const opened = [];
+  await withRouter({ appMode: true, openExternal: (u) => { opened.push(u); return true; } }, async (base) => {
+    const post = (url) => fetch(`${base}/open-external`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url }) });
+    assert.deepEqual(await (await post('https://firma.atlassian.net/browse/IT-12')).json(), { opened: true });
+    for (const bad of ['http://firma.atlassian.net/browse/IT-12', 'https://evil.com/browse/IT-12', 'https://firma.atlassian.net/browse/IT-12?x=1', 'https://firma.atlassian.net/browse/IT-12 & calc',
+      'https://firma.atlassian.net/browse/it-12', 'file:///C:/Windows/System32/calc.exe', 'https://x.atlassian.net.evil.com/browse/IT-1']) {
+      assert.equal((await post(bad)).status, 400, bad);
+    }
+    assert.equal((await fetch(`${base}/open-external`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 400);
+    assert.deepEqual(opened, ['https://firma.atlassian.net/browse/IT-12']);
+  });
+  const { openInDefaultBrowser } = require('../src/lib/appWindow');
+  const calls = [];
+  const spawnImpl = (cmd, args) => { calls.push([cmd, args]); return { on() {}, unref() {} }; };
+  openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'win32', spawnImpl });
+  openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'darwin', spawnImpl });
+  openInDefaultBrowser('https://f.atlassian.net/browse/IT-1', { platform: 'linux', spawnImpl });
+  assert.deepEqual(calls.map((c) => c[0]), ['rundll32', 'open', 'xdg-open']);
+  assert.equal(openInDefaultBrowser('x', { spawnImpl: () => { throw new Error('weg'); } }), false);
+});

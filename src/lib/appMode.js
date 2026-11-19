@@ -38,7 +38,7 @@ function createIdleMonitor({ idleMs = 150_000, closingMs = 10_000, onIdle, setTi
  * Ping ist ein GET (die Seite nutzt beim Verlassen fetch mit keepalive), darum prueft er den Herkunfts-
  * Header: Eine fremde Webseite darf den Server nicht per Link/Bild beenden koennen.
  */
-function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, autostart, setTimer = setTimeout }) {
+function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, autostart, openExternal, setTimer = setTimeout }) {
   const router = express.Router();
   router.get('/ping', (req, res) => {
     const site = req.get('sec-fetch-site');
@@ -101,6 +101,14 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
     const kind = req.body && req.body.kind;
     if (!['main', 'mini'].includes(kind)) return res.status(400).json({ error: 'Ungültige Angabe.' });
     res.json({ opened: !!(openWindow && openWindow(kind)) });
+  });
+  // Jira-Ticket im Standardbrowser öffnen (das Programmfenster hat keinen eigenen Browser mit Tabs). Nur die
+  // feste Form https://<name>.atlassian.net/browse/<TICKET> wird angenommen, nie eine beliebige Adresse.
+  const TICKET_URL = /^https:\/\/[a-z0-9][a-z0-9-]*\.atlassian\.net\/browse\/[A-Z][A-Z0-9_]+-\d+$/;
+  router.post('/open-external', (req, res) => {
+    const url = req.body && req.body.url;
+    if (typeof url !== 'string' || !TICKET_URL.test(url)) return res.status(400).json({ error: 'Nur Jira-Tickets lassen sich so öffnen.' });
+    res.json({ opened: !!(openExternal && openExternal(url)) });
   });
   router.post('/quit', (req, res) => {
     res.json({ status: 'ok' });

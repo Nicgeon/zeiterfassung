@@ -360,7 +360,7 @@
         <div class="entry__body">
           ${e.description
             ? `<div class="entry__desc">${escapeHtml(e.description)}</div>
-          ${e.jiraKey || e.school ? `<div class="entry__meta">${e.jiraKey ? `<span class="jira-tag">${escapeHtml(e.jiraKey)}</span>` : ''}${e.school ? '<span class="badge badge--school">Berufsschule</span>' : ''}</div>` : ''}`
+          ${e.jiraKey || e.school ? `<div class="entry__meta">${e.jiraKey ? `<span class="jira-tag" data-jira-open="${escapeHtml(e.jiraKey)}">${escapeHtml(e.jiraKey)}</span>` : ''}${e.school ? '<span class="badge badge--school">Berufsschule</span>' : ''}</div>` : ''}`
             : `<div class="entry__desc mono">${escapeHtml(e.jiraKey || '')}</div>${e.school ? '<div class="entry__meta"><span class="badge badge--school">Berufsschule</span></div>' : ''}`}
         </div>
         <div class="entry__dur mono">${formatDurationLong(e.durationMinutes)}</div>
@@ -412,7 +412,7 @@
     els.ticketList.innerHTML = rows.length
       ? rows.map(([key, minutes]) => `
           <div class="ticket-row">
-            ${key ? `<span class="mono ticket-row__key">${escapeHtml(key)}</span>` : '<span class="ticket-row__none">Ohne Ticket</span>'}
+            ${key ? `<span class="mono ticket-row__key" data-jira-open="${escapeHtml(key)}">${escapeHtml(key)}</span>` : '<span class="ticket-row__none">Ohne Ticket</span>'}
             <span class="mono">${formatHM(minutes)}</span>
           </div>`).join('')
       : '<div class="ticket-list--empty">Noch keine Einträge.</div>';

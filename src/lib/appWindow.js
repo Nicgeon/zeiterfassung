@@ -60,4 +60,16 @@ function openDetached({ url, dataDir, env = process.env, size = null, log = () =
   return null;
 }
 
-module.exports = { readSettings, which, runCapture, findBrowsers, profileDirFor, openDetached };
+/** Adresse im Standardbrowser des Systems öffnen (Aufrufer prüft die Adresse vorher; es wird keine Shell benutzt). */
+function openInDefaultBrowser(url, { platform = process.platform, spawnImpl = spawn } = {}) {
+  const [cmd, args] = platform === 'win32' ? ['rundll32', ['url.dll,FileProtocolHandler', url]]
+    : platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+  try {
+    const child = spawnImpl(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    child.on('error', () => {});
+    child.unref();
+    return true;
+  } catch { return false; }
+}
+
+module.exports = { openInDefaultBrowser, readSettings, which, runCapture, findBrowsers, profileDirFor, openDetached };
