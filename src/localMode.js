@@ -72,7 +72,7 @@ function openBrowser(url) {
       : process.platform === 'darwin' ? ['open', [url]]
         : ['xdg-open', [url]];
   try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.on('error', () => {});
     child.unref();
   } catch { /* Browser oeffnen ist nur Komfort */ }

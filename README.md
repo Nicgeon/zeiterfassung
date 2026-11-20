@@ -702,14 +702,19 @@ Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Doc
 **Voraussetzung:** Node.js 20 oder neuer (getestet mit 22; 24 wird unterstuetzt). Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `start-local.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
 
 **Start**
-- Windows: Doppelklick auf `start-local.bat`
+- Windows: Doppelklick auf `start-local.bat` – startet inzwischen wie `Zeiterfassung.vbs` als Programm im eigenen
+  Fenster; das Konsolenfenster schließt sich gleich wieder. Mit `start-local.bat --konsole` läuft es wie früher mit
+  sichtbarer Konsole (Ausgaben dort statt in `zeiterfassung.log`, z. B. zur Fehlersuche).
 - macOS/Linux: `./start-local.sh`
 - Alternativ: `LOCAL_MODE=true node src/server.js`
 
 Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automatisch erzeugt und der Browser geoeffnet (`http://localhost:4711`). Beenden: Fenster schliessen oder Strg+C.
 
 **Als Programm starten (empfohlen):** Statt Konsolenfenster und Browser-Tab läuft die Zeiterfassung unsichtbar im Hintergrund und öffnet sich in einem **eigenen App-Fenster** (Edge bzw. Chrome ohne Tabs und Adressleiste, mit eigenem Browser-Profil und eigenem Symbol in der Taskleiste). Dadurch landen Links aus anderen Programmen nie in diesem Fenster, und es lässt sich z. B. auf einem dritten Monitor ablegen (Größe und Position merkt sich der Browser).
-- **Windows:** Doppelklick auf **`Zeiterfassung.vbs`**. Einmalig `app-verknuepfung-erstellen.vbs` ausführen, dann liegt „Zeiterfassung“ mit Symbol auf dem Desktop. Der Starter nutzt Edge (auf Windows 10/11 immer vorhanden) oder Chrome/Brave.
+- **Windows:** Doppelklick auf **`Zeiterfassung.vbs`** (oder `start-app.bat` bzw. `start-local.bat`). Der Starter startet
+  sich sofort ohne Konsole neu, es bleibt also kein Konsolenfenster offen – auch nicht mit Windows Terminal als
+  Standard-Konsole. Nur beim ersten Start bzw. nach Updates mit neuen Abhängigkeiten erscheint kurz das Fenster
+  „Zeiterfassung: Einrichtung“ (npm install), es schließt sich danach von selbst. Einmalig `app-verknuepfung-erstellen.vbs` ausführen, dann liegt „Zeiterfassung“ mit Symbol auf dem Desktop. Der Starter nutzt Edge (auf Windows 10/11 immer vorhanden) oder Chrome/Brave.
 - **macOS:** Doppelklick auf **`Zeiterfassung.app`** (im Programmordner; Chrome, Edge oder Brave nötig). Beim ersten Mal blockiert macOS ggf. („nicht verifizierter Entwickler“): Rechtsklick → *Öffnen*, oder einmalig `xattr -dr com.apple.quarantine .` im Programmordner. Das Programm darf aus dem Ordner in den Dock gezogen werden, solange die Datei dort bleibt, wo sie ist.
 - **Linux:** `./start-app.sh`.
 - **Beenden:** Fenster schließen – nach wenigen Sekunden beendet sich auch der Hintergrundprozess (ein laufender Timer ist davon nicht betroffen, er steht in der Datenbank). Alternativ unter *Konto → Programm → Zeiterfassung beenden*. Ein zweiter Start, solange die Zeiterfassung läuft, öffnet nur ein weiteres Fenster.

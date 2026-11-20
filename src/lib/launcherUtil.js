@@ -113,4 +113,14 @@ function appleScriptQuote(text) {
   return `"${String(text).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-module.exports = { KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };
+/**
+ * Soll sich der Starter ohne Konsole neu starten? Unter Windows läuft er sonst die ganze Zeit in dem Konsolenfenster,
+ * aus dem er kam (start-app.bat, start-local.bat, Doppelklick; mit Windows Terminal als Standard-Konsole wird auch
+ * das "versteckte" Fenster aus Zeiterfassung.vbs sichtbar). Nicht, wenn er schon der neu gestartete ist oder
+ * ausdrücklich mit Konsole laufen soll (--konsole).
+ */
+function shouldDetach({ platform = process.platform, env = process.env, argv = process.argv } = {}) {
+  return platform === 'win32' && env.ZEIT_LAUNCHER_DETACHED !== '1' && !argv.includes('--konsole');
+}
+
+module.exports = { shouldDetach, KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };

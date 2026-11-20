@@ -10,7 +10,7 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const express = require('express');
 const { createIdleMonitor, createRouter } = require('../src/lib/appMode');
-const { findBrowser, browserCandidates, appWindowArgs, psQuote, appleScriptQuote } = require('../src/lib/launcherUtil');
+const { findBrowser, browserCandidates, appWindowArgs, psQuote, appleScriptQuote, shouldDetach } = require('../src/lib/launcherUtil');
 
 // --- Leerlauf-Waechter ---------------------------------------------------------------------------------
 
@@ -460,4 +460,12 @@ test('Ticket im Standardbrowser öffnen: nur feste Jira-Adressen, keine Shell, k
   assert.deepEqual(calls.map((c) => c[0]), ['cmd', 'open', 'xdg-open']);
   assert.deepEqual(calls[0][1], ['/c', 'start', '""', 'https://f.atlassian.net/browse/IT-1']);
   assert.equal(openInDefaultBrowser('x', { spawnImpl: () => { throw new Error('weg'); } }), false);
+});
+
+test('Starter: unter Windows ohne Konsole neu starten (Konsolenfenster schließt sich), sonst nicht', () => {
+  assert.equal(shouldDetach({ platform: 'win32', env: {}, argv: ['node', 'launcher.js'] }), true);
+  assert.equal(shouldDetach({ platform: 'win32', env: { ZEIT_LAUNCHER_DETACHED: '1' }, argv: ['node', 'launcher.js'] }), false, 'schon neu gestartet');
+  assert.equal(shouldDetach({ platform: 'win32', env: {}, argv: ['node', 'launcher.js', '--konsole'] }), false, 'ausdrücklich mit Konsole');
+  assert.equal(shouldDetach({ platform: 'linux', env: {}, argv: ['node', 'launcher.js'] }), false);
+  assert.equal(shouldDetach({ platform: 'darwin', env: {}, argv: ['node', 'launcher.js'] }), false);
 });

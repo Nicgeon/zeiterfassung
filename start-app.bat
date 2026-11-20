@@ -1,5 +1,6 @@
 @echo off
-rem Startet die Zeiterfassung als Programm (lokal). Normalerweise ueber Zeiterfassung.vbs (ohne Konsolenfenster).
+rem Startet die Zeiterfassung als Programm (lokal). Normalerweise ueber Zeiterfassung.vbs. Der Starter (launcher.js)
+rem startet sich sofort ohne Konsole neu, dieses Fenster schliesst sich deshalb gleich wieder.
 cd /d "%~dp0"
 
 rem Node.js suchen: zuerst im PATH, dann in typischen Benutzerordnern (wie in start-local.bat)

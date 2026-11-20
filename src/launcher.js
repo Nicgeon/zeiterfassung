@@ -9,7 +9,8 @@
 //   node src/launcher.js --hintergrund   ohne Fenster starten und im Hintergrund laufen (Autostart; Erinnerungen)
 //   node src/launcher.js --kein-fenster   nur den Server beaufsichtigen (z. B. fuer Tests)
 //
-// Gestartet wird es ueber Zeiterfassung.vbs (Windows), Zeiterfassung.app (macOS) bzw. start-app.sh.
+// Gestartet wird es ueber Zeiterfassung.vbs (Windows), Zeiterfassung.app (macOS) bzw. start-app.sh. Unter Windows
+// startet es sich sofort ohne Konsole neu, das Konsolenfenster schliesst sich dadurch (--konsole: bleibt sichtbar).
 // Ausgaben stehen in <Datenordner>/zeiterfassung.log. Umgebungsvariablen: ZEIT_BROWSER (Programm fuer
 // das Fenster), PORT, DATA_DIR.
 
@@ -18,12 +19,27 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
-const { appWindowArgs, psQuote, appleScriptQuote } = require('./lib/launcherUtil');
+const { appWindowArgs, psQuote, appleScriptQuote, shouldDetach } = require('./lib/launcherUtil');
 const { findBrowsers, profileDirFor } = require('./lib/appWindow');
 const { defaultLocalDataDir } = require('./lib/localKeys');
 
 const ROOT = path.resolve(__dirname, '..');
 process.chdir(ROOT);
+
+// Windows: sofort ohne Konsole neu starten und hier beenden, damit das Konsolenfenster zugeht (siehe shouldDetach).
+// "detached" heißt unter Windows DETACHED_PROCESS: der neue Prozess hat gar keine Konsole, auch keine versteckte.
+// Alle weiteren Programme startet er mit windowsHide, sonst bekämen Konsolenprogramme (node, cmd) ein eigenes Fenster.
+if (shouldDetach()) {
+  const child = spawn(process.execPath, process.argv.slice(1), {
+    cwd: ROOT,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+    env: { ...process.env, ZEIT_LAUNCHER_DETACHED: '1' },
+  });
+  child.unref();
+  process.exit(0);
+}
 try { require('dotenv').config(); } catch { /* vor der ersten Installation noch nicht vorhanden */ }
 
 const RESTART_EXIT_CODE = 75;
@@ -121,13 +137,14 @@ async function waitForServer(ms) {
 function runNpm(args) {
   // Unter Windows in einem sichtbaren Fenster, damit die Person sieht, dass beim ersten Start installiert wird.
   if (process.platform === 'win32') {
-    return spawnSync(`start "Zeiterfassung: Einrichtung" /wait cmd /c "npm ${args.join(' ')}"`, { shell: true, cwd: ROOT }).status;
+    // äußere cmd unsichtbar; "start" öffnet das sichtbare Fenster mit npm, es schließt sich danach von selbst
+    return spawnSync(`start "Zeiterfassung: Einrichtung" /wait cmd /c "npm ${args.join(' ')}"`, { shell: true, cwd: ROOT, windowsHide: true }).status;
   }
-  return spawnSync('npm', args, { cwd: ROOT, stdio: ['ignore', logFd, logFd] }).status;
+  return spawnSync('npm', args, { cwd: ROOT, stdio: ['ignore', logFd, logFd], windowsHide: true }).status;
 }
 
 function sqliteWorks() {
-  return spawnSync(process.execPath, ['-e', "new (require('better-sqlite3'))(':memory:').close()"], { cwd: ROOT, stdio: 'ignore' }).status === 0;
+  return spawnSync(process.execPath, ['-e', "new (require('better-sqlite3'))(':memory:').close()"], { cwd: ROOT, stdio: 'ignore', windowsHide: true }).status === 0;
 }
 
 function ensureSetup() {

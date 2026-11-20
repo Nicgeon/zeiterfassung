@@ -1,6 +1,14 @@
 @echo off
 cd /d "%~dp0"
 
+rem Standard: als Programm starten (eigenes Fenster, kein bleibendes Konsolenfenster) - wie Zeiterfassung.vbs.
+rem "start-local.bat --konsole" startet wie frueher mit sichtbarer Konsole und Browser (z. B. zur Fehlersuche).
+if /i not "%~1"=="--konsole" (
+  call "%~dp0start-app.bat" %*
+  exit /b
+)
+shift
+
 rem Node.js suchen: zuerst im PATH, dann in typischen Benutzerordnern
 rem (Installation ohne Administratorrechte, z.B. C:\Users\NAME\node-v24.21.0-win-x64).
 where node >nul 2>nul
