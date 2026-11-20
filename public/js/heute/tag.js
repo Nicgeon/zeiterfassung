@@ -198,18 +198,13 @@
   });
 
   /**
-   * Kopiert die uebergebenen Eintraege (in angezeigter Reihenfolge) samt Summe und
+   * Kopiert die uebergebenen Eintraege (in angezeigter Reihenfolge, eine Zeile je Eintrag, ohne Summenzeile) und
    * bietet danach an, die noch offenen davon als "in Jira eingetragen" zu markieren.
    */
   async function copyEntries(list, doneMessage) {
     if (list.length === 0) return;
     const withTimes = loadShowTimes();
-    const total = list.reduce((sum, e) => sum + e.durationMinutes, 0);
-    const text = [
-      ...list.map((e) => entryLine(e, withTimes)),
-      '',
-      `Gesamt: ${formatDurationLong(total)} (${total} Min)`,
-    ].join('\n');
+    const text = list.map((e) => entryLine(e, withTimes)).join('\n');
     const ok = await copyToClipboard(text);
     if (!ok) return showToast('Kopieren fehlgeschlagen.');
 

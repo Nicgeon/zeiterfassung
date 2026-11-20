@@ -288,7 +288,7 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   anlegen – passend für "alles gesammelt zum Feierabend eintragen".
 - **In Jira einfügen**: Über das Kopier-Symbol an einem einzelnen Eintrag
   nur diesen kopieren, oder über "Tag kopieren" alle Einträge des
-  angezeigten Tages inkl. Gesamtsumme auf einmal – beides landet
+  angezeigten Tages auf einmal – beides landet
   formatiert in der Zwischenablage zum Einfügen ins Jira-Ticket.
   **Standardmäßig ohne Uhrzeiten**: `60 Min – Tagesabschluss gebucht [ITPKK-1182]`.
   Wer die Zeiten mitkopieren möchte, schaltet unter „Konto → Einstellungen"
@@ -318,7 +318,7 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   Tages, erscheint unter der Dauer eine Warnung (Speichern bleibt möglich).
 - **Offene kopieren**: Der Knopf „Offene kopieren" neben „Tag kopieren"
   kopiert nur die Einträge des Tages, die noch nicht als „in Jira
-  eingetragen" abgehakt sind (samt Summe), und zeigt in Klammern, wie viele
+  eingetragen" abgehakt sind, und zeigt in Klammern, wie viele
   das sind.
 - **Nach dem Kopieren abhaken**: Nach „Tag kopieren" oder „Offene kopieren" bietet die Einblendung
   an, alle Einträge des Tages als „in Jira eingetragen" zu markieren.
