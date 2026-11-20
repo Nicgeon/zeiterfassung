@@ -1,6 +1,7 @@
 'use strict';
 
-// Jira Cloud (lesend): Zugangsdaten prüfen, Ticket-Titel holen, eigene offene Tickets auflisten.
+// Jira Cloud: Zugangsdaten prüfen, Ticket-Titel und Status holen, eigene offene Tickets auflisten, interne Kommentare
+// schreiben.
 // Anmeldung mit E-Mail + API-Token (Basic). Es werden nur Adressen der Form https://<name>.atlassian.net akzeptiert
 // (kein Zugriff auf beliebige Server). Das Token verlässt diese Datei nie in Meldungen oder Protokollen.
 
@@ -32,7 +33,15 @@ function issueView(i) {
     status: (f.status && f.status.name) || '',
     priority: (f.priority && f.priority.name) || '',
     dueDate: f.duedate || null,
+    done: !!(f.status && f.status.statusCategory && f.status.statusCategory.key === 'done'), // Kategorie "Fertig"
   };
+}
+
+/** Gespeicherte Jira-Zugangsdaten einer Person (verschlüsselt in jira_settings), sonst null. */
+function loadConfig(db, decryptField, userId) {
+  const row = db.prepare('SELECT config_enc FROM jira_settings WHERE user_id = ?').get(userId);
+  if (!row) return null;
+  try { return JSON.parse(decryptField(row.config_enc)); } catch { return null; }
 }
 
 const PROJECT_RE = /^[A-Z][A-Z0-9_]+$/;
@@ -87,7 +96,7 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       if (res.status === 403) throw new JiraError('Jira verweigert den Zugriff (fehlende Berechtigung).', 403);
       if (res.status === 404) throw new JiraError('Nicht gefunden (Ticket existiert nicht oder ist nicht sichtbar).', 404);
       if (res.status === 429) throw new JiraError('Jira meldet zu viele Anfragen. Bitte kurz warten.', 429);
-      throw new JiraError(`Jira-Fehler (${res.status}).`, 502);
+      throw new JiraError(`Jira-Fehler (${res.status}).`, res.status === 400 ? 400 : 502);
     }
     if (res.status === 204) return null; // z. B. Kommentar gelöscht
     try { return await res.json(); } catch { throw new JiraError('Jira lieferte eine unlesbare Antwort.', 502); }
@@ -130,6 +139,27 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       const k = checkKey(key);
       await request('DELETE', `/rest/api/3/issue/${encodeURIComponent(k)}/comment/${encodeURIComponent(checkId(id))}`);
     },
+    /**
+     * Status mehrerer Tickets: Map Ticketnummer -> {key, summary, status, done}. Unbekannte oder nicht sichtbare
+     * Tickets fehlen einfach (Jira lehnt eine Suche mit unbekannter Nummer ab, dann wird einzeln nachgefragt).
+     */
+    async statuses(keys) {
+      const list = [...new Set(keys.map((k) => String(k || '').trim().toUpperCase()).filter((k) => KEY_RE.test(k)))];
+      const out = new Map();
+      for (let i = 0; i < list.length; i += 50) {
+        const chunk = list.slice(i, i + 50);
+        try {
+          const data = await request('POST', '/rest/api/3/search/jql', { jql: `key in (${chunk.join(',')})`, fields: ['summary', 'status'], maxResults: 100 });
+          for (const issue of data.issues || []) out.set(issue.key, issueView(issue));
+        } catch (err) {
+          if (err.status !== 400) throw err;
+          for (const k of chunk) {
+            try { out.set(k, issueView(await request('GET', `/rest/api/3/issue/${encodeURIComponent(k)}?fields=summary,status`))); } catch (e) { if (e.status !== 404 && e.status !== 403) throw e; }
+          }
+        }
+      }
+      return out;
+    },
     async myIssues({ max = 50 } = {}) {
       const data = await request('POST', '/rest/api/3/search/jql', { jql: MY_ISSUES_JQL, fields: FIELDS, maxResults: Math.min(100, Math.max(1, max)) });
       return (data.issues || []).map(issueView);
@@ -137,4 +167,4 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
   };
 }
 
-module.exports = { BASE_RE, KEY_RE, PROJECT_RE, MY_ISSUES_JQL, JiraError, normalizeBaseUrl, createClient, commentBody };
+module.exports = { BASE_RE, KEY_RE, PROJECT_RE, MY_ISSUES_JQL, JiraError, normalizeBaseUrl, createClient, commentBody, loadConfig };

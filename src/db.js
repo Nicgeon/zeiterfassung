@@ -126,6 +126,14 @@ CREATE TABLE IF NOT EXISTS reminder_settings (
   config_json  TEXT NOT NULL,
   updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Jira-Abgleich: Tickets, die schon einmal unter "meine offenen Tickets" waren (neue werden gemeldet). Der Eintrag
+-- mit key '*' zeigt, dass der erste Abgleich (ohne Meldung) gelaufen ist.
+CREATE TABLE IF NOT EXISTS jira_seen (
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key      TEXT NOT NULL,
+  seen_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, key)
+);
 CREATE TABLE IF NOT EXISTS reminder_log (
   user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind     TEXT NOT NULL,
@@ -223,6 +231,14 @@ if (!taskColumns.includes('note_enc')) {
   console.log('[MIGRATION] Spalte "note_enc" (Notiz) zur Tabelle tasks hinzugefuegt.');
 }
 
+// Jira-Abgleich an Aufgaben: zuletzt gesehener Status und der Hinweis "in Jira erledigt" ('new' = offen, 'dismissed')
+for (const col of ['jira_status', 'jira_done_hint']) {
+  if (!taskColumns.includes(col)) {
+    db.exec(`ALTER TABLE tasks ADD COLUMN ${col} TEXT`);
+    // eslint-disable-next-line no-console
+    console.log(`[MIGRATION] Spalte "${col}" (Jira-Abgleich) zur Tabelle tasks hinzugefuegt.`);
+  }
+}
 const timerColumns = db.prepare('PRAGMA table_info(active_timers)').all().map((c) => c.name);
 for (const [col, def] of [['carry_segments_json', 'TEXT'], ['task_id', 'INTEGER']]) {
   if (!timerColumns.includes(col)) {

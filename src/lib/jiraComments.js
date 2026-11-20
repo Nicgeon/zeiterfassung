@@ -7,18 +7,13 @@
 const jira = require('./jira');
 
 function createJiraComments({ db, decryptField, fetchImpl }) {
-  const getSettings = db.prepare('SELECT config_enc FROM jira_settings WHERE user_id = ?');
   const getEntry = db.prepare('SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
   const setComment = db.prepare(
     "UPDATE entries SET jira_comment_issue = ?, jira_comment_id = ?, transferred_to_jira = 1, updated_at = datetime('now') WHERE id = ? AND user_id = ?"
   );
   const clearComment = db.prepare('UPDATE entries SET jira_comment_issue = NULL, jira_comment_id = NULL, transferred_to_jira = 0 WHERE id = ? AND user_id = ?');
 
-  function config(userId) {
-    const row = getSettings.get(userId);
-    if (!row) return null;
-    try { return JSON.parse(decryptField(row.config_enc)); } catch { return null; }
-  }
+  const config = (userId) => jira.loadConfig(db, decryptField, userId);
 
   /** Jira-Zugang zum Schreiben, sonst ein verständlicher Fehler. */
   function writer(userId) {

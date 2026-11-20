@@ -34,7 +34,7 @@ test('Client: Basic-Anmeldung, Abfragen, Zuordnung der Felder, Fehlermeldungen o
   assert.deepEqual(await c.myself(), { displayName: 'Philipp', accountId: 'abc' });
   assert.equal(calls[0].opts.headers.Authorization, 'Basic ' + Buffer.from('a@b.de:GEHEIM-TOKEN').toString('base64'));
   assert.equal(calls[0].opts.redirect, 'error');
-  assert.deepEqual(await c.issue('it-7'), { key: 'IT-7', summary: 'Drucker streikt', status: 'In Arbeit', priority: 'High', dueDate: '2026-12-01' });
+  assert.deepEqual(await c.issue('it-7'), { key: 'IT-7', summary: 'Drucker streikt', status: 'In Arbeit', priority: 'High', dueDate: '2026-12-01', done: false });
   assert.match(calls[1].url, /\/rest\/api\/3\/issue\/IT-7\?fields=summary,status,priority,duedate$/);
   const list = await c.myIssues();
   assert.equal(list.length, 2);
@@ -66,6 +66,9 @@ async function withApp(fetchImpl, fn) {
   db.exec(`CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, work_date TEXT, start_time TEXT, end_time TEXT,
     duration_minutes INTEGER, description_enc TEXT, jira_key TEXT, transferred_to_jira INTEGER NOT NULL DEFAULT 0, deleted_at TEXT,
     jira_comment_issue TEXT, jira_comment_id TEXT, updated_at TEXT)`);
+  db.exec(`CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, title_enc TEXT, jira_key TEXT, status TEXT NOT NULL DEFAULT 'open',
+    deleted_at TEXT, jira_status TEXT, jira_done_hint TEXT)`);
+  db.exec("CREATE TABLE jira_seen (user_id INTEGER, key TEXT, seen_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, key))");
   const audits = [];
   const app = express();
   app.use(express.json());
@@ -83,14 +86,14 @@ async function withApp(fetchImpl, fn) {
 
 test('Einstellungen: prüfen, verschlüsselt speichern, Token nie ausgeben, Token bleibt beim Ändern, entfernen', async () => {
   await withApp(async () => jsonRes(200, {}), async ({ call, db, audits }) => {
-    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false, allowWrite: false, dailyProject: '' });
+    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false, allowWrite: false, dailyProject: '', syncTasks: true, notifyNew: true });
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://evil.com', email: 'a@b.de', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'keine-mail', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de' })).status, 400, 'Token fehlt');
 
     let r = await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net/browse/X-1', email: 'a@b.de', apiToken: 'GEHEIM-123' });
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true, allowWrite: false, dailyProject: '' });
+    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true, allowWrite: false, dailyProject: '', syncTasks: true, notifyNew: true });
     assert.doesNotMatch(JSON.stringify((await call('GET', '/settings')).body), /GEHEIM/);
     assert.doesNotMatch(db.prepare('SELECT config_enc FROM jira_settings').get().config_enc.replace(/^enc:/, ''), /GEHEIM/); // base64, nicht Klartext
     // E-Mail ändern ohne neuen Token: der alte bleibt
@@ -221,4 +224,69 @@ test('Kommentare: Bearbeiten passt an (auch Wechsel des Tickets), Löschen entfe
   assert.equal(await c.afterEdit(1, id), null);
   assert.equal(c.commentText({ description_enc: fake.encryptField(''), duration_minutes: 30 }), '30 Min');
   assert.equal(c.commentText({ description_enc: fake.encryptField('X'), duration_minutes: 30, start_time: '08:00', end_time: '08:30' }, true), '08:00–08:30 (30 Min) – X');
+});
+
+test('Abgleich: erledigte Tickets schlagen Abhaken vor (einmal), neue Tickets erst ab dem zweiten Lauf', async () => {
+  const state = { done: new Set(), mine: ['IT-1', 'IT-2'], searches: [] };
+  const issue = (key) => ({ key, fields: { summary: `Titel ${key}`, status: { name: state.done.has(key) ? 'Fertig' : 'In Arbeit', statusCategory: { key: state.done.has(key) ? 'done' : 'indeterminate' } } } });
+  const fetchImpl = async (url, opts) => {
+    const body = opts.body ? JSON.parse(opts.body) : {};
+    if (/search\/jql$/.test(url) && /^key in/.test(body.jql)) {
+      state.searches.push(body.jql);
+      const keys = body.jql.slice(8, -1).split(',');
+      if (keys.includes('GONE-1')) return jsonRes(400, { errorMessages: ['An issue with key GONE-1 does not exist'] });
+      return jsonRes(200, { issues: keys.map(issue) });
+    }
+    if (/search\/jql$/.test(url)) return jsonRes(200, { issues: state.mine.map(issue) });
+    const m = /issue\/([A-Z]+-\d+)\?/.exec(url);
+    if (m) return m[1] === 'GONE-1' ? jsonRes(404, {}) : jsonRes(200, issue(m[1]));
+    return jsonRes(404, {});
+  };
+  await withApp(fetchImpl, async ({ call, db }) => {
+    assert.deepEqual((await call('POST', '/sync')).body, { configured: false });
+    await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', apiToken: 't' });
+    const add = (title, key) => db.prepare('INSERT INTO tasks (user_id, title_enc, jira_key) VALUES (1, ?, ?)').run(fake.encryptField(title), key).lastInsertRowid;
+    const t1 = add('Drucker', 'IT-1');
+    add('Ohne Ticket', null);
+
+    // erster Lauf: nichts erledigt, der Stand der eigenen Tickets wird nur gemerkt
+    let r = (await call('POST', '/sync', { force: true })).body;
+    assert.deepEqual(r, { doneTasks: [], newIssues: [] });
+    assert.equal(db.prepare('SELECT jira_status FROM tasks WHERE id = ?').get(t1).jira_status, 'In Arbeit');
+    assert.deepEqual((await call('POST', '/sync')).body, { skipped: true }, 'höchstens alle 5 Minuten');
+
+    // Ticket erledigt, neues Ticket zugewiesen
+    state.done.add('IT-1');
+    state.mine = ['IT-2', 'IT-3'];
+    r = (await call('POST', '/sync', { force: true })).body;
+    assert.deepEqual(r.doneTasks, [{ id: t1, title: 'Drucker', key: 'IT-1', status: 'Fertig' }]);
+    assert.deepEqual(r.newIssues, [{ key: 'IT-3', summary: 'Titel IT-3' }]);
+    assert.equal(db.prepare('SELECT jira_done_hint FROM tasks WHERE id = ?').get(t1).jira_done_hint, 'new');
+    // nicht doppelt
+    r = (await call('POST', '/sync', { force: true })).body;
+    assert.deepEqual(r, { doneTasks: [], newIssues: [] });
+    // Ticket wieder geöffnet: Hinweis weg
+    state.done.delete('IT-1');
+    await call('POST', '/sync', { force: true });
+    assert.equal(db.prepare('SELECT jira_done_hint FROM tasks WHERE id = ?').get(t1).jira_done_hint, null);
+
+    // unbekanntes Ticket: die Suche scheitert, dann wird einzeln gefragt
+    add('Weg', 'GONE-1');
+    state.done.add('IT-1');
+    r = (await call('POST', '/sync', { force: true })).body;
+    assert.equal(r.doneTasks.length, 1);
+
+    // abgeschaltet
+    await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', syncTasks: false, notifyNew: false });
+    assert.deepEqual((await call('GET', '/settings')).body.syncTasks, false);
+    assert.deepEqual((await call('POST', '/sync', { force: true })).body, { doneTasks: [], newIssues: [] });
+  });
+});
+
+test('Abgleich: Benachrichtigungstexte', () => {
+  const { createJiraSync } = require('../src/lib/jiraSync');
+  const s = createJiraSync({ db: new Database(':memory:').exec('CREATE TABLE tasks (id INTEGER, user_id INTEGER, title_enc TEXT, jira_key TEXT, status TEXT, deleted_at TEXT, jira_status TEXT, jira_done_hint TEXT); CREATE TABLE jira_seen (user_id INTEGER, key TEXT); CREATE TABLE jira_settings (user_id INTEGER, config_enc TEXT)'), decryptField: (v) => v });
+  assert.deepEqual(s.messages({ doneTasks: [{ key: 'IT-1', title: 'Drucker' }], newIssues: [] }), [{ title: 'Ticket in Jira erledigt', body: 'IT-1 „Drucker“ – Aufgabe abhaken?' }]);
+  assert.equal(s.messages({ doneTasks: [], newIssues: [{ key: 'IT-3', summary: 'A' }, { key: 'IT-4', summary: 'B' }] })[0].title, '2 neue Jira-Tickets für dich');
+  assert.deepEqual(s.messages({ skipped: true }), []);
 });

@@ -503,11 +503,11 @@ Farbschema und Abmelden.
 
 ## Jira-Anbindung (optional)
 
-Unter **Konto → Jira-Anbindung** lässt sich Jira Cloud verbinden: Adresse (`https://firma.atlassian.net`), E-Mail deines
+Unter **Einstellungen → Jira** lässt sich Jira Cloud verbinden: Adresse (`https://firma.atlassian.net`), E-Mail deines
 Atlassian-Kontos und ein **API-Token** (id.atlassian.com → Sicherheit → „API-Token erstellen“; der Token hat die Rechte
 deines Kontos und lässt sich dort jederzeit widerrufen). Die Angaben werden pro Person verschlüsselt gespeichert, das
 Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prüft sie. Es werden nur Adressen der Form
-`*.atlassian.net` akzeptiert. **Das Tool schreibt nichts nach Jira.**
+`*.atlassian.net` akzeptiert. Nach Jira geschrieben wird nur, wenn du es ausdrücklich einschaltest (Kommentare, unten).
 
 - **Meine Jira-Tickets holen** (über der Aufgabenliste): zeigt deine offenen Tickets (`assignee = currentUser() AND
   statusCategory != Done`), die noch keine Aufgabe sind; ausgewählte werden mit Titel, Ticket, Priorität (High/Highest
@@ -529,6 +529,15 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
   Kommentar angepasst (bei neuem Ticket verschoben); **löschst** du ihn, wird der Kommentar entfernt (Rückgängig stellt
   nur den Eintrag wieder her, er gilt dann wieder als offen). Unterbrochene Teile, die schon in Jira stehen, werden
   beim Weitermachen nicht zusammengeführt.
+- **Abgleich mit den Aufgaben** (*Einstellungen → Jira*, beides standardmäßig an): Beim Öffnen der Seite „Aufgaben“
+  und – solange das Programm läuft – alle 15 Minuten fragt das Programm bei Jira nach (höchstens alle 5 Minuten).
+  - **Ticket erledigt:** Ist das Ticket einer offenen Aufgabe in Jira erledigt (Statuskategorie „Fertig“), erscheint an
+    der Aufgabe „in Jira erledigt“, oben auf der Seite ein Hinweis mit „Alle abhaken“ (mit Rückgängig) und lokal eine
+    Benachrichtigung. Abgehakt wird nie automatisch; „Nicht abhaken“ in der Aufgabe blendet den Hinweis aus, bis das
+    Ticket wieder geöffnet und erneut erledigt wird. Auf „Heute“ steht bei der Aufgabe „in Jira erledigt – abhaken?“.
+  - **Neue Tickets für dich:** Tickets, die dir neu zugewiesen werden und noch keine Aufgabe sind, werden gemeldet
+    (Benachrichtigung bzw. Hinweis mit „Übernehmen …“). Der erste Abgleich merkt sich nur den Stand, damit beim
+    Einschalten keine Flut kommt.
 - Fehler (falsche Zugangsdaten, kein Zugriff, nicht erreichbar) erscheinen als verständliche Meldung; ohne Einrichtung
   bleibt alles wie bisher.
 

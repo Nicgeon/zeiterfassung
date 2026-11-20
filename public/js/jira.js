@@ -89,6 +89,7 @@
     error: $('jiraError'), badge: $('jiraBadge'), url: $('jiraUrl'), email: $('jiraEmail'), token: $('jiraToken'),
     save: $('jiraSaveBtn'), test: $('jiraTestBtn'), clear: $('jiraClearBtn'),
     write: $('jiraWrite'), daily: $('jiraDailyProject'), dailyTest: $('jiraDailyTestBtn'),
+    syncTasks: $('jiraSyncTasks'), notifyNew: $('jiraNotifyNew'),
   };
 
   function show(s) {
@@ -98,6 +99,8 @@
     el.token.placeholder = s.hasToken ? 'Gespeichert – zum Ändern neuen Token einfügen' : 'API-Token einfügen';
     el.badge.textContent = s.configured ? (s.allowWrite ? 'eingerichtet · schreibt Kommentare' : 'eingerichtet · nur lesend') : 'nicht eingerichtet';
     el.write.checked = !!s.allowWrite;
+    el.syncTasks.checked = s.syncTasks !== false;
+    el.notifyNew.checked = s.notifyNew !== false;
     el.daily.value = s.dailyProject || '';
     el.dailyTest.disabled = !s.configured || !s.dailyProject;
     el.test.disabled = !s.configured;
@@ -113,6 +116,7 @@
       const s = await Api.put('/api/jira/settings', {
         baseUrl: el.url.value, email: el.email.value, apiToken: el.token.value,
         allowWrite: el.write.checked, dailyProject: el.daily.value,
+        syncTasks: el.syncTasks.checked, notifyNew: el.notifyNew.checked,
       });
       ZeitJira.reset();
       show(s);

@@ -30,6 +30,7 @@ const appMode = require('./lib/appMode');
 const { createAutostart } = require('./lib/autostart');
 const { startReminderLoop } = require('./lib/taskReminders');
 const { createWorkReminders, startWorkReminderLoop } = require('./lib/workReminders');
+const { createJiraSync, startJiraSyncLoop } = require('./lib/jiraSync');
 const remindersRoutes = require('./routes/reminders');
 const systemNotify = require('./lib/notify');
 const updater = require('./lib/updater');
@@ -216,7 +217,8 @@ app.use('/api', doubleCsrfProtection);
 app.use('/api/auth', authRoutes);
 app.use('/api/entries', requireAuth, entriesRoutes);
 app.use('/api/timer', requireAuth, timerRoutes);
-app.use('/api/jira', requireAuth, jiraRoutes.createRouter({ db, encryptField, decryptField, audit }));
+const jiraSync = createJiraSync({ db, decryptField });
+app.use('/api/jira', requireAuth, jiraRoutes.createRouter({ db, encryptField, decryptField, audit, sync: jiraSync }));
 app.use('/api/tasks', requireAuth, tasksRoutes.createRouter({ db, encryptField, decryptField, convertTicketLinks }));
 // Erinnerungen als Systembenachrichtigung gibt es nur lokal (dort läuft das Programm auf dem eigenen Rechner)
 const remindersActive = config.localMode && process.env.ZEIT_NO_REMINDERS !== '1';
@@ -339,6 +341,7 @@ const server = app.listen(...listenArgs, () => {
     const log = (m) => console.log(m); // eslint-disable-line no-console
     startReminderLoop({ db, decryptField, notify: showNotification, allow: (userId) => workReminders.settings(userId).tasks, log });
     startWorkReminderLoop({ reminders: workReminders, notify: showNotification, log });
+    startJiraSyncLoop({ sync: jiraSync, notify: showNotification, log });
   }
   if (localMode.announce()) return;
   // eslint-disable-next-line no-console

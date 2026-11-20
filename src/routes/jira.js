@@ -1,26 +1,22 @@
 'use strict';
 
-// Jira-Anbindung (optional, lesend): Zugangsdaten pro Person verschlüsselt speichern, testen, Ticket-Titel und eigene
-// offene Tickets holen. Das API-Token wird nie ausgegeben.
+// Jira-Anbindung (optional): Zugangsdaten pro Person verschlüsselt speichern, testen, Ticket-Titel und eigene offene
+// Tickets holen, Einträge als Kommentare schreiben, Aufgaben abgleichen. Das API-Token wird nie ausgegeben.
 
 const express = require('express');
 const jira = require('../lib/jira');
 const { createJiraComments } = require('../lib/jiraComments');
+const { createJiraSync } = require('../lib/jiraSync');
 
-function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchImpl }) {
+function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchImpl, sync = createJiraSync({ db, decryptField, fetchImpl }) }) {
   const router = express.Router();
-  const getStmt = db.prepare('SELECT config_enc FROM jira_settings WHERE user_id = ?');
   const putStmt = db.prepare(
     `INSERT INTO jira_settings (user_id, config_enc, updated_at) VALUES (?, ?, datetime('now'))
      ON CONFLICT(user_id) DO UPDATE SET config_enc = excluded.config_enc, updated_at = excluded.updated_at`
   );
   const delStmt = db.prepare('DELETE FROM jira_settings WHERE user_id = ?');
 
-  function load(userId) {
-    const row = getStmt.get(userId);
-    if (!row) return null;
-    try { return JSON.parse(decryptField(row.config_enc)); } catch { return null; }
-  }
+  const load = (userId) => jira.loadConfig(db, decryptField, userId);
   const describe = (c) => ({
     configured: !!(c && c.baseUrl && c.email && c.token),
     baseUrl: (c && c.baseUrl) || '',
@@ -28,6 +24,8 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     hasToken: !!(c && c.token),
     allowWrite: !!(c && c.allowWrite),
     dailyProject: (c && c.dailyProject) || '',
+    syncTasks: !c || c.syncTasks !== false, // Abgleich: erledigte Tickets erkennen (Standard an)
+    notifyNew: !c || c.notifyNew !== false, // neue Tickets für mich melden (Standard an)
   });
   const comments = createJiraComments({ db, decryptField, fetchImpl });
   const clientFor = (userId) => {
@@ -61,7 +59,8 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     const allowWrite = body.allowWrite !== undefined ? body.allowWrite === true : !!current.allowWrite;
     let dailyProject = body.dailyProject !== undefined ? String(body.dailyProject || '').trim().toUpperCase() : current.dailyProject || '';
     if (dailyProject && !jira.PROJECT_RE.test(dailyProject)) throw new jira.JiraError('Ungültiger Projektschlüssel für Tagestickets (z. B. PITPM).', 400);
-    const next = { baseUrl, email, token, allowWrite, dailyProject };
+    const flag = (name) => (body[name] !== undefined ? body[name] === true : current[name] !== false);
+    const next = { baseUrl, email, token, allowWrite, dailyProject, syncTasks: flag('syncTasks'), notifyNew: flag('notifyNew') };
     putStmt.run(req.user.id, encryptField(JSON.stringify(next)));
     audit(req.user.id, 'jira_settings_changed', `${baseUrl}${allowWrite ? ' (schreiben)' : ''}`, req.ip);
     res.json(describe(next));
@@ -97,6 +96,12 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     const c = load(req.user.id);
     if (!c || !c.dailyProject) throw new jira.JiraError('Kein Projekt für Tagestickets eingestellt.', 400);
     res.json({ key: await clientFor(req.user.id).dailyIssue(c.dailyProject, req.params.date) });
+  }));
+
+  // Abgleich mit den Aufgaben (beim Öffnen der Aufgaben-Seite; höchstens alle 5 Minuten, sonst {skipped:true})
+  router.post('/sync', wrap(async (req, res) => {
+    const r = await sync.run(req.user.id, { force: !!(req.body && req.body.force) });
+    res.json(r || { configured: false });
   }));
 
   router.get('/my-issues', wrap(async (req, res) => {

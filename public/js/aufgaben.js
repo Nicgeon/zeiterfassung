@@ -20,6 +20,7 @@
     jira: $('#tpJira'),
     jiraBtn: $('#tpJiraBtn'),
     importPanel: $('#tpImport'),
+    banners: $('#tpBanners'),
     userLabel: $('#userLabel'),
     logout: $('#logoutBtn'),
   };
@@ -30,7 +31,7 @@
   const ICON = A.ICON;
   const setHtml = A.htmlSetter();
 
-  const state = { open: [], done: [], view: loadView(), selected: null, saving: null };
+  const state = { open: [], done: [], view: loadView(), selected: null, saving: null, newIssues: [], hideDone: false };
 
   function loadView() {
     try { const v = localStorage.getItem(VIEW_KEY); if (VIEW_TITLE[v]) return v; } catch { /* nur Komfort */ }
@@ -73,6 +74,7 @@
     const overdue = !done && t.dueDate && t.dueDate < today;
     const sub = [t.jiraKey && t.title ? t.jiraKey : '', done ? 'erledigt' : dueText(t, today), t.repeat ? `↻ ${repeatText(t.repeat)}` : '',
       t.tracked && t.tracked.minutes ? `${hm(t.tracked.minutes)} erfasst` : ''].filter(Boolean).join(' · ');
+    const jiraDone = t.jiraDone ? `<span class="tp-jira-done" title="Das Ticket ist in Jira erledigt – Aufgabe abhaken?">in Jira erledigt</span>` : '';
     return `
       <div class="tp-row${state.selected === t.id ? ' is-selected' : ''}${overdue ? ' is-overdue' : ''}${done ? ' is-done' : ''}" data-id="${t.id}">
         <button type="button" class="task__check${done ? ' is-on' : ''}" data-act="${done ? 'reopen' : 'done'}" aria-label="${done ? 'Wieder öffnen' : 'Als erledigt abhaken'}" title="${done ? 'Wieder öffnen' : 'Erledigt'}">${done ? ICON.check : ''}</button>
@@ -80,6 +82,7 @@
           <span class="tp-row__title">${escapeHtml(t.title || t.jiraKey || '')}</span>
           <span class="tp-row__sub mono">${escapeHtml(sub)}</span>
         </button>
+        ${jiraDone}
         ${t.priority ? '<span class="task__prio" title="Wichtig" aria-label="Wichtig">!</span>' : ''}
         ${done ? '' : `<button type="button" class="task__play" data-act="start" aria-label="Timer starten" title="Timer mit dieser Aufgabe starten">${ICON.play}</button>`}
       </div>`;
@@ -113,7 +116,41 @@
     else html = state.done.length ? `<div class="tasks__group">${state.done.map((t) => rowHtml(t, today)).join('')}</div>` : '';
     if (!html) html = `<div class="tasks__empty">${state.view === 'today' ? 'Nichts offen für heute.' : state.view === 'done' ? 'Noch nichts erledigt.' : 'Keine Aufgaben in dieser Ansicht.'}</div>`;
     setHtml(el.list, html);
+    renderBanners();
     if (detail) renderDetail();
+  }
+
+  /** Hinweise aus dem Jira-Abgleich: Tickets in Jira erledigt (Abhaken vorschlagen), neue Tickets für mich. */
+  function renderBanners() {
+    const jiraDone = state.open.filter((t) => t.jiraDone);
+    let html = '';
+    if (jiraDone.length && !state.hideDone) {
+      const names = jiraDone.slice(0, 3).map((t) => `<span class="mono">${escapeHtml(t.jiraKey)}</span> ${escapeHtml(t.title || '')}`).join(', ');
+      html += `<div class="tp-banner tp-banner--done">
+        <span class="tp-banner__text"><strong>${jiraDone.length === 1 ? 'Ticket in Jira erledigt' : `${jiraDone.length} Tickets in Jira erledigt`}:</strong> ${names}${jiraDone.length > 3 ? ' …' : ''}</span>
+        <span class="tp-banner__actions"><button type="button" class="btn btn--sm" data-banner="done-all">${jiraDone.length === 1 ? 'Abhaken' : 'Alle abhaken'}</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-banner="done-hide">Später</button></span>
+      </div>`;
+    }
+    if (state.newIssues.length) {
+      const names = state.newIssues.slice(0, 3).map((i) => `<span class="mono">${escapeHtml(i.key)}</span> ${escapeHtml(i.summary)}`).join(', ');
+      html += `<div class="tp-banner">
+        <span class="tp-banner__text"><strong>${state.newIssues.length === 1 ? 'Neues Ticket für dich' : `${state.newIssues.length} neue Tickets für dich`}:</strong> ${names}${state.newIssues.length > 3 ? ' …' : ''}</span>
+        <span class="tp-banner__actions"><button type="button" class="btn btn--sm" data-banner="import">Übernehmen …</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-banner="new-hide">Ausblenden</button></span>
+      </div>`;
+    }
+    setHtml(el.banners, html);
+  }
+
+  /** Jira-Abgleich beim Öffnen der Seite (der Server fragt höchstens alle 5 Minuten bei Jira nach). */
+  async function syncJira() {
+    try {
+      const r = await Api.post('/api/jira/sync');
+      if (!r || r.skipped || r.configured === false) return;
+      if (r.newIssues && r.newIssues.length) state.newIssues = r.newIssues;
+      if ((r.doneTasks && r.doneTasks.length) || state.newIssues.length) await load();
+    } catch { /* Jira nicht erreichbar: die Seite funktioniert trotzdem */ }
   }
 
   function renderDetail() {
@@ -141,6 +178,11 @@
           ${t.jiraKey ? `<button type="button" class="tp-jira-open" data-jira-open="${escapeHtml(t.jiraKey)}" title="In Jira öffnen">${ICON.external}<span>In Jira</span></button>` : ''}
         </div>
         <div class="tp-jira-info" id="tpJiraInfo"></div>
+        ${t.jiraDone ? `<div class="tp-jira-suggest">
+          <span>Das Ticket ist in Jira erledigt${t.jiraStatus ? ` (Status „${escapeHtml(t.jiraStatus)}“)` : ''}. Aufgabe abhaken?</span>
+          <button type="button" class="btn btn--sm" data-act="done">Abhaken</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-act="jira-dismiss">Nicht abhaken</button>
+        </div>` : ''}
 
         <div class="tp-grid">
           <label class="tp-field">Fällig am <input type="date" name="date" value="${t.dueDate || ''}" /></label>
@@ -262,6 +304,35 @@
     if (data && data.next && done) { state.selected = data.next.id; render(); }
   }
 
+  async function dismissJiraHint(id) {
+    try {
+      await Api.post(`/api/tasks/${id}/jira-hint/dismiss`);
+      await load();
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
+
+  /** Alle Aufgaben abhaken, deren Ticket in Jira erledigt ist (mit Rückgängig über den Hinweis). */
+  async function doneAllFromJira() {
+    const list = state.open.filter((t) => t.jiraDone);
+    let ok = 0;
+    for (const t of list) {
+      try { await Api.patch(`/api/tasks/${t.id}/done`, { done: true }); ok += 1; } catch (err) { showToast(err.message); }
+    }
+    if (list.some((t) => t.id === state.selected)) state.selected = null;
+    await load();
+    if (ok) {
+      showToast(`${ok} Aufgabe${ok === 1 ? '' : 'n'} abgehakt.`, {
+        label: 'Rückgängig',
+        onClick: async () => {
+          for (const t of list) await Api.patch(`/api/tasks/${t.id}/done`, { done: false }).catch(() => {});
+          await load();
+        },
+      });
+    }
+  }
+
   async function removeTask(id) {
     if (state.selected === id) state.selected = null;
     await A.remove(id, load);
@@ -361,7 +432,18 @@
     else if (btn.dataset.act === 'done') setDone(id, true);
     else if (btn.dataset.act === 'reopen') setDone(id, false);
     else if (btn.dataset.act === 'delete') removeTask(id);
+    else if (btn.dataset.act === 'jira-dismiss') dismissJiraHint(id);
     else if (btn.dataset.act === 'start' && t) { clearTimeout(saveTimer); save(form).then(() => startTimer(findTask(id) || t)); }
+  });
+
+  el.banners.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-banner]');
+    if (!b) return;
+    const act = b.dataset.banner;
+    if (act === 'done-all') doneAllFromJira();
+    else if (act === 'done-hide') { state.hideDone = true; renderBanners(); }
+    else if (act === 'new-hide') { state.newIssues = []; renderBanners(); }
+    else if (act === 'import') { state.newIssues = []; renderBanners(); openImport(); }
   });
 
   el.importPanel.addEventListener('click', (e) => {
@@ -372,6 +454,7 @@
   });
   if (window.ZeitJira) {
     window.ZeitJira.settings().then((s) => { if (s.configured) el.jira.classList.remove('hidden'); });
+    window.ZeitJira.settings().then((s) => { if (s.configured && (s.syncTasks || s.notifyNew)) syncJira(); });
     el.jiraBtn.addEventListener('click', openImport);
   }
 

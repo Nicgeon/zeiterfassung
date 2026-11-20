@@ -164,6 +164,13 @@
       </div>
       <p class="field-hint">Einträge ohne Ticket landen im Ticket dieses Projekts, dessen Titel das Datum ist (z. B. „2026-11-20“).</p>
     </div>
+    <h3 class="mt-lg">Abgleich mit den Aufgaben</h3>
+    <label class="checkbox-label"><input type="checkbox" id="jiraSyncTasks" /> Erledigte Tickets erkennen und Abhaken vorschlagen</label>
+    <label class="checkbox-label"><input type="checkbox" id="jiraNotifyNew" /> Neue Tickets für mich melden</label>
+    <p class="field-hint">
+      Beim Öffnen der Seite „Aufgaben“ und – solange das Programm läuft – alle 15 Minuten auch als Benachrichtigung.
+      Abgehakt wird nie automatisch. Neue Tickets sind die, die dir zugewiesen werden und noch keine Aufgabe sind.
+    </p>
     <div class="flex gap-sm flex-wrap">
       <button type="button" class="btn" id="jiraSaveBtn">Speichern</button>
       <button type="button" class="btn btn--secondary btn--sm" id="jiraTestBtn" disabled>Verbindung testen</button>

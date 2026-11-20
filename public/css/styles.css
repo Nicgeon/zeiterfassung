@@ -2208,3 +2208,25 @@ button.week-row:hover { background: var(--surface-alt); }
 .rm-item__detail input[type='number'] { width: 76px; min-height: 36px; display: inline-block; margin: 0 4px; }
 .rm-item__detail input[type='time'] { width: 136px; min-height: 36px; display: inline-block; margin: 0 4px; }
 .rm-item--off .rm-item__detail { opacity: 0.55; }
+
+/* --- Jira-Abgleich an Aufgaben ---------------------------------------------------------------------------- */
+.tp-banners { display: flex; flex-direction: column; gap: 8px; }
+.tp-banners:empty { display: none; }
+.tp-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 16px;
+  background: var(--accent-wash); border: 1px solid var(--accent-line); font-size: 13px;
+}
+.tp-banner--done { background: var(--success-wash); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tp-banner__text { flex: 1 1 260px; min-width: 0; line-height: 1.5; }
+.tp-banner__text .mono { font-size: 12px; font-weight: 600; }
+.tp-jira-done {
+  flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  background: var(--success-wash); color: var(--success);
+}
+.tp-jira-suggest {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px;
+  background: var(--success-wash); font-size: 13px;
+}
+.tp-jira-suggest span { flex: 1 1 200px; }
+.task--jira-done .task__sub { color: var(--success); font-weight: 600; }
+.tp-banner__actions { display: inline-flex; flex-wrap: nowrap; gap: 6px; margin-left: auto; }

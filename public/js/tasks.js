@@ -39,9 +39,10 @@
     if (state.editingId === task.id) return editHtml(task);
     const overdue = task.dueDate && task.dueDate < today;
     const running = isRunning(task);
-    const sub = [task.jiraKey && task.title ? task.jiraKey : '', A.dueText(task, today), A.repeatText(task.repeat)].filter(Boolean).join(' · ');
+    const sub = task.jiraDone ? 'in Jira erledigt – abhaken?'
+      : [task.jiraKey && task.title ? task.jiraKey : '', A.dueText(task, today), A.repeatText(task.repeat)].filter(Boolean).join(' · ');
     return `
-      <div class="task${running ? ' task--running' : ''}${overdue ? ' task--overdue' : ''}${task.priority ? ' task--prio' : ''}" data-id="${task.id}">
+      <div class="task${running ? ' task--running' : ''}${task.jiraDone ? ' task--jira-done' : ''}${overdue ? ' task--overdue' : ''}${task.priority ? ' task--prio' : ''}" data-id="${task.id}">
         <button type="button" class="task__check" data-act="done" aria-label="Als erledigt abhaken" title="Erledigt"></button>
         <button type="button" class="task__main" data-act="edit" title="${isMini ? 'Bearbeiten' : 'Auf der Aufgaben-Seite öffnen'}">
           <span class="task__title">${escapeHtml(task.title || task.jiraKey || '')}</span>

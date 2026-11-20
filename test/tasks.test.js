@@ -16,7 +16,7 @@ const fake = { encryptField: (s) => 'enc:' + Buffer.from(s).toString('base64'), 
 const SCHEMA = `CREATE TABLE tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, title_enc TEXT NOT NULL, jira_key TEXT, due_date TEXT, due_time TEXT,
   priority INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'open', done_at TEXT, repeat_json TEXT, snooze_until TEXT,
-  reminded_at TEXT, deleted_at TEXT, note_enc TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+  reminded_at TEXT, deleted_at TEXT, note_enc TEXT, jira_status TEXT, jira_done_hint TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, duration_minutes INTEGER, jira_key TEXT, task_id INTEGER, deleted_at TEXT);`;
 
 // --- Wiederholung -----------------------------------------------------------------------------------
@@ -243,5 +243,21 @@ test('Notiz und erfasste Zeit (Einträge mit der Aufgabe oder mit demselben Tick
     assert.deepEqual(r.body.tasks.find((t) => t.id === id).tracked, { minutes: 75, count: 2 });
     r = await call('PUT', `/${id}`, { note: '' });
     assert.equal(r.body.task.note, '');
+  });
+});
+
+test('Jira-Abgleich an der Aufgabe: Hinweis "in Jira erledigt", verwerfen, neues Ticket setzt den Stand zurück', async () => {
+  await withApp(async ({ call, db }) => {
+    const { body } = await call('POST', '/', { title: 'Drucker', jira_key: 'IT-1' });
+    const id = body.task.id;
+    db.prepare("UPDATE tasks SET jira_status = 'Fertig', jira_done_hint = 'new' WHERE id = ?").run(id);
+    let t = (await call('GET', '/')).body.tasks[0];
+    assert.equal(t.jiraDone, true);
+    assert.equal(t.jiraStatus, 'Fertig');
+    t = (await call('POST', `/${id}/jira-hint/dismiss`)).body.task;
+    assert.equal(t.jiraDone, false);
+    assert.equal((await call('POST', `/${id}/jira-hint/dismiss`, null, 2)).status, 404);
+    await call('PUT', `/${id}`, { jira_key: 'IT-2' });
+    assert.deepEqual(db.prepare('SELECT jira_status, jira_done_hint FROM tasks WHERE id = ?').get(id), { jira_status: null, jira_done_hint: null });
   });
 });

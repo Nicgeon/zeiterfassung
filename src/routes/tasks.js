@@ -37,6 +37,8 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
     repeat: r.repeat_json ? JSON.parse(r.repeat_json) : null,
     snoozeUntil: r.snooze_until,
     note: r.note_enc ? decryptField(r.note_enc) : '',
+    jiraStatus: r.jira_status || '', // zuletzt beim Jira-Abgleich gesehen
+    jiraDone: r.status === 'open' && r.jira_done_hint === 'new', // Ticket in Jira erledigt: Abhaken vorschlagen
     createdAt: r.created_at,
   });
 
@@ -162,6 +164,17 @@ function createRouter({ db, encryptField, decryptField, convertTicketLinks, now 
     // Neuer Termin = neue Erinnerung
     const moved = parsed.fields.due_date !== current.due_date || parsed.fields.due_time !== current.due_time;
     update.run({ id: current.id, user_id: req.user.id, ...toRow(parsed.fields), reminded_at: moved ? null : current.reminded_at });
+    // anderes Ticket: der alte Jira-Stand gilt nicht mehr
+    if ((parsed.fields.jira_key || '') !== (current.jira_key || '')) db.prepare('UPDATE tasks SET jira_status = NULL, jira_done_hint = NULL WHERE id = ?').run(current.id);
+    res.json({ task: serialize(getOwn.get(current.id, req.user.id)) });
+  });
+
+  // Hinweis "in Jira erledigt" verwerfen (Aufgabe bleibt offen, der Hinweis kommt erst wieder, wenn das Ticket neu
+  // geöffnet und wieder erledigt wird)
+  router.post('/:id/jira-hint/dismiss', (req, res) => {
+    const current = getOwn.get(req.params.id, req.user.id);
+    if (!current) return res.status(404).json({ error: 'Aufgabe nicht gefunden.' });
+    db.prepare("UPDATE tasks SET jira_done_hint = 'dismissed' WHERE id = ?").run(current.id);
     res.json({ task: serialize(getOwn.get(current.id, req.user.id)) });
   });
 
