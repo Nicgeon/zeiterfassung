@@ -24,7 +24,8 @@
     const nowMin = toMin(o.now);
     if (o.timer && o.isToday) {
       for (const p of o.timer.carrySegments || []) blocks.push({ s: toMin(p[0]), e: toMin(p[1]), running: true, carry: true });
-      blocks.push({ s: toMin(o.timer.startTime), e: Math.max(nowMin, toMin(o.timer.startTime) + 1), running: true });
+      // der laufende Block endet genau an der Jetzt-Linie und wächst mit ihr nach rechts
+      blocks.push({ s: toMin(o.timer.startTime), e: Math.max(nowMin, toMin(o.timer.startTime)), running: true });
     }
     blocks.sort((a, b) => a.s - b.s);
 
@@ -58,7 +59,9 @@
       const title = b.running
         ? `Läuft seit ${toHM(b.s)}`
         : `${e.description || e.jiraKey || ''} · ${toHM(b.s)}–${toHM(b.e)}${b.part ? ` · Teil ${b.part} von ${b.parts}` : ''}${e.transferred ? ' · in Jira' : ''}`;
-      return `<div class="tl-block ${cls}" data-l="${pos(b.s)}" data-w="${w.toFixed(3)}" data-pad="3" title="${escapeHtml(title)}"${e ? ` data-entry="${e.id}"` : ''}>${w > 8 ? `<span>${escapeHtml(label)}</span>` : ''}</div>`;
+      // schmale Blöcke ohne Beschriftung und ohne Innenabstand, damit sie nicht breiter als ihre Zeit werden
+      // (ein gerade gestarteter Timer endet so genau an der Jetzt-Linie)
+      return `<div class="tl-block ${cls}${w > 8 ? '' : ' tl-block--narrow'}" data-l="${pos(b.s)}" data-w="${w.toFixed(3)}" data-pad="${b.running && !b.carry ? 0 : 3}" title="${escapeHtml(title)}"${e ? ` data-entry="${e.id}"` : ''}>${w > 8 ? `<span>${escapeHtml(label)}</span>` : ''}</div>`;
     }).join('');
     const gapHtml = gaps.map(([a, b]) => {
       const w = width(a, b);
