@@ -26,14 +26,9 @@
 
   const VIEW_KEY = 'zeit.tasksPageView';
   const VIEW_TITLE = { today: 'Heute', soon: 'Demnächst', none: 'Ohne Datum', all: 'Alle offenen', done: 'Erledigt' };
-  const KEY_RE = /\b[A-Z][A-Z0-9_]+-\d+\b/;
-  const ICON = {
-    play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-    external: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
-    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
-  };
+  const A = window.AufgabenHilfe;
+  const ICON = A.ICON;
+  const setHtml = A.htmlSetter();
 
   const state = { open: [], done: [], view: loadView(), selected: null, saving: null };
 
@@ -42,32 +37,8 @@
     return 'today';
   }
 
-  // --- Datum -------------------------------------------------------------------------------------------
-  const pad = (n) => String(n).padStart(2, '0');
-  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  function addDaysISO(dateStr, days) { const [y, m, d] = dateStr.split('-').map(Number); return iso(new Date(y, m - 1, d + days)); }
-  function nextMonday(dateStr) { const [y, m, d] = dateStr.split('-').map(Number); const wd = (new Date(y, m - 1, d).getDay() + 6) % 7; return addDaysISO(dateStr, 7 - wd); }
-  function addMonthsISO(dateStr, months) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const total = y * 12 + (m - 1) + months;
-    const ny = Math.floor(total / 12); const nm = total % 12;
-    return `${ny}-${pad(nm + 1)}-${pad(Math.min(d, new Date(ny, nm + 1, 0).getDate()))}`;
-  }
-  const dayLabel = (dateStr) => { const [y, m, d] = dateStr.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace(',', ''); };
-  function dueText(t, today) {
-    if (!t.dueDate) return '';
-    const time = t.dueTime ? ` ${t.dueTime}` : '';
-    if (t.dueDate < today) return `überfällig seit ${dayLabel(t.dueDate)}`;
-    if (t.dueDate === today) return t.dueTime ? `heute ${t.dueTime}` : 'heute';
-    if (t.dueDate === addDaysISO(today, 1)) return `morgen${time}`;
-    return `${dayLabel(t.dueDate)}${time}`;
-  }
-  const repeatText = (r) => (!r ? '' : r.every === 1 ? { day: 'täglich', week: 'wöchentlich', month: 'monatlich' }[r.unit] : `alle ${r.every} ${{ day: 'Tage', week: 'Wochen', month: 'Monate' }[r.unit]}`);
-  const hm = (min) => `${Math.floor(min / 60)}:${pad(min % 60)}`;
-  function choiceDate(choice, customDate) {
-    const today = todayISO();
-    return { today, tomorrow: addDaysISO(today, 1), dayafter: addDaysISO(today, 2), monday: nextMonday(today), week: addDaysISO(today, 7), month: addMonthsISO(today, 1), custom: customDate || undefined, none: null }[choice];
-  }
+  const { dueText, repeatText, hm } = A;
+  const choiceDate = A.dateForChoice;
 
   // --- Daten -------------------------------------------------------------------------------------------
   async function load() {
@@ -96,8 +67,6 @@
   }
 
   // --- Anzeige -----------------------------------------------------------------------------------------
-  const rendered = new WeakMap();
-  function setHtml(node, html) { if (rendered.get(node) === html) return; rendered.set(node, html); node.innerHTML = html; }
 
   function rowHtml(t, today) {
     const done = t.status === 'done';
@@ -226,11 +195,9 @@
 
   // --- Aktionen ----------------------------------------------------------------------------------------
   async function addTask() {
-    const raw = convertTicketLinks(el.title.value).trim();
-    if (!raw) return;
-    const key = (raw.match(KEY_RE) || [null])[0];
-    let title = key ? raw.replace(key, '').replace(/\s{2,}/g, ' ').replace(/^[\s\-–:,]+|[\s\-–:,]+$/g, '') : raw;
-    if (!title && key && window.ZeitJira) { const issue = await window.ZeitJira.issue(key); if (issue && issue.summary) title = issue.summary; }
+    const input = await A.parseQuickInput(el.title.value);
+    if (!input) return;
+    const { title, key } = input;
     const dueDate = choiceDate(el.due.value, el.dueDate.value);
     if (dueDate === undefined) { setError('Bitte ein Datum wählen.'); return; }
     setError('');
@@ -289,27 +256,15 @@
   const renderListOnly = () => render({ detail: false });
 
   async function setDone(id, done) {
-    try {
-      const data = await Api.patch(`/api/tasks/${id}/done`, { done });
-      if (done && state.selected === id) state.selected = data.next ? data.next.id : null;
-      await load();
-      if (!done) return;
-      showToast(data.next ? `Erledigt. Nächste: ${dueText(data.next, todayISO())}.` : 'Aufgabe erledigt.', {
-        label: 'Rückgängig', durationMs: 8000,
-        onClick: async () => {
-          try { await Api.patch(`/api/tasks/${id}/done`, { done: false }); if (data.next) await Api.del(`/api/tasks/${data.next.id}`); await load(); } catch (err) { showToast(err.message); }
-        },
-      });
-    } catch (err) { showToast(err.message); }
+    if (done && state.selected === id) state.selected = null;
+    const data = await A.setDone(id, done, load);
+    // Wiederholung: die neue Aufgabe gleich auswählen
+    if (data && data.next && done) { state.selected = data.next.id; render(); }
   }
 
   async function removeTask(id) {
-    try {
-      await Api.del(`/api/tasks/${id}`);
-      if (state.selected === id) state.selected = null;
-      await load();
-      showToast('Aufgabe gelöscht.', { label: 'Rückgängig', durationMs: 30000, onClick: async () => { try { await Api.post(`/api/tasks/${id}/restore`); await load(); } catch (err) { showToast(err.message); } } });
-    } catch (err) { showToast(err.message); }
+    if (state.selected === id) state.selected = null;
+    await A.remove(id, load);
   }
 
   async function startTimer(t) {
