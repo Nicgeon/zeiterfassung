@@ -444,7 +444,9 @@ zusätzlich **Team**. Am Menüpunkt „Aufgaben“ steht die Zahl der heute fäl
 holen“ (Jira), in der Mitte die Liste, rechts die gewählte Aufgabe: Titel, Ticket (mit Jira-Status und „In Jira“),
 Fälligkeit mit Schnellwahl, Wiederholung, Wichtig, **Notiz** (verschlüsselt) und **„Schon erfasst“** – die Zeit der
 Einträge, die mit dieser Aufgabe gestartet wurden, dazu Einträge ohne Aufgabe mit derselben Ticketnummer. Änderungen
-werden automatisch gespeichert. *Timer starten* merkt sich die Aufgabe am Eintrag.
+werden automatisch gespeichert. *Timer starten* merkt sich die Aufgabe am Eintrag. Wird ein solcher Timer gestoppt
+(nicht unterbrochen), fragt die Seite, ob die Aufgabe damit erledigt ist – „Ja, abhaken“ hakt sie ab (mit Rückgängig);
+ohne Klick bleibt sie offen.
 
 **Einstellungen** sind in Unterreiter geteilt: Allgemein, Programm & Updates (nur lokal), Jira, Berichtsheft-KI,
 Sicherheit (nur Serverbetrieb) und Daten; der Reiter steht in der Adresse (z. B. `account.html#jira`).

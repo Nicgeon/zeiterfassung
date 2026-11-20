@@ -817,10 +817,14 @@
       state.viewDate = data.entry.workDate;
       await loadEntries();
       const copied = await autoCopyEntry(data.entry);
-      showToast(
+      const done = `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.${copied}`;
+      // Lief der Timer für eine Aufgabe, fragen, ob sie damit erledigt ist (abgehakt wird nie ungefragt)
+      const task = !pause && data.entry.taskId ? await openTask(data.entry.taskId) : null;
+      if (task) askTaskDone(task, done);
+      else showToast(
         pause
           ? `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt – „${description || jiraKey}" ist unterbrochen. Mit „Weitermachen" läuft die Zeit auf einem gemeinsamen Eintrag weiter.${copied}`
-          : `Eintrag über ${formatDurationLong(data.entry.durationMinutes)} angelegt.${copied}`,
+          : done,
         pause ? { durationMs: 7000 } : undefined
       );
     } catch (err) {
@@ -985,6 +989,42 @@
     } catch (err) {
       showToast(err.message);
     }
+  }
+
+  /** Offene Aufgabe zu einer id (null, wenn erledigt, gelöscht oder nicht ladbar). */
+  async function openTask(id) {
+    try {
+      const data = await Api.get('/api/tasks');
+      return data.tasks.find((t) => t.id === id) || null;
+    } catch { return null; }
+  }
+
+  /** Nach dem Stoppen: "Ist die Aufgabe erledigt?" mit Knopf zum Abhaken (und Rückgängig danach). */
+  function askTaskDone(task, lead) {
+    const name = task.title || task.jiraKey || 'die Aufgabe';
+    showToast(`${lead} Ist „${name}“ damit erledigt?`, {
+      label: 'Ja, abhaken',
+      durationMs: 15000,
+      onClick: async () => {
+        try {
+          const r = await Api.patch(`/api/tasks/${task.id}/done`, { done: true });
+          if (window.ZeitTasks) window.ZeitTasks.refresh();
+          showToast(r.next ? `„${name}“ erledigt – die nächste Wiederholung ist angelegt.` : `„${name}“ erledigt.`, {
+            label: 'Rückgängig',
+            durationMs: 8000,
+            onClick: async () => {
+              try {
+                await Api.patch(`/api/tasks/${task.id}/done`, { done: false });
+                if (r.next) await Api.del(`/api/tasks/${r.next.id}`);
+                if (window.ZeitTasks) window.ZeitTasks.refresh();
+              } catch (err) { showToast(err.message); }
+            },
+          });
+        } catch (err) {
+          showToast(err.message);
+        }
+      },
+    });
   }
 
   /** Unterbrochene Aufgabe von Hand fortsetzen: Formular vorbefuellen, die bisherige Zeit kommt dazu. */
