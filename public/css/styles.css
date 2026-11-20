@@ -2230,3 +2230,28 @@ button.week-row:hover { background: var(--surface-alt); }
 .tp-jira-suggest span { flex: 1 1 200px; }
 .task--jira-done .task__sub { color: var(--success); font-weight: 600; }
 .tp-banner__actions { display: inline-flex; flex-wrap: nowrap; gap: 6px; margin-left: auto; }
+
+/* --- Mini-Fenster: "Jetzt starten / Nachtragen" und schmaler Zeitstrahl ---------------------------------- */
+.mini .composer:not(.composer--timer):not(.composer--editing) #formTitle { display: none; }
+.mini .composer__views { margin-right: auto; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #entryForm { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__text { grid-column: 1 / -1; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__text textarea { min-height: 48px; height: 48px; padding: 12px 14px; font-size: 15px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { min-height: 44px; height: 44px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__actions { display: flex; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #timerStartBtn {
+  min-height: 44px; height: 44px; padding: 0 18px; font-size: 14px; background: var(--accent); color: var(--on-accent); border-color: transparent;
+}
+.mini-tl { padding-top: 10px !important; padding-bottom: 8px !important; }
+.mini .mini-tl { order: 1; }
+.mini-tl__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 12px; color: var(--ink-muted); }
+.mini-tl__head strong { margin-left: 4px; color: var(--ink); font-size: 13px; }
+.mini-tl__open { color: var(--warn-bar); font-weight: 600; }
+.timeline--slim .tl-track { height: 22px; border-radius: 7px; }
+.timeline--slim .tl-block { top: 3px; bottom: 3px; border-radius: 4px; }
+.timeline--slim .tl-gap { top: 2px; bottom: 2px; padding: 0; border-width: 1px; border-radius: 4px; font-size: 11px; line-height: 1; text-align: center; }
+.timeline--slim .tl-now { top: -3px; bottom: -3px; }
+.timeline--slim .tl-axis { height: 14px; margin-top: 3px; font-size: 10px; }
+.timeline--slim .tl-empty { display: none; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { grid-column: 1; grid-row: 2; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__footer { grid-column: 2; grid-row: 2; }

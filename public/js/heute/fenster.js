@@ -116,7 +116,7 @@
     clearTimeout(fitTimer);
     fitTimer = setTimeout(() => {
       try {
-        const bottoms = [...document.querySelectorAll('#composer, #tasksCol, #miniRecent')]
+        const bottoms = [...document.querySelectorAll('#composer, #miniTimelineCard, #tasksCol, #miniRecent')]
           .filter((el) => !el.classList.contains('hidden'))
           .map((el) => el.getBoundingClientRect().bottom);
         const wanted = Math.ceil(Math.max(...bottoms) + window.scrollY + 12);
@@ -129,6 +129,7 @@
     ro.observe(els.composer);
     ro.observe(document.getElementById('tasksCol'));
     ro.observe(els.miniRecent);
+    ro.observe(document.getElementById('miniTimelineCard'));
   }
   let syncing = false;
   let lastSync = 0;

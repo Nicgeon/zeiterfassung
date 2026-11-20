@@ -52,7 +52,7 @@
       <div class="card composer" id="composer" data-mode="times" data-view="start">
         <div class="composer__head">
           <h2 id="formTitle">Neuer Eintrag</h2>
-          <div class="seg seg--sm composer__views no-timer no-edit mini-hide" role="group" aria-label="Erfassen">
+          <div class="seg seg--sm composer__views no-timer no-edit" role="group" aria-label="Erfassen">
             <button type="button" class="seg__btn is-active" data-compose="start" aria-pressed="true">Jetzt starten</button>
             <button type="button" class="seg__btn" data-compose="add" aria-pressed="false">Nachtragen</button>
           </div>
@@ -164,6 +164,12 @@
           </div>
         </form>
       </div>
+
+      <!-- Nur Mini-Fenster: schmaler Zeitstrahl des Tages mit Summe und offener Zeit -->
+      <section class="card mini-tl hidden" id="miniTimelineCard" aria-label="Zeitstrahl des Tages">
+        <div class="mini-tl__head"><span>Heute <strong class="mono" id="miniTlTotal"></strong></span><span class="mini-tl__open" id="miniTlOpen"></span></div>
+        <div class="timeline timeline--slim" id="miniTimeline"></div>
+      </section>
 
       <!-- Nur Mini-Fenster: Eintraege, die noch in Jira eingetragen werden muessen (Kopieren ohne Fensterwechsel) -->
       <section class="mini-recent hidden" id="miniRecent" aria-label="Noch in Jira eintragen"></section>

@@ -198,7 +198,16 @@ test('Mini-Fenster und übrige Seiten laden ohne Fehler', { skip }, async () => 
     await page.setViewportSize({ width: 460, height: 700 });
     await page.goto(`${base}/index.html?mini=1`);
     await page.waitForSelector('#composer');
-    assert.equal(await page.getAttribute('#composer', 'data-view'), 'add', 'Mini zeigt immer das ganze Formular');
-    assert.ok(!(await page.isVisible('#timelineCard')));
+    assert.equal(await page.getAttribute('#composer', 'data-view'), 'start', 'Mini startet mit "Jetzt starten"');
+    assert.ok(!(await page.isVisible('#timelineCard')), 'großer Zeitstrahl fehlt im Mini');
+    assert.ok(!(await page.isVisible('#miniTimelineCard')), 'ohne Einträge kein schmaler Zeitstrahl');
+    await page.click('[data-compose=add]');
+    assert.equal(await page.getAttribute('#composer', 'data-view'), 'add');
+    const today = await page.evaluate(() => todayISO());
+    await api(page, 'POST', '/api/entries', { work_date: today, start_time: '08:00', end_time: '09:00', description: 'Mini-Test', real_times: true });
+    await page.reload();
+    await page.waitForSelector('#miniTimelineCard:not(.hidden)');
+    assert.equal(await page.locator('#miniTimeline .tl-block').count(), 1);
+    assert.equal(await page.textContent('#miniTlTotal'), '1:00');
   });
 });

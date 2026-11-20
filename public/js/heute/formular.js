@@ -131,7 +131,7 @@
   // --- Jetzt-Karte: "Jetzt starten" (eine Zeile + Timer) oder "Nachtragen" (ganzes Formular) ------------------
   const composeView = () => els.composer.dataset.view || 'add';
   function setComposeView(view) {
-    const v = document.documentElement.classList.contains('mini') ? 'add' : view;
+    const v = view === 'add' ? 'add' : 'start';
     els.composer.dataset.view = v;
     els.jiraKey.placeholder = v === 'start' ? 'Ticket (optional)' : 'z. B. ITPKK-123 oder Link';
     els.composer.querySelectorAll('[data-compose]').forEach((b) => {

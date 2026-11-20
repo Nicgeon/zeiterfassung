@@ -40,7 +40,31 @@
       now: nowHHMM(),
       onGap: fillGap,
     });
+    renderMiniTimeline();
     renderSinceHint();
+  }
+
+  /** Mini-Fenster: schmaler Zeitstrahl mit Tagessumme und offener Zeit (nur heute und wenn es etwas zu zeigen gibt). */
+  function renderMiniTimeline() {
+    const card = document.getElementById('miniTimelineCard');
+    if (!card || !document.documentElement.classList.contains('mini')) return;
+    const timer = state.timer && state.timer.workDate === state.viewDate ? state.timer : null;
+    const show = isTodayISO(state.viewDate) && (state.entries.length > 0 || !!timer);
+    card.classList.toggle('hidden', !show);
+    if (!show) return;
+    const total = state.entries.reduce((n, e) => n + e.durationMinutes, 0);
+    const open = state.entries.filter((e) => !e.transferred).reduce((n, e) => n + e.durationMinutes, 0);
+    document.getElementById('miniTlTotal').textContent = formatHM(total);
+    document.getElementById('miniTlOpen').textContent = open ? `${formatHM(open)} offen` : total ? 'alles in Jira' : '';
+    window.ZeitTimeline.render(document.getElementById('miniTimeline'), {
+      entries: state.entries,
+      timer,
+      showTimes: loadShowTimes(),
+      isToday: true,
+      now: nowHHMM(),
+      onGap: fillGap,
+      slim: true,
+    });
   }
   setInterval(renderTimeline, 60_000);
 

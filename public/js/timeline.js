@@ -10,7 +10,8 @@
 
   /**
    * @param {HTMLElement} host
-   * @param {{entries: object[], timer: object|null, showTimes: boolean, isToday: boolean, now: string, onGap: Function}} o
+   * @param {{entries: object[], timer: object|null, showTimes: boolean, isToday: boolean, now: string, onGap: Function, slim?: boolean}} o
+   *   slim: schmale Fassung (Mini-Fenster): ohne Beschriftung in den Blöcken, Achse nur mit Stunden, ohne Liste "ohne Uhrzeit"
    */
   function render(host, o) {
     if (!host) return;
@@ -61,17 +62,18 @@
         : `${e.description || e.jiraKey || ''} · ${toHM(b.s)}–${toHM(b.e)}${b.part ? ` · Teil ${b.part} von ${b.parts}` : ''}${e.transferred ? ' · in Jira' : ''}`;
       // schmale Blöcke ohne Beschriftung und ohne Innenabstand, damit sie nicht breiter als ihre Zeit werden
       // (ein gerade gestarteter Timer endet so genau an der Jetzt-Linie)
-      return `<div class="tl-block ${cls}${w > 8 ? '' : ' tl-block--narrow'}" data-l="${pos(b.s)}" data-w="${w.toFixed(3)}" data-pad="${b.running && !b.carry ? 0 : 3}" title="${escapeHtml(title)}"${e ? ` data-entry="${e.id}"` : ''}>${w > 8 ? `<span>${escapeHtml(label)}</span>` : ''}</div>`;
+      const labelled = w > 8 && !o.slim;
+      return `<div class="tl-block ${cls}${labelled ? '' : ' tl-block--narrow'}" data-l="${pos(b.s)}" data-w="${w.toFixed(3)}" data-pad="${b.running && !b.carry ? 0 : 3}" title="${escapeHtml(title)}"${e ? ` data-entry="${e.id}"` : ''}>${labelled ? `<span>${escapeHtml(label)}</span>` : ''}</div>`;
     }).join('');
     const gapHtml = gaps.map(([a, b]) => {
       const w = width(a, b);
-      return `<button type="button" class="tl-gap" data-l="${pos(a)}" data-w="${w.toFixed(3)}" data-off="2" data-pad="6" data-gap="${toHM(a)}-${toHM(b)}" title="${toHM(a)}–${toHM(b)} nachtragen" aria-label="Lücke ${toHM(a)} bis ${toHM(b)} nachtragen">${w > 7 ? '+ Nachtragen' : '+'}</button>`;
+      return `<button type="button" class="tl-gap" data-l="${pos(a)}" data-w="${w.toFixed(3)}" data-off="2" data-pad="6" data-gap="${toHM(a)}-${toHM(b)}" title="${toHM(a)}–${toHM(b)} nachtragen" aria-label="Lücke ${toHM(a)} bis ${toHM(b)} nachtragen">${w > 7 && !o.slim ? '+ Nachtragen' : '+'}</button>`;
     }).join('');
     const nowHtml = o.isToday && nowMin >= S && nowMin <= E ? `<div class="tl-now" data-l="${pos(nowMin)}" aria-hidden="true"></div>` : '';
-    const step = span > 12 * 60 ? 2 : 1;
+    const step = o.slim ? (span > 9 * 60 ? 3 : span > 5 * 60 ? 2 : 1) : span > 12 * 60 ? 2 : 1;
     const hours = [];
-    for (let h = S / 60; h <= E / 60; h += step) hours.push(`<span data-l="${pos(h * 60)}">${String(h).padStart(2, '0')}:00</span>`);
-    const freeHtml = free.length
+    for (let h = S / 60; h <= E / 60; h += step) hours.push(`<span data-l="${pos(h * 60)}">${String(h).padStart(2, '0')}${o.slim ? '' : ':00'}</span>`);
+    const freeHtml = free.length && !o.slim
       ? `<div class="tl-free"><span>Ohne Uhrzeit erfasst:</span>${free.map((e) => `<span class="tl-chip">${escapeHtml(e.description || e.jiraKey || '')} <strong class="mono">${formatDurationLong(e.durationMinutes)}</strong></span>`).join('')}</div>`
       : '';
 
