@@ -40,17 +40,25 @@
     }
   }
 
-  async function save() {
-    const body = {};
-    for (const [key, el] of Object.entries(fields)) body[key] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
-    try {
-      const { settings } = await Api.put('/api/reminders', body);
-      setFormError(errorBox, '');
-      fill(settings); // ungültige Werte zeigt der Server korrigiert zurück
-      showToast('Erinnerungen gespeichert.');
-    } catch (err) {
-      setFormError(errorBox, err.message);
-    }
+  // Speichern der Reihe nach; die Antwort (mit vom Server korrigierten Werten) wird nur für die letzte Änderung
+  // übernommen, sonst würde eine ältere Antwort ein gerade geändertes Feld zurücksetzen.
+  let seq = 0;
+  let chain = Promise.resolve();
+  function save() {
+    const mine = ++seq;
+    chain = chain.then(async () => {
+      const body = {};
+      for (const [key, el] of Object.entries(fields)) body[key] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+      try {
+        const { settings } = await Api.put('/api/reminders', body);
+        if (mine !== seq) return;
+        setFormError(errorBox, '');
+        fill(settings);
+        showToast('Erinnerungen gespeichert.');
+      } catch (err) {
+        setFormError(errorBox, err.message);
+      }
+    });
   }
 
   for (const el of Object.values(fields)) el.addEventListener('change', save);
