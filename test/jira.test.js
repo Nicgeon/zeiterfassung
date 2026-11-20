@@ -63,6 +63,9 @@ test('Client: Netzfehler und Zeitüberschreitung werden verständlich gemeldet',
 async function withApp(fetchImpl, fn) {
   const db = new Database(':memory:');
   db.exec('CREATE TABLE jira_settings (user_id INTEGER PRIMARY KEY, config_enc TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))');
+  db.exec(`CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, work_date TEXT, start_time TEXT, end_time TEXT,
+    duration_minutes INTEGER, description_enc TEXT, jira_key TEXT, transferred_to_jira INTEGER NOT NULL DEFAULT 0, deleted_at TEXT,
+    jira_comment_issue TEXT, jira_comment_id TEXT, updated_at TEXT)`);
   const audits = [];
   const app = express();
   app.use(express.json());
@@ -80,14 +83,14 @@ async function withApp(fetchImpl, fn) {
 
 test('Einstellungen: prüfen, verschlüsselt speichern, Token nie ausgeben, Token bleibt beim Ändern, entfernen', async () => {
   await withApp(async () => jsonRes(200, {}), async ({ call, db, audits }) => {
-    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false });
+    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false, allowWrite: false, dailyProject: '' });
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://evil.com', email: 'a@b.de', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'keine-mail', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de' })).status, 400, 'Token fehlt');
 
     let r = await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net/browse/X-1', email: 'a@b.de', apiToken: 'GEHEIM-123' });
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true });
+    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true, allowWrite: false, dailyProject: '' });
     assert.doesNotMatch(JSON.stringify((await call('GET', '/settings')).body), /GEHEIM/);
     assert.doesNotMatch(db.prepare('SELECT config_enc FROM jira_settings').get().config_enc.replace(/^enc:/, ''), /GEHEIM/); // base64, nicht Klartext
     // E-Mail ändern ohne neuen Token: der alte bleibt
@@ -120,4 +123,102 @@ test('Abfragen: ohne Einrichtung 409, Jira-Fehler werden nie als 401/403 weiterg
     assert.equal(r.body.issues[0].summary, 'S');
     assert.equal((await call('GET', '/issue/%20')).status, 400);
   });
+});
+
+test('Kommentare nach Jira: nur nach Einschalten, eigenes Ticket bzw. Tagesticket, Aktualisieren statt doppelt, intern', async () => {
+  const calls = [];
+  const fetchImpl = async (url, opts) => {
+    calls.push({ url, method: opts.method, body: opts.body ? JSON.parse(opts.body) : null });
+    if (url.endsWith('/search/jql')) return jsonRes(200, { issues: [{ key: 'PITPM-33', fields: { summary: '2026-11-19 (Nachtrag)' } }, { key: 'PITPM-34', fields: { summary: '2026-11-20' } }] });
+    if (opts.method === 'POST' && /\/comment$/.test(url)) return jsonRes(201, { id: String(100 + calls.length) });
+    if (opts.method === 'PUT') return jsonRes(200, {});
+    if (opts.method === 'DELETE') return { ok: true, status: 204, json: async () => { throw new Error('leer'); } };
+    return jsonRes(404, {});
+  };
+  await withApp(fetchImpl, async ({ call, db, audits }) => {
+    const ins = db.prepare('INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key) VALUES (1,?,?,?,?,?,?)');
+    const a = ins.run('2026-11-20', '08:00', '08:45', 45, fake.encryptField('Netzwerkdoku ergänzt'), 'ITPKK-210').lastInsertRowid;
+    const b = ins.run('2026-11-20', '08:45', '09:15', 30, fake.encryptField('Teammeeting'), null).lastInsertRowid;
+    const other = db.prepare('INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc) VALUES (2,?,?,?,?,?)').run('2026-11-20', '08:00', '09:00', 60, fake.encryptField('fremd')).lastInsertRowid;
+
+    await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', apiToken: 't' });
+    let r = await call('POST', '/comments', { ids: [a] });
+    assert.equal(r.status, 409, 'Schreiben erst nach Einschalten');
+    assert.match(r.body.error, /ausgeschaltet/);
+    assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', dailyProject: 'pit pm' })).status, 400);
+    r = await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', allowWrite: true, dailyProject: 'pitpm' });
+    assert.equal(r.body.dailyProject, 'PITPM');
+    assert.equal(r.body.allowWrite, true);
+
+    r = await call('POST', '/comments', { ids: [a, b, other] });
+    assert.deepEqual(r.body.results.map((x) => [x.ok, x.key || x.error]), [[true, 'ITPKK-210'], [true, 'PITPM-34'], [false, 'Eintrag nicht gefunden.']]);
+    const posts = calls.filter((c) => c.method === 'POST' && /\/comment$/.test(c.url));
+    assert.equal(posts.length, 2);
+    assert.match(posts[0].url, /\/issue\/ITPKK-210\/comment$/);
+    assert.equal(posts[0].body.body.content[0].content[0].text, '45 Min – Netzwerkdoku ergänzt');
+    assert.deepEqual(posts[0].body.properties, [{ key: 'sd.public.comment', value: { internal: true } }]);
+    const search = calls.find((c) => c.url.endsWith('/search/jql'));
+    assert.match(search.body.jql, /project = "PITPM" AND summary ~ "\\"2026-11-20\\""/);
+    const rowA = db.prepare('SELECT * FROM entries WHERE id = ?').get(a);
+    assert.equal(rowA.transferred_to_jira, 1);
+    assert.equal(rowA.jira_comment_issue, 'ITPKK-210');
+    assert.ok(audits.some((x) => x[1] === 'jira_comments_written'));
+
+    // Nochmals schreiben: derselbe Kommentar wird aktualisiert, nicht doppelt angelegt
+    calls.length = 0;
+    r = await call('POST', '/comments', { ids: [a] });
+    assert.equal(calls.filter((c) => c.method === 'PUT').length, 1);
+    assert.equal(calls.filter((c) => c.method === 'POST').length, 0);
+
+    // Ohne Projekt für Tagestickets: Eintrag ohne Ticket mit klarer Meldung
+    await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de', dailyProject: '' });
+    const c2 = ins.run('2026-11-20', '09:15', '09:30', 15, fake.encryptField('Ohne'), null).lastInsertRowid;
+    r = await call('POST', '/comments', { ids: [c2] });
+    assert.match(r.body.results[0].error, /Tagestickets/);
+  });
+});
+
+test('Kommentare: Bearbeiten passt an (auch Wechsel des Tickets), Löschen entfernt den Kommentar', async () => {
+  const { createJiraComments } = require('../src/lib/jiraComments');
+  const db = new Database(':memory:');
+  db.exec(`CREATE TABLE jira_settings (user_id INTEGER PRIMARY KEY, config_enc TEXT NOT NULL);
+    CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, work_date TEXT, start_time TEXT, end_time TEXT,
+    duration_minutes INTEGER, description_enc TEXT, jira_key TEXT, transferred_to_jira INTEGER NOT NULL DEFAULT 0, deleted_at TEXT,
+    jira_comment_issue TEXT, jira_comment_id TEXT, updated_at TEXT)`);
+  db.prepare('INSERT INTO jira_settings VALUES (1, ?)').run(fake.encryptField(JSON.stringify({ baseUrl: 'https://f.atlassian.net', email: 'a@b.de', token: 't', allowWrite: true })));
+  const calls = [];
+  let nextStatus = 200;
+  const fetchImpl = async (url, opts) => {
+    calls.push(`${opts.method} ${url.replace('https://f.atlassian.net/rest/api/3', '')}`);
+    if (nextStatus !== 200) { const s = nextStatus; nextStatus = 200; return jsonRes(s, {}); }
+    if (opts.method === 'POST') return jsonRes(201, { id: '555' });
+    if (opts.method === 'DELETE') return { ok: true, status: 204, json: async () => null };
+    return jsonRes(200, {});
+  };
+  const c = createJiraComments({ db, decryptField: fake.decryptField, fetchImpl });
+  const id = db.prepare("INSERT INTO entries (user_id, work_date, start_time, end_time, duration_minutes, description_enc, jira_key, jira_comment_issue, jira_comment_id, transferred_to_jira) VALUES (1,'2026-11-20','08:00','08:45',45,?,'IT-1','IT-1','42',1)").run(fake.encryptField('A')).lastInsertRowid;
+
+  assert.deepEqual(await c.afterEdit(1, id), { ok: true });
+  assert.deepEqual(calls, ['PUT /issue/IT-1/comment/42']);
+  db.prepare("UPDATE entries SET jira_key = 'IT-2' WHERE id = ?").run(id);
+  calls.length = 0;
+  await c.afterEdit(1, id);
+  assert.deepEqual(calls, ['DELETE /issue/IT-1/comment/42', 'POST /issue/IT-2/comment']);
+  assert.equal(db.prepare('SELECT jira_comment_id FROM entries WHERE id = ?').get(id).jira_comment_id, '555');
+  // in Jira schon gelöscht: neu anlegen statt Fehler
+  calls.length = 0; nextStatus = 404;
+  await c.afterEdit(1, id);
+  assert.deepEqual(calls, ['PUT /issue/IT-2/comment/555', 'POST /issue/IT-2/comment']);
+
+  const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+  calls.length = 0;
+  assert.deepEqual(await c.beforeDelete(1, row), { ok: true });
+  assert.deepEqual(calls, ['DELETE /issue/IT-2/comment/555']);
+  const after = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+  assert.equal(after.jira_comment_id, null);
+  assert.equal(after.transferred_to_jira, 0);
+  // Eintrag ohne Kommentar: nichts zu tun
+  assert.equal(await c.afterEdit(1, id), null);
+  assert.equal(c.commentText({ description_enc: fake.encryptField(''), duration_minutes: 30 }), '30 Min');
+  assert.equal(c.commentText({ description_enc: fake.encryptField('X'), duration_minutes: 30, start_time: '08:00', end_time: '08:30' }, true), '08:00–08:30 (30 Min) – X');
 });

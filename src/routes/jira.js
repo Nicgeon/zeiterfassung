@@ -5,6 +5,7 @@
 
 const express = require('express');
 const jira = require('../lib/jira');
+const { createJiraComments } = require('../lib/jiraComments');
 
 function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchImpl }) {
   const router = express.Router();
@@ -20,7 +21,15 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     if (!row) return null;
     try { return JSON.parse(decryptField(row.config_enc)); } catch { return null; }
   }
-  const describe = (c) => ({ configured: !!(c && c.baseUrl && c.email && c.token), baseUrl: (c && c.baseUrl) || '', email: (c && c.email) || '', hasToken: !!(c && c.token) });
+  const describe = (c) => ({
+    configured: !!(c && c.baseUrl && c.email && c.token),
+    baseUrl: (c && c.baseUrl) || '',
+    email: (c && c.email) || '',
+    hasToken: !!(c && c.token),
+    allowWrite: !!(c && c.allowWrite),
+    dailyProject: (c && c.dailyProject) || '',
+  });
+  const comments = createJiraComments({ db, decryptField, fetchImpl });
   const clientFor = (userId) => {
     const c = load(userId);
     if (!c || !c.token) throw new jira.JiraError('Jira ist noch nicht eingerichtet (Konto → Jira-Anbindung).', 409);
@@ -48,9 +57,14 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     if (!token) token = current.token || '';
     if (!token) throw new jira.JiraError('Bitte den API-Token eintragen.', 400);
     if (token.length > 400) throw new jira.JiraError('Der API-Token ist zu lang.', 400);
-    putStmt.run(req.user.id, encryptField(JSON.stringify({ baseUrl, email, token })));
-    audit(req.user.id, 'jira_settings_changed', baseUrl, req.ip);
-    res.json(describe({ baseUrl, email, token }));
+    // Schreiben (interne Kommentare) nur nach ausdrücklichem Einschalten; Tagestickets: Projektschlüssel, z. B. PITPM
+    const allowWrite = body.allowWrite !== undefined ? body.allowWrite === true : !!current.allowWrite;
+    let dailyProject = body.dailyProject !== undefined ? String(body.dailyProject || '').trim().toUpperCase() : current.dailyProject || '';
+    if (dailyProject && !jira.PROJECT_RE.test(dailyProject)) throw new jira.JiraError('Ungültiger Projektschlüssel für Tagestickets (z. B. PITPM).', 400);
+    const next = { baseUrl, email, token, allowWrite, dailyProject };
+    putStmt.run(req.user.id, encryptField(JSON.stringify(next)));
+    audit(req.user.id, 'jira_settings_changed', `${baseUrl}${allowWrite ? ' (schreiben)' : ''}`, req.ip);
+    res.json(describe(next));
   }));
 
   router.delete('/settings', wrap((req, res) => {
@@ -66,6 +80,23 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
 
   router.get('/issue/:key', wrap(async (req, res) => {
     res.json({ issue: await clientFor(req.user.id).issue(req.params.key) });
+  }));
+
+  // Einträge als interne Kommentare schreiben (neu oder aktualisieren)
+  router.post('/comments', wrap(async (req, res) => {
+    const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.filter(Number.isInteger).slice(0, 200) : [];
+    if (!ids.length) throw new jira.JiraError('Keine Einträge angegeben.', 400);
+    const results = await comments.post(req.user.id, ids, { withTimes: !!(req.body && req.body.with_times) });
+    const okCount = results.filter((r) => r.ok).length;
+    if (okCount) audit(req.user.id, 'jira_comments_written', `${okCount} Eintraege`, req.ip);
+    res.json({ results });
+  }));
+
+  // Tagesticket zu einem Datum (zum Prüfen in den Einstellungen)
+  router.get('/daily/:date', wrap(async (req, res) => {
+    const c = load(req.user.id);
+    if (!c || !c.dailyProject) throw new jira.JiraError('Kein Projekt für Tagestickets eingestellt.', 400);
+    res.json({ key: await clientFor(req.user.id).dailyIssue(c.dailyProject, req.params.date) });
   }));
 
   router.get('/my-issues', wrap(async (req, res) => {

@@ -488,12 +488,13 @@
     els.pauseEntryBtn.disabled = true;
     try {
       if (state.editingId) {
-        await Api.put(`/api/entries/${state.editingId}`, payload);
+        const res = await Api.put(`/api/entries/${state.editingId}`, { ...payload, with_times: loadShowTimes() });
         // Bearbeitung ist abgeschlossen - sonst bliebe die Maske im
         // Bearbeiten-Modus stehen, weil loadEntries() das Formular nur
         // zuruecksetzt, solange keine Bearbeitung laeuft.
         state.editingId = null;
-        showToast('Eintrag aktualisiert.');
+        // Stand der Eintrag schon als Kommentar in Jira, wurde dieser mitgeändert
+        showToast(res.jira ? (res.jira.ok ? 'Eintrag aktualisiert – der Kommentar in Jira auch.' : `Eintrag aktualisiert, der Kommentar in Jira aber nicht: ${res.jira.error}`) : 'Eintrag aktualisiert.');
       } else {
         let data;
         let merged = false;

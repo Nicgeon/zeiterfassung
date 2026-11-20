@@ -484,7 +484,7 @@ Darüberfahren mit der Maus aus → nur Symbole ohne Ausfahren (die Wahl wird pr
 Fenstern unter 1280 px „fährt aus“). Unten stehen Profil (Anfangsbuchstabe, Name),
 Farbschema und Abmelden.
 
-## Jira-Anbindung (optional, nur lesend)
+## Jira-Anbindung (optional)
 
 Unter **Konto → Jira-Anbindung** lässt sich Jira Cloud verbinden: Adresse (`https://firma.atlassian.net`), E-Mail deines
 Atlassian-Kontos und ein **API-Token** (id.atlassian.com → Sicherheit → „API-Token erstellen“; der Token hat die Rechte
@@ -501,6 +501,17 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
   Ticket“) und jede Aufgabe mit Ticket hat ein ↗-Symbol. Im Programmfenster öffnet sich das Ticket
   (`https://…atlassian.net/browse/<TICKET>`) im Standardbrowser, nicht im Programmfenster; der Server nimmt dafür nur
   genau diese Adressform an.
+- **Einträge als interne Kommentare nach Jira schreiben** (nur nach Einschalten unter *Einstellungen → Jira*): An
+  jedem Eintrag gibt es dann ein Senden-Symbol, auf „Heute“ den Knopf **„Offene nach Jira“** (mit Rückfrage und Übersicht,
+  welches Ticket wie viele Einträge bekommt). Ein Kommentar je Eintrag, Text wie die Kopierzeile
+  (`45 Min – Netzwerkdoku ergänzt`, Zeit mit Zuschlag), als interner Kommentar (`sd.public.comment` – in
+  Service-Management-Projekten nur fürs Team sichtbar; in normalen Projekten sehen ihn alle mit Zugriff aufs Ticket).
+  Danach ist der Eintrag „in Jira eingetragen“. **Ohne Ticket** geht der Eintrag ins **Tagesticket**: das Ticket im
+  eingestellten Projekt (z. B. `PITPM`), dessen Titel das Datum des Eintrags ist (`2026-11-20`); jede Person stellt ihr
+  Projekt selbst ein, „Tagesticket von heute suchen“ prüft es. **Änderst** du einen geschriebenen Eintrag, wird sein
+  Kommentar angepasst (bei neuem Ticket verschoben); **löschst** du ihn, wird der Kommentar entfernt (Rückgängig stellt
+  nur den Eintrag wieder her, er gilt dann wieder als offen). Unterbrochene Teile, die schon in Jira stehen, werden
+  beim Weitermachen nicht zusammengeführt.
 - Fehler (falsche Zugangsdaten, kein Zugriff, nicht erreichbar) erscheinen als verständliche Meldung; ohne Einrichtung
   bleibt alles wie bisher.
 

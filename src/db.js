@@ -193,6 +193,14 @@ if (!entryColumns.includes('task_id')) {
   // eslint-disable-next-line no-console
   console.log('[MIGRATION] Spalte "task_id" (zugehoerige Aufgabe) zur Tabelle entries hinzugefuegt.');
 }
+// Eintrag als Kommentar nach Jira geschrieben: Ticket und Kommentar-ID (zum Ändern bzw. Löschen)
+for (const col of ['jira_comment_issue', 'jira_comment_id']) {
+  if (!entryColumns.includes(col)) {
+    db.exec(`ALTER TABLE entries ADD COLUMN ${col} TEXT`);
+    // eslint-disable-next-line no-console
+    console.log(`[MIGRATION] Spalte "${col}" (Jira-Kommentar) zur Tabelle entries hinzugefuegt.`);
+  }
+}
 const taskColumns = db.prepare('PRAGMA table_info(tasks)').all().map((c) => c.name);
 if (!taskColumns.includes('note_enc')) {
   db.exec('ALTER TABLE tasks ADD COLUMN note_enc TEXT');

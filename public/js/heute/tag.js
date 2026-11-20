@@ -63,6 +63,7 @@
           </button>
           <button type="button" class="icon-btn school-btn" aria-pressed="${!!e.school}" title="${e.school ? 'Berufsschule-Markierung entfernen' : 'Als Berufsschule markieren (für den Berichtsheft-Text)'}" aria-label="Berufsschule markieren">${ICONS.school}</button>
           <button type="button" class="icon-btn repeat-btn" title="Nochmal erfassen (Text und Ticket übernehmen)" aria-label="Nochmal erfassen">${ICONS.repeat}</button>
+          <button type="button" class="icon-btn jira-send-btn" title="${e.jiraComment ? `Steht als Kommentar in ${escapeHtml(e.jiraComment)} – erneut schreiben (aktualisiert ihn)` : 'Als internen Kommentar nach Jira schreiben'}" aria-label="Nach Jira schreiben">${ICONS.send}</button>
           <button type="button" class="icon-btn copy-btn" title="Eintrag kopieren" aria-label="Eintrag kopieren">${ICONS.copy}</button>
           <button type="button" class="icon-btn edit-btn" title="Bearbeiten" aria-label="Eintrag bearbeiten">${ICONS.edit}</button>
           <button type="button" class="icon-btn delete-btn" title="Löschen" aria-label="Eintrag löschen">${ICONS.trash}</button>
@@ -126,6 +127,11 @@
     const openCount = state.entries.filter((e) => !e.transferred).length;
     els.copyOpenBtn.disabled = openCount === 0;
     els.copyOpenBtn.textContent = openCount > 0 ? `Offene kopieren (${openCount})` : 'Offene kopieren';
+    const postOpen = document.getElementById('postOpenBtn');
+    if (postOpen) {
+      postOpen.disabled = openCount === 0;
+      postOpen.textContent = openCount > 0 ? `Offene nach Jira (${openCount})` : 'Offene nach Jira';
+    }
     setHtml(els.ledger, sortedEntries().map(entryRow).join(''));
   }
 
@@ -146,7 +152,9 @@
     if (state.timer && (e.target.closest('.repeat-btn') || e.target.closest('.edit-btn'))) {
       return showToast('Bitte zuerst den Timer stoppen oder verwerfen.');
     }
-    if (e.target.closest('.copy-btn')) {
+    if (e.target.closest('.jira-send-btn')) {
+      await postToJira([entry]);
+    } else if (e.target.closest('.copy-btn')) {
       const ok = await copyToClipboard(entryLine(entry, loadShowTimes()));
       showToast(ok ? 'Eintrag kopiert.' : 'Kopieren fehlgeschlagen.');
     } else if (e.target.closest('.repeat-btn')) {
@@ -175,10 +183,11 @@
       // Kein Nachfrage-Dialog mehr: der Eintrag wandert in den Papierkorb und
       // laesst sich 30 Sekunden lang per "Rueckgaengig" zurueckholen.
       try {
-        await Api.del(`/api/entries/${id}`);
+        const res = await Api.del(`/api/entries/${id}`);
         if (state.editingId === id) resetFormForNewEntry();
         await loadEntries();
-        showToast('Eintrag geloescht.', {
+        const jiraNote = res.jira ? (res.jira.ok ? ' Der Kommentar in Jira ist entfernt.' : ` Der Kommentar in Jira konnte nicht entfernt werden: ${res.jira.error}`) : '';
+        showToast(`Eintrag gelöscht.${jiraNote}`, {
           label: 'Rückgängig',
           durationMs: 30000,
           onClick: async () => {
@@ -196,6 +205,33 @@
       }
     }
   });
+
+  /**
+   * Einträge als interne Kommentare nach Jira schreiben: ins eigene Ticket, ohne Ticket ins Tagesticket.
+   * Mehrere Einträge erst nach Rückfrage (mit Übersicht, welches Ticket wie viele bekommt).
+   */
+  async function postToJira(list) {
+    if (!list.length) return;
+    if (list.length > 1) {
+      const byKey = new Map();
+      for (const e of list) { const k = e.jiraKey || 'Tagesticket'; byKey.set(k, (byKey.get(k) || 0) + 1); }
+      const lines = [...byKey].map(([k, n]) => `${k}: ${n} Eintr${n === 1 ? 'ag' : 'äge'}`).join('\n');
+      if (!window.confirm(`${list.length} Einträge als interne Kommentare nach Jira schreiben?\n\n${lines}`)) return;
+    }
+    try {
+      const { results } = await Api.post('/api/jira/comments', { ids: list.map((e) => e.id), with_times: loadShowTimes() });
+      await loadEntries();
+      const ok = results.filter((r) => r.ok);
+      const failed = results.filter((r) => !r.ok);
+      if (!failed.length) {
+        showToast(ok.length === 1 ? `In ${ok[0].key} eingetragen${ok[0].daily ? ' (Tagesticket)' : ''}.` : `${ok.length} Einträge nach Jira geschrieben.`);
+      } else {
+        showToast(`${ok.length} geschrieben, ${failed.length} nicht: ${failed[0].error}`, { durationMs: 10000 });
+      }
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
 
   /**
    * Kopiert die uebergebenen Eintraege (in angezeigter Reihenfolge, eine Zeile je Eintrag, ohne Summenzeile) und
@@ -227,6 +263,8 @@
   }
 
   els.copyAllBtn.addEventListener('click', () => copyEntries(sortedEntries(), 'Tag kopiert.'));
+  const postOpenBtn = document.getElementById('postOpenBtn');
+  if (postOpenBtn) postOpenBtn.addEventListener('click', () => postToJira(sortedEntries().filter((e) => !e.transferred)));
   els.copyOpenBtn.addEventListener('click', () =>
     copyEntries(sortedEntries().filter((e) => !e.transferred), 'Offene Einträge kopiert.')
   );

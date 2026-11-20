@@ -30,6 +30,7 @@ const EVENT_LABELS = {
   berichtsheft_generated: 'Berichtsheft-Text erzeugt',
   berichtsheft_settings_changed: 'Berichtsheft-Einstellungen geaendert',
   jira_settings_changed: 'Jira-Anbindung geaendert',
+  jira_comments_written: 'Eintraege als Kommentar nach Jira geschrieben',
 };
 
 function labelFor(event) {

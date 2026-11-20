@@ -2016,3 +2016,9 @@ a.tasks__more-hint { color: var(--accent); text-decoration: none; }
   .st-tab__hint { display: none; }
   .st-tab { min-height: 40px; justify-content: center; }
 }
+
+/* Nach Jira schreiben: nur sichtbar, wenn unter Einstellungen → Jira eingeschaltet */
+.jira-write-only, .entry .jira-send-btn { display: none !important; }
+.jira-write .jira-write-only { display: inline-flex !important; }
+.jira-write .entry .jira-send-btn { display: inline-flex !important; }
+.entry .jira-send-btn svg { width: 16px; height: 16px; }

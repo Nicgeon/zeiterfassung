@@ -36,6 +36,7 @@
     if (!s.configured) return;
     base = s.baseUrl;
     document.documentElement.classList.add('jira-on');
+    document.documentElement.classList.toggle('jira-write', !!s.allowWrite);
   });
   ZeitJira.ticketUrl = (key) => (base ? `${base}/browse/${encodeURIComponent(String(key).toUpperCase())}` : '');
   document.addEventListener('click', async (e) => {
@@ -58,14 +59,21 @@
   const card = document.getElementById('jiraCard');
   if (!card) return;
   const $ = (id) => document.getElementById(id);
-  const el = { error: $('jiraError'), badge: $('jiraBadge'), url: $('jiraUrl'), email: $('jiraEmail'), token: $('jiraToken'), save: $('jiraSaveBtn'), test: $('jiraTestBtn'), clear: $('jiraClearBtn') };
+  const el = {
+    error: $('jiraError'), badge: $('jiraBadge'), url: $('jiraUrl'), email: $('jiraEmail'), token: $('jiraToken'),
+    save: $('jiraSaveBtn'), test: $('jiraTestBtn'), clear: $('jiraClearBtn'),
+    write: $('jiraWrite'), daily: $('jiraDailyProject'), dailyTest: $('jiraDailyTestBtn'),
+  };
 
   function show(s) {
     el.url.value = s.baseUrl || '';
     el.email.value = s.email || '';
     el.token.value = '';
     el.token.placeholder = s.hasToken ? 'Gespeichert – zum Ändern neuen Token einfügen' : 'API-Token einfügen';
-    el.badge.textContent = s.configured ? 'eingerichtet' : 'nicht eingerichtet';
+    el.badge.textContent = s.configured ? (s.allowWrite ? 'eingerichtet · schreibt Kommentare' : 'eingerichtet · nur lesend') : 'nicht eingerichtet';
+    el.write.checked = !!s.allowWrite;
+    el.daily.value = s.dailyProject || '';
+    el.dailyTest.disabled = !s.configured || !s.dailyProject;
     el.test.disabled = !s.configured;
     el.clear.disabled = !s.hasToken;
   }
@@ -76,7 +84,10 @@
     setFormError(el.error, '');
     el.save.disabled = true;
     try {
-      const s = await Api.put('/api/jira/settings', { baseUrl: el.url.value, email: el.email.value, apiToken: el.token.value });
+      const s = await Api.put('/api/jira/settings', {
+        baseUrl: el.url.value, email: el.email.value, apiToken: el.token.value,
+        allowWrite: el.write.checked, dailyProject: el.daily.value,
+      });
       ZeitJira.reset();
       show(s);
       showToast('Jira-Zugang gespeichert.');
@@ -96,6 +107,15 @@
       setFormError(el.error, err.message);
     } finally {
       el.test.disabled = false;
+    }
+  });
+  el.dailyTest.addEventListener('click', async () => {
+    setFormError(el.error, '');
+    try {
+      const r = await Api.get(`/api/jira/daily/${todayISO()}`);
+      showToast(r.key ? `Tagesticket für heute: ${r.key}` : `Für heute (${todayISO()}) gibt es noch kein Tagesticket.`);
+    } catch (err) {
+      setFormError(el.error, err.message);
     }
   });
   el.clear.addEventListener('click', async () => {

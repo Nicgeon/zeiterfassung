@@ -35,6 +35,31 @@ function issueView(i) {
   };
 }
 
+const PROJECT_RE = /^[A-Z][A-Z0-9_]+$/;
+
+function checkKey(key) {
+  const k = String(key || '').trim().toUpperCase();
+  if (!KEY_RE.test(k)) throw new JiraError('Ungültige Ticketnummer.', 400);
+  return k;
+}
+function checkId(id) {
+  if (!/^\d+$/.test(String(id || ''))) throw new JiraError('Ungültige Kommentar-ID.', 400);
+  return String(id);
+}
+
+/** Kommentar im Atlassian-Dokumentformat; "sd.public.comment" macht ihn in Service-Management-Projekten intern. */
+function commentBody(text) {
+  const lines = String(text || '').split('\n');
+  return {
+    body: {
+      type: 'doc',
+      version: 1,
+      content: [{ type: 'paragraph', content: lines.flatMap((line, i) => [...(i ? [{ type: 'hardBreak' }] : []), ...(line ? [{ type: 'text', text: line }] : [])]) }],
+    },
+    properties: [{ key: 'sd.public.comment', value: { internal: true } }],
+  };
+}
+
 function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, timeoutMs = 15_000 }) {
   const base = normalizeBaseUrl(baseUrl);
   const auth = `Basic ${Buffer.from(`${email}:${token}`).toString('base64')}`;
@@ -64,6 +89,7 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       if (res.status === 429) throw new JiraError('Jira meldet zu viele Anfragen. Bitte kurz warten.', 429);
       throw new JiraError(`Jira-Fehler (${res.status}).`, 502);
     }
+    if (res.status === 204) return null; // z. B. Kommentar gelöscht
     try { return await res.json(); } catch { throw new JiraError('Jira lieferte eine unlesbare Antwort.', 502); }
   }
 
@@ -78,6 +104,32 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       if (!KEY_RE.test(k)) throw new JiraError('Ungültige Ticketnummer.', 400);
       return issueView(await request('GET', `/rest/api/3/issue/${encodeURIComponent(k)}?fields=${FIELDS.join(',')}`));
     },
+    /**
+     * Ticket eines Tages im Projekt (Titel = Datum, z. B. "2026-11-20"), sonst null.
+     * Gesucht wird per Volltext, verglichen wird genau.
+     */
+    async dailyIssue(project, date) {
+      const p = String(project || '').trim().toUpperCase();
+      if (!PROJECT_RE.test(p)) throw new JiraError('Ungültiger Projektschlüssel für das Tagesticket.', 400);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new JiraError('Ungültiges Datum.', 400);
+      const data = await request('POST', '/rest/api/3/search/jql', { jql: `project = "${p}" AND summary ~ "\\"${date}\\"" ORDER BY created DESC`, fields: ['summary'], maxResults: 20 });
+      const hit = (data.issues || []).find((i) => String((i.fields && i.fields.summary) || '').trim() === date);
+      return hit ? hit.key : null;
+    },
+    /** Interner Kommentar (bei Service-Management-Projekten nur für das Team sichtbar). Gibt die Kommentar-ID zurück. */
+    async addComment(key, text) {
+      const k = checkKey(key);
+      const r = await request('POST', `/rest/api/3/issue/${encodeURIComponent(k)}/comment`, commentBody(text));
+      return String(r && r.id);
+    },
+    async updateComment(key, id, text) {
+      const k = checkKey(key);
+      await request('PUT', `/rest/api/3/issue/${encodeURIComponent(k)}/comment/${encodeURIComponent(checkId(id))}`, commentBody(text));
+    },
+    async deleteComment(key, id) {
+      const k = checkKey(key);
+      await request('DELETE', `/rest/api/3/issue/${encodeURIComponent(k)}/comment/${encodeURIComponent(checkId(id))}`);
+    },
     async myIssues({ max = 50 } = {}) {
       const data = await request('POST', '/rest/api/3/search/jql', { jql: MY_ISSUES_JQL, fields: FIELDS, maxResults: Math.min(100, Math.max(1, max)) });
       return (data.issues || []).map(issueView);
@@ -85,4 +137,4 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
   };
 }
 
-module.exports = { BASE_RE, KEY_RE, MY_ISSUES_JQL, JiraError, normalizeBaseUrl, createClient };
+module.exports = { BASE_RE, KEY_RE, PROJECT_RE, MY_ISSUES_JQL, JiraError, normalizeBaseUrl, createClient, commentBody };

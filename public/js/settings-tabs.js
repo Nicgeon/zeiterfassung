@@ -9,7 +9,7 @@
   const TABS = [
     { id: 'allgemein', label: 'Allgemein', hint: 'Uhrzeiten, Zuschlag, Azubi', lead: 'Wie die Zeiterfassung Zeiten aufnimmt und anzeigt.' },
     { id: 'programm', label: 'Programm & Updates', hint: 'Browser, Hintergrund, Autostart', lead: 'Das Programmfenster auf diesem Rechner, Hintergrundbetrieb und Updates.' },
-    { id: 'jira', label: 'Jira', hint: 'Tickets, Titel, Links', lead: 'Nur lesend: Titel nachladen, eigene Tickets holen, Tickets öffnen.' },
+    { id: 'jira', label: 'Jira', hint: 'Tickets, Kommentare, Tagesticket', lead: 'Titel nachladen, eigene Tickets holen, Tickets öffnen und auf Wunsch Einträge als interne Kommentare schreiben.' },
     { id: 'ki', label: 'Berichtsheft-KI', hint: 'Anbieter, Namenslisten', lead: 'KI-Anbieter und Anonymisierung für den Berichtsheft-Text.' },
     { id: 'sicherheit', label: 'Sicherheit', hint: 'Passwort, 2FA, Passkeys', lead: 'Anmeldung und Schutz deines Kontos.' },
     { id: 'daten', label: 'Daten', hint: 'Sicherung, Export, Import', lead: 'Deine Daten sichern und übernehmen.' },

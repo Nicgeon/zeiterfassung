@@ -89,9 +89,9 @@
     </div>
     <div id="jiraError"></div>
     <p class="text-muted text-sm">
-      Optional und nur lesend (Jira Cloud): Das Tool kann damit den Titel zu einer Ticketnummer nachladen und deine
-      offenen Tickets als Aufgaben übernehmen. Es schreibt nichts nach Jira. Adresse, E-Mail und Token liegen
-      verschlüsselt nur in deinem Konto.
+      Optional (Jira Cloud): Titel zu Ticketnummern nachladen, deine offenen Tickets als Aufgaben übernehmen, Tickets
+      öffnen – und, wenn du es unten einschaltest, Einträge als interne Kommentare in die Tickets schreiben.
+      Adresse, E-Mail und Token liegen verschlüsselt nur in deinem Konto.
     </p>
     <div class="field">
       <label for="jiraUrl">Jira-Adresse</label>
@@ -108,6 +108,21 @@
         Erzeugen unter id.atlassian.com → Sicherheit → „API-Token erstellen“ (Name z. B. „Zeiterfassung“). Der Token hat
         die Rechte deines Kontos; du kannst ihn dort jederzeit widerrufen.
       </p>
+    </div>
+    <h3 class="mt-lg">Einträge nach Jira schreiben</h3>
+    <label class="check-inline"><input type="checkbox" id="jiraWrite" /> Einträge als interne Kommentare in die Tickets schreiben</label>
+    <p class="field-hint">
+      Dann gibt es an jedem Eintrag ein Senden-Symbol und auf „Heute“ den Knopf „Offene nach Jira“. Ein Kommentar sieht aus
+      wie die Kopierzeile („45 Min – Netzwerkdoku ergänzt“, Zeit mit Zuschlag). Änderst oder löschst du den Eintrag
+      danach, wird der Kommentar mitgeändert bzw. entfernt.
+    </p>
+    <div class="field">
+      <label for="jiraDailyProject">Projekt für Tagestickets (Arbeiten ohne Ticket)</label>
+      <div class="flex gap-sm">
+        <input type="text" id="jiraDailyProject" class="mono" maxlength="20" placeholder="z. B. PITPM" autocomplete="off" />
+        <button type="button" class="btn btn--secondary btn--sm" id="jiraDailyTestBtn" disabled>Tagesticket von heute suchen</button>
+      </div>
+      <p class="field-hint">Einträge ohne Ticket landen im Ticket dieses Projekts, dessen Titel das Datum ist (z. B. „2026-11-20“).</p>
     </div>
     <div class="flex gap-sm flex-wrap">
       <button type="button" class="btn" id="jiraSaveBtn">Speichern</button>

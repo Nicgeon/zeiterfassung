@@ -6,6 +6,10 @@ const { encryptField, decryptField } = require('../lib/crypto');
 const { convertTicketLinks } = require('../../public/js/tickets');
 const { addDays, mondayOf } = require('../lib/dates');
 const segments = require('../lib/segments');
+const { createJiraComments } = require('../lib/jiraComments');
+
+// Schon nach Jira geschriebene Einträge: Änderungen und Löschen gehen in den Kommentar mit
+const jiraComments = createJiraComments({ db, decryptField });
 
 const router = express.Router();
 
@@ -117,6 +121,7 @@ function serialize(row) {
     school: !!row.school_day,
     segments: segments.parse(row.segments_json),
     taskId: row.task_id || null,
+    jiraComment: row.jira_comment_id ? row.jira_comment_issue : null, // Ticket, in dem der Kommentar steht
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -295,7 +300,7 @@ router.post('/', (req, res) => {
   });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const existing = getOwnStmt.get(req.params.id, req.user.id);
   if (!existing) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
 
@@ -323,7 +328,8 @@ router.put('/:id', (req, res) => {
     jira_key: result.jira_key,
     school_day: result.school_day,
   });
-  res.json({ entry: serialize(getOwnStmt.get(existing.id, req.user.id)) });
+  const jira = await jiraComments.afterEdit(req.user.id, existing.id, { withTimes: (req.body || {}).with_times === true });
+  res.json({ entry: serialize(getOwnStmt.get(existing.id, req.user.id)), jira });
 });
 
 /** Haken "nach Jira uebertragen" setzen oder entfernen. */
@@ -438,10 +444,13 @@ router.post('/import', (req, res) => {
 });
 
 /** Loeschen legt zunaechst nur in den Papierkorb (fuer "Rueckgaengig"). */
-router.delete('/:id', (req, res) => {
-  const info = softDeleteStmt.run(req.params.id, req.user.id);
-  if (info.changes === 0) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
-  res.json({ status: 'ok', undoSeconds: 30 });
+router.delete('/:id', async (req, res) => {
+  const existing = getOwnStmt.get(req.params.id, req.user.id);
+  if (!existing) return res.status(404).json({ error: 'Eintrag nicht gefunden.' });
+  // Schon nach Jira geschrieben: den Kommentar dort entfernen (Rückgängig stellt nur den Eintrag wieder her)
+  const jira = await jiraComments.beforeDelete(req.user.id, existing);
+  softDeleteStmt.run(existing.id, req.user.id);
+  res.json({ status: 'ok', undoSeconds: 30, jira });
 });
 
 router.post('/:id/restore', (req, res) => {
