@@ -2196,3 +2196,13 @@ button.week-row:hover { background: var(--surface-alt); }
 .bh-steps li.is-done .bh-steps__mark::before { content: '✓'; font-size: 12px; }
 @media (max-width: 640px) { .bh-steps small { display: none; } }
 .report-card .bh-step { margin-top: 0; }
+
+/* --- Einstellungen → Erinnerungen ----------------------------------------------------------------------- */
+.rm-list { display: flex; flex-direction: column; gap: 6px; }
+.rm-item { padding: 12px 0; border-top: 1px solid var(--border); }
+.rm-item:first-child { border-top: 0; }
+.rm-item .checkbox-label { margin-bottom: 6px; }
+.rm-item__detail { padding-left: 26px; font-size: 14px; line-height: 2.2; color: var(--ink-muted); }
+.rm-item__detail input[type='number'] { width: 76px; min-height: 36px; display: inline-block; margin: 0 4px; }
+.rm-item__detail input[type='time'] { width: 136px; min-height: 36px; display: inline-block; margin: 0 4px; }
+.rm-item--off .rm-item__detail { opacity: 0.55; }

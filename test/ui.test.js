@@ -138,6 +138,18 @@ test('Einstellungen: Unterreiter, Adresse merkt den Reiter; lokal kein Reiter "S
     assert.ok(!labels.includes('Sicherheit'));
     await page.click('[data-tab-id="allgemein"]');
     assert.ok(await page.isVisible('#settingsCard'));
+
+    // Erinnerungen: Änderungen werden sofort gespeichert
+    await page.click('[data-tab-id="erinnerungen"]');
+    await page.waitForFunction(() => document.getElementById('rmIdleMinutes').value === '45');
+    await page.uncheck('#rmIdle');
+    await page.fill('#rmEndTime', '17:15');
+    await page.dispatchEvent('#rmEndTime', 'change');
+    await page.waitForFunction(() => document.querySelector('#rmIdleMinutes').disabled);
+    await page.waitForTimeout(300);
+    const saved = (await api(page, 'GET', '/api/reminders')).settings;
+    assert.equal(saved.idle, false);
+    assert.equal(saved.endTime, '17:15');
   });
 });
 

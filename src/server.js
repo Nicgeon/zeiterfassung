@@ -29,6 +29,8 @@ const berichtsheftRoutes = require('./routes/berichtsheft');
 const appMode = require('./lib/appMode');
 const { createAutostart } = require('./lib/autostart');
 const { startReminderLoop } = require('./lib/taskReminders');
+const { createWorkReminders, startWorkReminderLoop } = require('./lib/workReminders');
+const remindersRoutes = require('./routes/reminders');
 const systemNotify = require('./lib/notify');
 const updater = require('./lib/updater');
 
@@ -216,6 +218,11 @@ app.use('/api/entries', requireAuth, entriesRoutes);
 app.use('/api/timer', requireAuth, timerRoutes);
 app.use('/api/jira', requireAuth, jiraRoutes.createRouter({ db, encryptField, decryptField, audit }));
 app.use('/api/tasks', requireAuth, tasksRoutes.createRouter({ db, encryptField, decryptField, convertTicketLinks }));
+// Erinnerungen als Systembenachrichtigung gibt es nur lokal (dort läuft das Programm auf dem eigenen Rechner)
+const remindersActive = config.localMode && process.env.ZEIT_NO_REMINDERS !== '1';
+const workReminders = createWorkReminders({ db, decryptField });
+const showNotification = (n) => systemNotify.notify(n, { log: (m) => console.log(m) }); // eslint-disable-line no-console
+app.use('/api/reminders', requireAuth, remindersRoutes.createRouter({ reminders: workReminders, notify: showNotification, active: remindersActive }));
 app.use('/api/account', requireAuth, accountRoutes);
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/api/update', requireAuth, updateRoutes);
@@ -327,14 +334,11 @@ setInterval(runRetentionCleanup, 24 * 60 * 60 * 1000).unref();
 
 const listenArgs = config.host ? [config.port, config.host] : [config.port];
 const server = app.listen(...listenArgs, () => {
-  // Erinnerungen an faellige Aufgaben als Systembenachrichtigung (nur lokal: dort laeuft das Programm auf dem eigenen Rechner)
-  if (config.localMode && process.env.ZEIT_NO_REMINDERS !== '1') {
-    startReminderLoop({
-      db,
-      decryptField,
-      notify: (n) => systemNotify.notify(n, { log: (m) => console.log(m) }), // eslint-disable-line no-console
-      log: (m) => console.log(m), // eslint-disable-line no-console
-    });
+  // Erinnerungen (fällige Aufgaben, Timer läuft lange, lange nichts erfasst, Feierabend) als Systembenachrichtigung
+  if (remindersActive) {
+    const log = (m) => console.log(m); // eslint-disable-line no-console
+    startReminderLoop({ db, decryptField, notify: showNotification, allow: (userId) => workReminders.settings(userId).tasks, log });
+    startWorkReminderLoop({ reminders: workReminders, notify: showNotification, log });
   }
   if (localMode.announce()) return;
   // eslint-disable-next-line no-console

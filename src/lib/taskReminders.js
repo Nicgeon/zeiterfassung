@@ -57,13 +57,15 @@ function formatReminders(list) {
 }
 
 /**
- * Prüft regelmäßig auf fällige Aufgaben und ruft notify({title, body, tasks}) auf.
+ * Prüft regelmäßig auf fällige Aufgaben und ruft notify({title, body, tasks}) auf; allow(userId) = false schaltet die
+ * Meldungen einer Person ab.
  * Gibt eine Funktion zum Beenden zurück.
  */
-function startReminderLoop({ db, decryptField, notify, intervalMs = 30_000, now = () => new Date(), log = () => {} }) {
+function startReminderLoop({ db, decryptField, notify, allow = () => true, intervalMs = 30_000, now = () => new Date(), log = () => {} }) {
   const tick = () => {
     try {
-      const list = takeDueReminders(db, decryptField, now());
+      // abgeschaltete Personen: Fälligkeit trotzdem als gemeldet vermerken (sonst kämen beim Einschalten alle auf einmal)
+      const list = takeDueReminders(db, decryptField, now()).filter((r) => allow(r.user_id));
       const msg = formatReminders(list);
       if (msg) notify({ ...msg, tasks: list });
     } catch (err) {

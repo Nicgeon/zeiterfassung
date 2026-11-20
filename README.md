@@ -473,11 +473,26 @@ Datenbank gespeichert (Titel verschlüsselt wie die Einträge) und gelten damit 
 **Erinnerungen** (nur im lokalen Betrieb): Eine Aufgabe mit Datum und Uhrzeit meldet sich zu dieser Zeit, eine nur mit
 Datum um 09:00 an dem Tag, jeweils einmal als Systembenachrichtigung (Windows, macOS: `osascript`, Linux:
 `notify-send`). Was beim Start schon fällig war, kommt nachgeholt als „überfällig“. Damit das auch ohne offenes Fenster
-klappt: **Konto → Programm → „Im Hintergrund weiterlaufen“** (das Programm bleibt nach dem Schließen des Fensters aktiv;
+klappt: **Einstellungen → Programm & Updates → „Im Hintergrund weiterlaufen“** (das Programm bleibt nach dem Schließen des Fensters aktiv;
 ein Klick auf das Programm-Symbol öffnet das Fenster wieder) und optional **„Beim Anmelden automatisch im Hintergrund
 starten“** (Autostart-Eintrag im eigenen Benutzerordner, kein Administrator nötig; `--hintergrund` startet ohne
 Fenster). Beenden geht weiter unter *Konto → Programm → Zeiterfassung beenden*. Die Schnittstelle kennt auch „Später
 erinnern“ (`POST /api/tasks/:id/snooze`), eine Schaltfläche dafür gibt es noch nicht.
+
+**Erinnerungen gegen Vergessen** (nur im lokalen Betrieb, *Einstellungen → Erinnerungen*, jede einzeln abschaltbar,
+Änderungen werden sofort gespeichert; „Test-Benachrichtigung“ prüft, ob Windows die Meldungen anzeigt):
+
+- **Timer läuft lange:** nach 3 Stunden (einstellbar 1–12) „Timer läuft seit 3:01 Std. – „Netzwerkdoku“ noch dran?“,
+  danach im selben Abstand erneut. Gezählt ab dem echten Start des laufenden Timers.
+- **Lange nichts erfasst:** nach 45 Minuten (15–240) ohne Timer und ohne neuen Eintrag, nur Mo–Fr in der eingestellten
+  Arbeitszeit (Standard 07:00–17:00) und erst nach dem ersten Eintrag des Tages. Als „zuletzt“ zählt das Ende echter
+  Zeiträume sowie das Anlegen oder Ändern eines Eintrags. Einmal je Lücke.
+- **Feierabend:** zur eingestellten Uhrzeit (Standard 16:30), wenn heute noch Einträge nicht in Jira sind (Berufsschule
+  zählt nicht) oder der Timer läuft. Einmal am Tag.
+- **Fällige Aufgaben:** wie oben beschrieben.
+
+Welche Meldung schon kam, merkt sich das Programm (Tabelle `reminder_log`, wird nach 14 Tagen aufgeräumt), auch über
+einen Neustart hinweg.
 
 **Oberfläche:** Ab 1000 px Breite steht die Navigation links als Seitenleiste (Farben und Themes unverändert), darunter
 auf der Erfassungsseite links die Aufgaben und rechts Erfassung, Tagesband (erfasst / in Jira / offen) und Einträge.

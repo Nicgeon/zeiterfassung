@@ -8,6 +8,7 @@
   if (!tabsEl) return;
   const TABS = [
     { id: 'allgemein', label: 'Allgemein', hint: 'Uhrzeiten, Zuschlag, Azubi', lead: 'Wie die Zeiterfassung Zeiten aufnimmt und anzeigt.' },
+    { id: 'erinnerungen', label: 'Erinnerungen', hint: 'Timer, Lücken, Feierabend', lead: 'Benachrichtigungen, damit keine Zeit verloren geht.' },
     { id: 'programm', label: 'Programm & Updates', hint: 'Browser, Hintergrund, Autostart', lead: 'Das Programmfenster auf diesem Rechner, Hintergrundbetrieb und Updates.' },
     { id: 'jira', label: 'Jira', hint: 'Tickets, Kommentare, Tagesticket', lead: 'Titel nachladen, eigene Tickets holen, Tickets öffnen und auf Wunsch Einträge als interne Kommentare schreiben.' },
     { id: 'ki', label: 'Berichtsheft-KI', hint: 'Anbieter, Namenslisten', lead: 'KI-Anbieter und Anonymisierung für den Berichtsheft-Text.' },
@@ -15,7 +16,8 @@
     { id: 'daten', label: 'Daten', hint: 'Sicherung, Export, Import', lead: 'Deine Daten sichern und übernehmen.' },
   ];
   const cards = [...document.querySelectorAll('[data-tab]')];
-  let current = null;
+  let current = null; // angezeigter Bereich
+  let wanted = null; // gewünschter Bereich (aus der Adresse); kann erst nach der Anmeldeprüfung sichtbar werden
 
   // Sichtbar = nicht durch Betriebsart (local-only/local-hide) ausgeblendet
   const available = (tab) => cards.some((c) => c.dataset.tab === tab.id && !(
@@ -24,7 +26,7 @@
 
   function render() {
     const tabs = TABS.filter(available);
-    if (!tabs.some((t) => t.id === current)) current = tabs.length ? tabs[0].id : null;
+    current = tabs.some((t) => t.id === wanted) ? wanted : tabs.length ? tabs[0].id : null;
     tabsEl.innerHTML = tabs.map((t) => `
       <button type="button" role="tab" class="st-tab${t.id === current ? ' is-active' : ''}" aria-selected="${t.id === current}" data-tab-id="${t.id}">
         <span class="st-tab__label">${t.label}</span><span class="st-tab__hint">${t.hint}</span>
@@ -36,7 +38,7 @@
   }
 
   function select(id, push) {
-    current = id;
+    wanted = id;
     render();
     if (push) history.replaceState(null, '', `#${id}`);
     window.scrollTo({ top: 0 });
@@ -48,7 +50,7 @@
   });
   window.addEventListener('hashchange', () => select(location.hash.slice(1), false));
 
-  current = location.hash.slice(1) || 'allgemein';
+  wanted = location.hash.slice(1) || 'allgemein';
   render();
   // Die Betriebsart steht erst nach der Anmeldeprüfung fest (body.local-mode): dann neu sortieren
   new MutationObserver(render).observe(document.body, { attributes: true, attributeFilter: ['class'] });

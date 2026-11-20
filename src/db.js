@@ -119,6 +119,21 @@ CREATE TABLE IF NOT EXISTS berichtsheft_settings (
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Erinnerungen gegen Vergessen (Timer läuft lange, lange nichts erfasst, Feierabend): Einstellungen pro Person und
+-- welche Meldung schon kam (kind + ref, z. B. "idle" + "2026-11-20 11:20"), damit nichts doppelt erscheint.
+CREATE TABLE IF NOT EXISTS reminder_settings (
+  user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  config_json  TEXT NOT NULL,
+  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS reminder_log (
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind     TEXT NOT NULL,
+  ref      TEXT NOT NULL,
+  sent_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, kind, ref)
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER,
@@ -291,6 +306,7 @@ function runRetentionCleanup() {
   db.prepare("DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < datetime('now', '-1 day')").run();
   // Lange erledigte Aufgaben ohne Wiederholung nach 90 Tagen entfernen (die Liste soll uebersichtlich bleiben)
   db.prepare("DELETE FROM tasks WHERE status = 'done' AND done_at < datetime('now', '-90 days')").run();
+  db.prepare("DELETE FROM reminder_log WHERE sent_at < datetime('now', '-14 days')").run();
 }
 
 /** Beendet alle Sitzungen eines bestimmten Nutzers (z.B. nach Passwort-Reset). */

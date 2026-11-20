@@ -81,6 +81,46 @@
     </div>
   </div>
 
+  <!-- Erinnerungen gegen Vergessen (nur im Programm auf dem eigenen Rechner) -->
+  <div data-tab="erinnerungen" class="card local-only" id="remindCard">
+    <div class="card__header">
+      <h2>Erinnerungen</h2>
+      <button type="button" class="btn btn--secondary btn--sm" id="rmTestBtn">Test-Benachrichtigung</button>
+    </div>
+    <p class="field-hint">Erscheinen als Benachrichtigung von Windows (bzw. macOS/Linux), solange die Zeiterfassung läuft – auch
+      im Hintergrund ohne offenes Fenster. Änderungen werden sofort gespeichert.</p>
+    <div id="rmError"></div>
+    <div class="rm-list">
+      <div class="rm-item">
+        <label class="checkbox-label"><input type="checkbox" id="rmTimerLong" /><span><strong>Timer läuft lange</strong></span></label>
+        <div class="rm-item__detail">
+          Nachfragen nach <input type="number" id="rmTimerHours" min="1" max="12" step="1" inputmode="numeric" aria-label="Stunden" /> Stunden,
+          danach im selben Abstand erneut („Noch dran?“).
+        </div>
+      </div>
+      <div class="rm-item">
+        <label class="checkbox-label"><input type="checkbox" id="rmIdle" /><span><strong>Lange nichts erfasst</strong></span></label>
+        <div class="rm-item__detail">
+          Melden nach <input type="number" id="rmIdleMinutes" min="15" max="240" step="5" inputmode="numeric" aria-label="Minuten" /> Minuten
+          ohne Timer und ohne neuen Eintrag, Mo–Fr zwischen
+          <input type="time" id="rmWorkFrom" aria-label="Arbeitszeit von" /> und <input type="time" id="rmWorkTo" aria-label="Arbeitszeit bis" /> Uhr.
+          Erst nach dem ersten Eintrag des Tages, einmal je Lücke.
+        </div>
+      </div>
+      <div class="rm-item">
+        <label class="checkbox-label"><input type="checkbox" id="rmEnd" /><span><strong>Feierabend</strong></span></label>
+        <div class="rm-item__detail">
+          Um <input type="time" id="rmEndTime" aria-label="Uhrzeit Feierabend" /> Uhr melden, wenn heute noch Einträge nicht in Jira
+          sind (ohne Berufsschule) oder der Timer läuft. Einmal am Tag.
+        </div>
+      </div>
+      <div class="rm-item">
+        <label class="checkbox-label"><input type="checkbox" id="rmTasks" /><span><strong>Fällige Aufgaben</strong></span></label>
+        <div class="rm-item__detail">Zur Uhrzeit der Aufgabe, ohne Uhrzeit um 09:00 Uhr.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Jira-Anbindung (optional, nur lesend) -->
   <div data-tab="jira" class="card" id="jiraCard">
     <div class="card__header">
@@ -359,6 +399,7 @@
 <script src="/js/update.js"></script>
 <script src="/js/account.js"></script>
 <script src="/js/jira.js"></script>
+<script src="/js/erinnerungen.js"></script>
 <script src="/js/settings-tabs.js"></script>
 <script src="/js/berichtsheft.js"></script>
 </body>
