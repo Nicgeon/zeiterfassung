@@ -221,6 +221,9 @@ app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 app.use('/api/update', requireAuth, updateRoutes);
 if (config.localMode) {
   const launcherFile = path.join(config.dataDir, 'launcher.json');
+  // Autostart-Eintrag bei jedem Start auf den aktuellen Stand bringen (ältere Versionen schrieben ihn fehlerhaft)
+  const autostart = createAutostart({ root: path.resolve(__dirname, '..') });
+  try { if (autostart.isEnabled()) autostart.enable(); } catch { /* nur Komfort */ }
   const backgroundWanted = () => {
     if (process.env.ZEIT_BACKGROUND === '1') return true;
     try { return JSON.parse(fs.readFileSync(launcherFile, 'utf8')).background === true; } catch { return false; }
@@ -249,7 +252,7 @@ if (config.localMode) {
     appMode: appModeOn,
     quit: () => process.exit(0),
     settingsFile: launcherFile,
-    autostart: createAutostart({ root: path.resolve(__dirname, '..') }),
+    autostart,
     openExternal: require('./lib/appWindow').openInDefaultBrowser,
     currentBrowser: (() => { try { return JSON.parse(process.env.ZEIT_WINDOW_BROWSER || 'null'); } catch { return null; } })(),
     // Der Starter (Elternprozess) oeffnet das Fenster; nur vorhanden, wenn er den Server mit Nachrichtenkanal startet

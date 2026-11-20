@@ -358,6 +358,16 @@ test('Autostart: Dateien und Inhalte je Plattform, im Benutzerordner, ohne Fremd
   a.disable();
   assert.equal(a.isEnabled(), false);
   assert.equal(createAutostart({ root: '/x', platform: 'freebsd' }).supported, false);
+
+  // Windows: genau ein Paar Anführungszeichen um den Pfad (wie Zeiterfassung-Mini.vbs), Datei als UTF-16 mit BOM
+  const vbs = autostartContent('win32', 'C:\\Users\\Jörg Müller\\Zeit\\');
+  assert.ok(vbs.includes('dir = "C:\\Users\\Jörg Müller\\Zeit"\r\n'));
+  assert.ok(vbs.includes('sh.Run "cmd /c """ & dir & "\\start-app.bat"" --hintergrund", 0, False'));
+  const written = {};
+  const fakeFs = { mkdirSync() {}, writeFileSync: (f, data) => { written.data = data; }, existsSync: () => true, rmSync() {} };
+  createAutostart({ root: 'C:\\Zeit', platform: 'win32', env: { APPDATA: 'C:\\AppData' }, fsImpl: fakeFs }).enable();
+  assert.deepEqual([...written.data.subarray(0, 2)], [0xff, 0xfe]);
+  assert.match(written.data.subarray(2).toString('utf16le'), /start-app\.bat/);
 });
 
 test('Einstellungsroute: Hintergrund und Autostart (Autostart schaltet Hintergrund ein), ungültige Werte abgelehnt', async () => {

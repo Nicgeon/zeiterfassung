@@ -28,14 +28,18 @@ function autostartFile({ platform = process.platform, home = os.homedir(), env =
 /** Inhalt des Eintrags; root = Programmordner. */
 function autostartContent(platform, root) {
   if (platform === 'win32') {
-    const bat = path.join(root, 'start-app.bat').replace(/"/g, '""');
+    // Gleiches Muster wie Zeiterfassung-Mini.vbs: cmd /c "<Ordner>\start-app.bat" --hintergrund. Genau ein Paar
+    // Anführungszeichen um den Pfad – bei zwei Paaren entfernt cmd sie, und der Pfad zerfällt an Leerzeichen.
+    // Der Ordner wird immer mit "\" angehängt (path.join würde unter Linux/Tests "/" benutzen).
+    const dir = root.replace(/[\\/]+$/, '').replace(/"/g, '""');
     return [
       "' Startet die Zeiterfassung beim Anmelden im Hintergrund (ohne Fenster).",
       'Option Explicit',
-      'Dim sh',
+      'Dim sh, dir',
+      `dir = "${dir}"`,
       'Set sh = CreateObject("WScript.Shell")',
-      `sh.CurrentDirectory = "${root.replace(/"/g, '""')}"`,
-      `sh.Run "cmd /c """"${bat}"""" ${ARG}", 0, False`,
+      'sh.CurrentDirectory = dir',
+      `sh.Run "cmd /c """ & dir & "\\start-app.bat"" ${ARG}", 0, False`,
       '',
     ].join('\r\n');
   }
@@ -77,7 +81,10 @@ function createAutostart({ root, platform = process.platform, home = os.homedir(
     enable() {
       if (!file) throw new Error('Autostart wird auf diesem System nicht unterstützt.');
       fsImpl.mkdirSync(path.dirname(file), { recursive: true });
-      fsImpl.writeFileSync(file, autostartContent(platform, root));
+      const content = autostartContent(platform, root);
+      // Windows Script Host liest UTF-16 mit BOM sicher (Umlaute im Pfad, z. B. C:\Users\Jörg); sonst UTF-8
+      if (platform === 'win32') fsImpl.writeFileSync(file, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(content, 'utf16le')]));
+      else fsImpl.writeFileSync(file, content);
     },
     disable() {
       if (file) fsImpl.rmSync(file, { force: true });
