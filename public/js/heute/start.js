@@ -19,7 +19,6 @@
     }
     els.userLabel.textContent = me.user.displayName;
     if (me.user.role === 'admin') els.adminNavLink.classList.remove('hidden');
-    if (me.user.isApprentice) document.getElementById('weeklyNavLink').classList.remove('hidden');
     await Api.primeCsrf();
     await Promise.all([loadEntries(), loadTimer()]);
   }

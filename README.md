@@ -20,8 +20,8 @@ Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
 - [Mehrere Adressen für dieselbe Installation](#mehrere-adressen-für-dieselbe-installation)
 - [Ersten Admin-Account anlegen](#ersten-admin-account-anlegen)
 - [Nutzung](#nutzung)
-- [Übersicht: Woche & Monat](#übersicht-woche--monat)
-- [Wochenbericht für Azubis](#wochenbericht-für-azubis)
+- [Auswertung: Woche, Monat, Zeitraum](#auswertung-woche-monat-zeitraum)
+- [Berichte: Wochenbericht und Berichtsheft](#berichte-wochenbericht-und-berichtsheft)
 - [Berichtsheft-Text mit KI](#berichtsheft-text-mit-ki)
 - [Verwaltung per Kommandozeile](#verwaltung-per-kommandozeile)
 - [Logs](#logs)
@@ -297,14 +297,14 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   gilt pro Browser.
 - **Uhrzeiten aus (Standard)**: Ohne die Option „Uhrzeiten verwenden" arbeitet
   die Oberfläche nur mit Dauern: Einträge werden über die Dauer erfasst (es gibt
-  keine Start-/Endfelder und keinen Umschalter), Tagesliste und Übersichtstabelle
+  keine Start-/Endfelder und keinen Umschalter), Tagesliste und Tabelle der Auswertung
   zeigen keine Uhrzeiten, der CSV-Export enthält keine Start-/Endspalten, und
   die Kopierzeile hat keine Zeiten. Intern bekommt jeder Eintrag trotzdem Start
   und Ende: Er schließt lückenlos an den letzten des Tages an, der erste des
   heutigen Tages endet „jetzt", der erste eines anderen Tages beginnt (unsichtbar)
   um 08:00. Wer einmal mit Uhrzeiten gearbeitet hat und „Uhrzeiten verwenden"
   einschaltet, sieht alles wieder, auch die früher erfassten Zeiten.
-- **Sortierung**: Über der Tagesliste (und der Tabelle in der Übersicht)
+- **Sortierung**: Über der Tagesliste (und der Tabelle in der Auswertung)
   lässt sich die Reihenfolge wählen: älteste/neueste zuerst, längste zuerst
   oder nach Ticket. Die Wahl merkt sich der Browser. „Tag kopieren"
   übernimmt die angezeigte Reihenfolge.
@@ -335,8 +335,8 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
 - **Datensicherung**: Unter „Konto" lassen sich die eigenen Einträge als
   JSON-Datei exportieren und wieder importieren (vorhandene Einträge werden
   übersprungen). Die Datei enthält die Texte **unverschlüsselt**. In der
-  Übersicht gibt es zusätzlich einen CSV-Export der angezeigten Tabelle und
-  den Filter „nur noch nicht in Jira".
+  Auswertung gibt es zusätzlich einen CSV-Export der angezeigten Tabelle und
+  den Filter „Nur offen".
 - **Jira-Links werden zu Ticketnummern**: Ein eingefügter Link wie
   `https://firma.atlassian.net/browse/ITPKK-1234` oder ein Service-Desk-Link
   (`…/jira/servicedesk/projects/ITPKB/queues/custom/33/ITPKB-1234`) wird im
@@ -355,46 +355,39 @@ Kommandozeile wird nur für den allerersten Account gebraucht.
   markiert ihn als „in Jira eingetragen".
 - **Konto**: Passwort ändern, 2FA (Authenticator-App) und Passkeys unter
   "Konto" einrichten.
-- **Wochenbericht** (nur für als Azubi gekennzeichnete Konten): Export der
-  Wochen-Aufgaben als reiner Text ohne Uhrzeiten, siehe
-  [eigener Abschnitt](#wochenbericht-für-azubis).
+- **Berichte**: Export der Wochen-Aufgaben als reiner Text ohne Uhrzeiten, für Azubis zusätzlich der
+  Berichtsheft-Text, siehe [eigener Abschnitt](#berichte-wochenbericht-und-berichtsheft).
 - **Team** (nur Admins): Nutzer:innen anlegen/deaktivieren, Passwort oder
   2FA/Passkeys eines Kontos zurücksetzen (z.B. bei verlorenem Gerät),
   Sicherheits-Protokoll einsehen.
 
-## Übersicht: Woche & Monat
+## Auswertung: Woche, Monat, Zeitraum
 
-Der Menüpunkt **Übersicht** zeigt für eine Kalenderwoche oder einen Monat:
+Der Bereich **Auswertung** zeigt eine Kalenderwoche, einen Monat oder einen frei gewählten Zeitraum („Zeitraum …“,
+höchstens 400 Tage; ← und → springen um dieselbe Länge weiter):
 
-- Kennzahlen: Gesamtzeit, noch nicht nach Jira übertragene Zeit, Anzahl
-  erfasster Tage und Durchschnitt pro erfasstem Tag
-- einen Balken pro Tag, auch Tage ohne Einträge, um Lücken zu erkennen
-- Summen je Jira-Ticket, mit einem Knopf, der die Zusammenfassung
-  kopierfertig in die Zwischenablage legt (`FIN-3: 4h 30m (270 Min)`)
-- eine Tabelle aller Einträge des Zeitraums samt Übertragungsstatus
+- **Kennzahlen**: erfasst (mit Anzahl Tage und Ø pro Tag), davon in Jira, noch offen (mit „Offene nach Jira“, wenn das
+  Schreiben nach Jira eingeschaltet ist)
+- **Woche**: ein Zeitstrahl je Tag (grün in Jira, blau offen, schraffiert die Lücken zwischen den Einträgen, rote Linie
+  jetzt); Einträge ohne bekannte Uhrzeit stehen als „+0:30 ohne Uhrzeit“ daneben. Ein Klick auf einen Tag filtert die
+  Einträge darunter. Ein freier Zeitraum bis 14 Tage sieht genauso aus, längere als Wochenliste.
+- **Monat**: Kalender mit Stunden und Balken je Tag, Werktage ohne Eintrag schraffiert, Schultage markiert; ein Klick
+  öffnet die Woche. Daneben die Summen je Kalenderwoche.
+- **Wohin ging die Zeit?**: Summe je Ticket oder je Aufgabe, aufgeteilt in eingetragen und offen; ein Klick sucht die
+  passenden Einträge. „Zusammenfassung kopieren“ legt die Summen je Ticket in die Zwischenablage
+  (`FIN-3: 4h 30m (270 Min)`).
+- **Einträge**: Tabelle mit Suche (Text oder Ticket), „Alle / Nur offen“, Sortierung, Senden nach Jira je Eintrag und
+  CSV-Export der angezeigten Zeilen.
 
 Auch hier gilt die Datentrennung: Jede Person sieht ausschließlich die
 eigenen Einträge.
 
-## Wochenbericht für Azubis
+## Berichte: Wochenbericht und Berichtsheft
 
-Zusätzlich zur Rolle (Mitarbeiter:in / Administrator:in) kann ein Konto als
-**Azubi** gekennzeichnet werden. Das ist unabhängig von der Rolle, ein Azubi
-kann also auch Admin sein.
-
-Setzen lässt sich die Kennzeichnung im Team-Bereich über die Schaltfläche
-„Als Azubi“ oder per Kommandozeile:
-
-```bash
-docker compose exec app npm run user -- azubi lena.musterfrau an
-docker compose exec app npm run user -- azubi lena.musterfrau aus
-```
-
-Gekennzeichnete Konten sehen dann oben den zusätzlichen Menüpunkt
-**Wochenbericht**. Dort lässt sich eine Kalenderwoche auswählen und als Text
-für den Berichtsheft-Eintrag ausgeben – **ohne Uhrzeiten und ohne Dauer**,
-nur die Aufgabentexte. Der Text kann kopiert oder als `.txt` gespeichert
-werden.
+Der Bereich **Berichte** steht allen zur Verfügung. Oben steht die Woche auf einen Blick (Einträge je Tag, Schultage,
+heute). Der **Wochenbericht** gibt eine Kalenderwoche als Text aus – **ohne Uhrzeiten und ohne Dauer**, nur die
+Aufgabentexte, z. B. für die Berufsschule oder einen Statusbericht. Der Text kann kopiert oder als `.txt` gespeichert
+werden; die gewählte Darstellung merkt sich der Browser.
 
 Einstellbar sind:
 - **Format**: nach Tagen gruppiert (mit Wochentag und Datum) oder
@@ -416,13 +409,22 @@ Mittwoch, 23.09.2026
 - Berufsschule
 ```
 
-Tage ohne Einträge werden weggelassen. Auch hier gilt die Datentrennung:
-Azubis sehen ausschließlich ihre eigenen Einträge.
+Tage ohne Einträge werden weggelassen; Tage nur mit Einträgen „Berufsschule“ bekommen den Zusatz „(Berufsschule)“.
+
+Den **Berichtsheft-Text** (siehe [Berichtsheft-Text mit KI](#berichtsheft-text-mit-ki)) sehen nur Konten, die als
+**Azubi** gekennzeichnet sind. Die Kennzeichnung ist unabhängig von der Rolle (ein Azubi kann auch Admin sein) und
+lässt sich unter *Einstellungen → Allgemein* („Ich bin Azubi“), im Team-Bereich („Als Azubi“) oder per Kommandozeile
+setzen:
+
+```bash
+docker compose exec app npm run user -- azubi lena.musterfrau an
+docker compose exec app npm run user -- azubi lena.musterfrau aus
+```
 
 ## Bereiche und Seite „Heute“
 
 Die Seitenleiste hat fünf Bereiche: **Heute** (Erfassung), **Aufgaben**, **Auswertung** (bisher „Übersicht“),
-**Berichte** (Wochenbericht und Berichtsheft-Text, für Azubis) und **Einstellungen** (bisher „Konto“); Admins sehen
+**Berichte** (Wochenbericht für alle, Berichtsheft-Text für Azubis) und **Einstellungen** (bisher „Konto“); Admins sehen
 zusätzlich **Team**. Am Menüpunkt „Aufgaben“ steht die Zahl der heute fälligen bzw. überfälligen Aufgaben.
 
 **Heute**
@@ -530,7 +532,7 @@ Fließtext, ohne Namen, Daten und Wochentage).
    `AI_API_KEY`) und eine **eigene OpenAI-kompatible Adresse** (z. B. ein lokales Modell über Ollama – dann
    verlässt nichts den Rechner). Darunter pflegst du Namen (Personen,
    Kunden, Firmen), Begriffe, die nie ersetzt werden (z. B. *Lini*), und Stichwörter für die Berufsschule.
-2. **Wochenbericht → „Berichtsheft-Text mit KI“** (sichtbar für als Azubi gekennzeichnete Konten): Woche wählen,
+2. **Berichte → „Berichtsheft-Text“** (sichtbar für als Azubi gekennzeichnete Konten; Schrittleiste Wörter prüfen → Vorschau → Text): Woche wählen,
    **„Vorschau erstellen“**, unbekannte Wörter einmalig kennzeichnen, die Vorschau prüfen und **„An KI senden“**.
    Das Ergebnis erscheint in zwei Textfeldern (von Hand änderbar) mit Knöpfen zum Kopieren und als `.txt`.
    „Nur lokal zusammenstellen“ funktioniert ganz ohne KI.
@@ -709,7 +711,7 @@ Die Daten liegen unter `~/Library/Application Support/Zeiterfassung` (ein bereit
 **Was im lokalen Modus anders ist**
 - Die App lauscht ausschliesslich auf `127.0.0.1`; aus dem Netzwerk ist sie nicht erreichbar. Fremde Hostnamen werden abgewiesen (Schutz gegen DNS-Rebinding).
 - Es gibt keine Anmeldung: Der lokale Nutzer ist automatisch angemeldet. Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Geschuetzt sind die Daten durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschluesselung der Beschreibungen (AES-256-GCM).
-- Den Azubi-Schalter (Wochenbericht) gibt es unter *Konto -> Einstellungen*.
+- Den Azubi-Schalter (Berichtsheft-Text unter „Berichte“) gibt es unter *Einstellungen → Allgemein*.
 - Anderen Port: Umgebungsvariable `PORT`, z.B. `PORT=4712`.
 
 **Datenablage:** Windows `%APPDATA%\Zeiterfassung`, sonst `~/.zeiterfassung` (oder `DATA_DIR`). Enthalten sind `app.db` (Daten) und `keys.json` (Schluessel, nur fuer den eigenen Benutzer lesbar).
@@ -817,8 +819,8 @@ Die Datenbank (Docker-Volume) bleibt dabei erhalten.
 
 - **Überschneidende Einträge werden nicht geprüft.** Wer versehentlich
   09:00–11:00 und 10:00–12:00 erfasst, bekommt eine Tagessumme von vier
-  Stunden, obwohl nur drei vergangen sind. Die Übersicht macht solche
-  Ausreißer über die Tagesbalken sichtbar.
+  Stunden, obwohl nur drei vergangen sind. Die Auswertung macht solche
+  Ausreißer über die Zeitstrahlen je Tag sichtbar.
 - **Einträge über Mitternacht** müssen auf zwei Tage aufgeteilt werden; das
   gilt auch für einen durchlaufenden Timer.
 - **Datum und Uhrzeit kommen vom Browser.** Das ist gewollt, damit die

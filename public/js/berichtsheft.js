@@ -156,6 +156,15 @@
     let week = null; // { from, to } - kommt von weekly.js
     let prep = null; // letzte Vorschau
     let lastLabel = '';
+    const steps = document.querySelectorAll('#bhSteps [data-step]');
+    /** Schrittleiste: 1 Wörter prüfen, 2 Vorschau, 3 Text (0 = noch nichts begonnen). */
+    function setStep(n) {
+      steps.forEach((li) => {
+        const step = Number(li.dataset.step);
+        li.classList.toggle('is-done', step < n);
+        li.classList.toggle('is-active', step === n);
+      });
+    }
 
     document.addEventListener('weekchange', (e) => {
       week = e.detail;
@@ -166,6 +175,7 @@
       prep = null;
       for (const el of [els.review, els.preview, els.result]) el.classList.add('hidden');
       setFormError(els.error, '');
+      setStep(0);
     }
 
     function renderBadge(ai) {
@@ -176,6 +186,7 @@
     function renderPending() {
       if (!prep.pending.length) { els.review.classList.add('hidden'); return; }
       els.review.classList.remove('hidden');
+      setStep(1);
       els.reviewList.innerHTML = prep.pending.map((p, i) => `
         <div class="bh-word${p.strong ? ' bh-word--strong' : ''}">
           <div class="bh-word__name">${escapeHtml(p.word)}<small>${escapeHtml(p.reason)}</small></div>
@@ -193,6 +204,7 @@
     function renderPreview() {
       const noPending = prep.pending.length === 0;
       els.preview.classList.toggle('hidden', !noPending);
+      if (noPending && els.result.classList.contains('hidden')) setStep(2);
       els.items.innerHTML = prep.items.map((i) => `
         <li>${escapeHtml(i.text)}${i.count > 1 ? ` <span class="badge">${i.count}×</span>` : ''}${i.school ? ' <span class="badge badge--school">Berufsschule</span>' : ''}</li>`).join('');
       els.replaced.textContent = prep.replaced.length
@@ -263,6 +275,7 @@
     function showResult(r) {
       lastLabel = r.label;
       els.result.classList.remove('hidden');
+      setStep(3);
       els.work.value = r.betrieb;
       els.school.value = r.schule;
       els.warnings.innerHTML = r.warnings.map((w) => `<div class="alert alert--error">${escapeHtml(w)}</div>`).join('');

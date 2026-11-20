@@ -1,7 +1,7 @@
 'use strict';
 
-// Jira-Anbindung im Browser (optional, nur lesend): gemeinsame Abfragen für die Erfassungsseite (Ticket-Titel, eigene
-// Tickets) und die Einstellungskarte unter Konto. Das API-Token liegt nur verschlüsselt auf dem Server.
+// Jira-Anbindung im Browser (optional): gemeinsame Abfragen für die Erfassungsseite (Ticket-Titel, eigene Tickets),
+// Einträge als Kommentare schreiben und die Einstellungskarte unter Konto. Das API-Token liegt nur verschlüsselt auf dem Server.
 (function () {
   const cache = new Map();
   let settingsPromise = null;
@@ -25,6 +25,32 @@
       } catch { return null; }
     },
     async myIssues() { return (await Api.get('/api/jira/my-issues')).issues; },
+    /**
+     * Einträge als interne Kommentare nach Jira schreiben (bei mehreren mit Rückfrage und Übersicht je Ticket).
+     * Gibt false zurück, wenn abgebrochen wurde oder nichts zu tun war; Ergebnis und Fehler kommen als Hinweis.
+     */
+    async postEntries(list) {
+      if (!list.length) return false;
+      if (list.length > 1) {
+        const byKey = new Map();
+        for (const e of list) { const k = e.jiraKey || 'Tagesticket'; byKey.set(k, (byKey.get(k) || 0) + 1); }
+        const lines = [...byKey].map(([k, n]) => `${k}: ${n} Eintr${n === 1 ? 'ag' : 'äge'}`).join('\n');
+        if (!window.confirm(`${list.length} Einträge als interne Kommentare nach Jira schreiben?\n\n${lines}`)) return false;
+      }
+      try {
+        const { results } = await Api.post('/api/jira/comments', { ids: list.map((e) => e.id), with_times: loadShowTimes() });
+        const ok = results.filter((r) => r.ok);
+        const failed = results.filter((r) => !r.ok);
+        if (!failed.length) {
+          showToast(ok.length === 1 ? `In ${ok[0].key} eingetragen${ok[0].daily ? ' (Tagesticket)' : ''}.` : `${ok.length} Einträge nach Jira geschrieben.`);
+        } else {
+          showToast(`${ok.length} geschrieben, ${failed.length} nicht: ${failed[0].error}`, { durationMs: 10000 });
+        }
+      } catch (err) {
+        showToast(err.message);
+      }
+      return true;
+    },
     reset() { settingsPromise = null; cache.clear(); },
   };
   window.ZeitJira = ZeitJira;

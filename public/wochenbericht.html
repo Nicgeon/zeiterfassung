@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Wochenbericht – Zeiterfassung</title>
+<title>Berichte – Zeiterfassung</title>
 <link rel="stylesheet" href="/css/fonts.css" />
 <link rel="stylesheet" href="/css/styles.css" />
 <link rel="icon" href="/icon.svg" type="image/svg+xml" />
@@ -29,85 +29,75 @@
   </div>
 </div>
 
-<div class="shell">
+<div class="shell shell--wide">
+  <div class="stack reports-page">
 
-  <div class="card">
-    <div class="card__header">
-      <div class="flex items-center gap-sm">
-        <button type="button" class="btn btn--icon" id="prevWeekBtn" title="Vorherige Woche">&larr;</button>
-        <h2 id="weekLabel" class="week-label"></h2>
-        <button type="button" class="btn btn--icon" id="nextWeekBtn" title="Naechste Woche">&rarr;</button>
-        <button type="button" class="btn btn--ghost btn--sm" id="thisWeekBtn">Diese Woche</button>
+    <div class="page-head">
+      <div>
+        <div class="eyebrow" id="weekEyebrow">Berichte</div>
+        <h1 class="page-title" id="weekLabel"></h1>
+      </div>
+      <div class="page-head__actions">
+        <button type="button" class="btn btn--secondary btn--nav" id="prevWeekBtn" title="Vorherige Woche" aria-label="Vorherige Woche">&larr;</button>
+        <button type="button" class="btn btn--secondary" id="thisWeekBtn">Diese Woche</button>
+        <button type="button" class="btn btn--secondary btn--nav" id="nextWeekBtn" title="Nächste Woche" aria-label="Nächste Woche">&rarr;</button>
       </div>
     </div>
 
-    <p class="field-hint mb-md">
-      Für den Wochenbericht in der Berufsschule. Die Ausgabe enthält nur die
-      Aufgabentexte, ohne Uhrzeiten und ohne Dauer.
-    </p>
+    <div class="week-days" id="weekDays" aria-label="Die Woche auf einen Blick"></div>
 
-    <div class="field-row">
-      <div class="field">
-        <label for="formatSelect">Format</label>
-        <select id="formatSelect">
-          <option value="grouped">Nach Tagen gruppiert</option>
-          <option value="flat">Fortlaufende Liste (ohne Tage)</option>
-        </select>
+    <div class="reports-grid" id="reportsGrid">
+      <section class="card report-card" aria-labelledby="weeklyTitle">
+        <div class="report-card__head">
+          <div>
+            <h2 id="weeklyTitle">Wochenbericht</h2>
+            <p class="report-card__lead">Nur die Texte der Einträge, ohne Uhrzeiten und Dauer – z. B. für die Berufsschule oder einen Statusbericht.</p>
+          </div>
+        </div>
+        <div class="report-opts" role="group" aria-label="Darstellung">
+          <div class="seg seg--sm" role="group" aria-label="Format">
+            <button type="button" class="seg__btn" data-opt="format" data-value="grouped">Nach Tagen</button>
+            <button type="button" class="seg__btn" data-opt="format" data-value="flat">Fortlaufend</button>
+          </div>
+          <div class="seg seg--sm" role="group" aria-label="Aufzählungszeichen">
+            <button type="button" class="seg__btn" data-opt="bullet" data-value="- ">Strich –</button>
+            <button type="button" class="seg__btn" data-opt="bullet" data-value="• ">Punkt •</button>
+            <button type="button" class="seg__btn" data-opt="bullet" data-value="">ohne</button>
+          </div>
+          <button type="button" class="opt-chip" data-toggle="merge" aria-pressed="true">Gleiches am Tag zusammenfassen</button>
+          <button type="button" class="opt-chip" data-toggle="jira" aria-pressed="false">Ticketnummern</button>
+        </div>
+        <div id="reportError"></div>
+        <pre class="report-preview mono" id="reportPreview"></pre>
+        <div class="flex gap-sm flex-wrap">
+          <button type="button" class="btn" id="copyBtn">Kopieren</button>
+          <button type="button" class="btn btn--secondary" id="downloadBtn">Als .txt speichern</button>
+        </div>
+      </section>
+
+  <section class="card report-card hidden" id="bhCard" aria-labelledby="bhTitle">
+    <div class="report-card__head">
+      <div>
+        <h2 id="bhTitle">Berichtsheft-Text</h2>
+        <p class="report-card__lead">Zwei fertige Absätze („Betriebliche Tätigkeiten“ und „Berufsschule“) aus den Einträgen der Woche.
+          Namen, Daten, Ticketnummern und Links werden vorher <strong>lokal entfernt</strong> – du siehst genau, was gesendet wird.</p>
       </div>
-      <div class="field">
-        <label for="bulletSelect">Aufzählungszeichen</label>
-        <select id="bulletSelect">
-          <option value="- ">Strich (-)</option>
-          <option value="• ">Punkt (•)</option>
-          <option value="">ohne</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="field">
-      <label class="checkbox-label">
-        <input type="checkbox" id="mergeDuplicates" checked />
-        Gleiche Aufgaben innerhalb eines Tages zusammenfassen
-      </label>
-      <label class="checkbox-label">
-        <input type="checkbox" id="includeJira" />
-        Jira-Ticketnummern mit ausgeben
-      </label>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card__header">
-      <h2>Vorschau</h2>
-      <div class="flex gap-md">
-        <button type="button" class="btn btn--secondary btn--sm" id="downloadBtn">Als .txt speichern</button>
-        <button type="button" class="btn btn--sm" id="copyBtn">Kopieren</button>
-      </div>
-    </div>
-    <div id="reportError"></div>
-    <pre class="report-preview mono" id="reportPreview"></pre>
-  </div>
-
-  <div class="card" id="bhCard">
-    <div class="card__header">
-      <h2>Berichtsheft-Text mit KI</h2>
       <span class="badge" id="bhAiBadge">–</span>
     </div>
-    <p class="text-muted text-sm">
-      Macht aus den Einträgen der gewählten Woche zwei zusammenhängende Textblöcke
-      („Betriebliche Tätigkeiten“ und „Berufsschule“) zum Einfügen ins Berichtsheft.
-      Vorher werden Namen, Daten, Ticketnummern und Links <strong>lokal entfernt</strong> – du siehst genau,
-      was gesendet wird, und bestätigst es.
-    </p>
+    <ol class="bh-steps" id="bhSteps">
+      <li data-step="1"><span class="bh-steps__mark">1</span><span>Wörter prüfen<small>Namen kennzeichnen</small></span></li>
+      <li data-step="2"><span class="bh-steps__mark">2</span><span>Vorschau<small>Das wird gesendet</small></span></li>
+      <li data-step="3"><span class="bh-steps__mark">3</span><span>Text<small>Kopieren oder ändern</small></span></li>
+    </ol>
     <div id="bhError"></div>
-    <div class="flex gap-sm flex-wrap">
+    <div class="flex gap-sm flex-wrap" id="bhStart">
       <button type="button" class="btn" id="bhPrepareBtn">Vorschau erstellen</button>
-      <a class="btn btn--ghost" href="/account.html#bhSettingsCard">KI-Einstellungen</a>
+      <a class="btn btn--ghost" href="/account.html#ki">KI-Einstellungen</a>
     </div>
 
     <!-- Schritt 1: unbekannte Woerter klaeren -->
     <div id="bhReview" class="bh-step hidden">
-      <h3>1. Unbekannte Wörter prüfen</h3>
+      <h3>Unbekannte Wörter prüfen</h3>
       <p class="field-hint">
         Namen erkennt kein Programm sicher. Bitte kennzeichne Personen, Kunden und Firmen – jedes Wort wird nur
         ein einziges Mal gefragt. Rot markierte Wörter sehen nach einem Namen aus und brauchen eine Auswahl.
@@ -118,7 +108,7 @@
 
     <!-- Schritt 2: Vorschau dessen, was gesendet wird -->
     <div id="bhPreview" class="bh-step hidden">
-      <h3 id="bhPreviewTitle">2. Das wird gesendet</h3>
+      <h3 id="bhPreviewTitle">Das wird gesendet</h3>
       <ol id="bhItems" class="bh-items"></ol>
       <p class="field-hint" id="bhReplaced"></p>
       <p class="field-hint">Entfernt: Datum, Uhrzeit, Wochentage, Ticketnummern, Links, E-Mail-, Telefon- und IP-Adressen.</p>
@@ -143,7 +133,7 @@
 
     <!-- Ergebnis -->
     <div id="bhResult" class="bh-step hidden">
-      <h3>3. Ergebnis</h3>
+      <h3>Ergebnis</h3>
       <div id="bhWarnings"></div>
       <div class="field">
         <div class="bh-result-head"><label for="bhWork">Betriebliche Tätigkeiten:</label><button type="button" class="btn btn--ghost btn--sm" data-copy="bhWork">Kopieren</button></div>
@@ -166,6 +156,10 @@
     </div>
   </div>
 
+</section>
+    </div>
+
+  </div>
 </div>
 
 <script src="/js/util.js"></script>

@@ -310,7 +310,6 @@ app.use((req, res, next) => {
     const user = sessionUser(req);
     if (!user) return res.redirect('/login.html');
     if (req.path === '/admin.html' && user.role !== 'admin') return res.redirect('/index.html');
-    if (req.path === '/wochenbericht.html' && !user.is_apprentice) return res.redirect('/index.html');
   }
   next();
 });

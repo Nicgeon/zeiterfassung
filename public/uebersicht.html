@@ -19,7 +19,7 @@
     <a href="/index.html"><span class="label">Heute</span></a>
     <a href="/aufgaben.html"><span class="label">Aufgaben</span></a>
     <a href="/uebersicht.html" class="active"><span class="label">Auswertung</span></a>
-    <a href="/wochenbericht.html" id="weeklyNavLink" class="hidden"><span class="label">Berichte</span></a>
+    <a href="/wochenbericht.html" id="weeklyNavLink"><span class="label">Berichte</span></a>
     <a href="/account.html"><span class="label">Einstellungen</span></a>
     <a href="/admin.html" id="adminNavLink" class="hidden"><span class="label">Team</span></a>
   </div>
@@ -30,7 +30,7 @@
 </div>
 
 <div class="shell shell--wide">
-  <div class="stack">
+  <div class="stack report-page">
 
     <div class="page-head">
       <div>
@@ -39,8 +39,9 @@
       </div>
       <div class="page-head__actions">
         <div class="seg" role="group" aria-label="Zeitraum">
-          <button type="button" class="seg__btn is-active" id="weekModeBtn">Woche</button>
-          <button type="button" class="seg__btn" id="monthModeBtn">Monat</button>
+          <button type="button" class="seg__btn is-active" data-mode="week">Woche</button>
+          <button type="button" class="seg__btn" data-mode="month">Monat</button>
+          <button type="button" class="seg__btn" data-mode="range">Zeitraum …</button>
         </div>
         <button type="button" class="btn btn--secondary btn--nav" id="prevBtn" title="Zurück" aria-label="Zurück">&larr;</button>
         <button type="button" class="btn btn--secondary" id="todayBtn">Heute</button>
@@ -48,47 +49,72 @@
       </div>
     </div>
 
+    <form class="range-pick card hidden" id="rangeForm" autocomplete="off">
+      <label>Von <input type="date" id="rangeFrom" required /></label>
+      <label>Bis <input type="date" id="rangeTo" required /></label>
+      <button type="submit" class="btn btn--sm">Anzeigen</button>
+      <span class="field-hint">höchstens 400 Tage</span>
+    </form>
+
     <div id="rangeError"></div>
 
-    <div class="stat-row">
+    <div class="stat-row report-stats">
       <div class="stat">
-        <span class="stat__label">Gesamt</span>
-        <strong class="stat__value mono" id="statTotal">–</strong>
+        <span class="stat__label"><span class="legend-swatch legend-swatch--all"></span>Erfasst</span>
+        <div class="stat__line"><strong class="stat__value mono" id="statTotal">–</strong><span class="stat__sub" id="statTotalSub"></span></div>
       </div>
       <div class="stat">
-        <span class="stat__label">Noch nicht in Jira</span>
-        <strong class="stat__value mono" id="statOpen">–</strong>
+        <span class="stat__label"><span class="legend-swatch legend-swatch--done"></span>In Jira</span>
+        <div class="stat__line"><strong class="stat__value stat__value--done mono" id="statDone">–</strong><span class="stat__sub" id="statDoneSub"></span></div>
       </div>
       <div class="stat">
-        <span class="stat__label">Erfasste Tage</span>
-        <strong class="stat__value mono" id="statDays">–</strong>
-      </div>
-      <div class="stat">
-        <span class="stat__label">Ø pro erfasstem Tag</span>
-        <strong class="stat__value mono" id="statAvg">–</strong>
+        <span class="stat__label"><span class="legend-swatch legend-swatch--open"></span>Noch offen</span>
+        <div class="stat__line"><strong class="stat__value stat__value--open mono" id="statOpen">–</strong><span class="stat__sub" id="statOpenSub"></span></div>
+        <button type="button" class="btn btn--sm stat__action jira-write-only" id="postOpenBtn">Offene nach Jira</button>
       </div>
     </div>
 
-    <div class="page-grid">
-      <section class="card page-main" aria-label="Tage">
-        <h2>Tage</h2>
-        <div id="dayBars"></div>
-      </section>
-
-      <section class="card page-side" aria-label="Nach Ticket">
-        <div class="card__header">
-          <h2>Nach Ticket</h2>
-          <button type="button" class="btn btn--secondary btn--sm" id="copyJiraBtn">Zusammenfassung kopieren</button>
+    <div class="report-grid">
+      <section class="card report-main" aria-labelledby="mainTitle">
+        <div class="report-card-head">
+          <h2 id="mainTitle">Woche</h2>
+          <span class="legend-key"><span class="legend-swatch legend-swatch--done"></span>In Jira</span>
+          <span class="legend-key"><span class="legend-swatch legend-swatch--open"></span>Offen</span>
+          <span class="legend-key" id="gapLegend"><span class="legend-swatch legend-swatch--gap"></span>Lücke</span>
+          <span class="report-card-head__hint" id="mainHint"></span>
         </div>
-        <div id="jiraList"></div>
+        <div id="mainView"></div>
       </section>
+
+      <div class="report-side">
+        <section class="card hidden" id="weeksCard" aria-labelledby="weeksTitle">
+          <h2 id="weeksTitle">Wochen</h2>
+          <div id="weeksList"></div>
+        </section>
+        <section class="card" aria-labelledby="groupsTitle">
+          <div class="report-card-head">
+            <h2 id="groupsTitle">Wohin ging die Zeit?</h2>
+            <div class="seg seg--sm" role="group" aria-label="Gruppieren nach">
+              <button type="button" class="seg__btn is-active" data-group="ticket">Ticket</button>
+              <button type="button" class="seg__btn" data-group="task">Aufgabe</button>
+            </div>
+          </div>
+          <div id="groupList" class="group-list"></div>
+          <button type="button" class="btn btn--secondary btn--sm" id="copyJiraBtn">Zusammenfassung kopieren</button>
+        </section>
+      </div>
     </div>
 
-    <section class="card card--flush" aria-label="Alle Einträge">
+    <section class="card card--flush" aria-label="Einträge">
       <div class="list-head">
-        <h2>Alle Einträge <span class="list-head__count" id="entriesCount"></span></h2>
+        <h2>Einträge <span class="list-head__count" id="entriesCount"></span></h2>
+        <button type="button" class="filter-chip hidden" id="dayFilter" title="Filter entfernen"></button>
         <div class="list-head__tools">
-          <label class="check-inline"><input type="checkbox" id="onlyOpenToggle" /><span>Nur noch nicht in Jira</span></label>
+          <input type="search" id="searchInput" class="report-search" placeholder="Suchen (Text oder Ticket)" aria-label="Einträge durchsuchen" />
+          <div class="seg seg--sm" role="group" aria-label="Filter">
+            <button type="button" class="seg__btn is-active" data-filter="all">Alle</button>
+            <button type="button" class="seg__btn" data-filter="open">Nur offen</button>
+          </div>
           <div class="sort-control">
             <label for="sortSelect">Sortierung</label>
             <select id="sortSelect">
@@ -98,13 +124,13 @@
               <option value="ticket">Nach Ticket</option>
             </select>
           </div>
-          <button type="button" class="btn btn--secondary btn--sm" id="csvBtn">Als CSV speichern</button>
+          <button type="button" class="btn btn--secondary btn--sm" id="csvBtn">CSV</button>
         </div>
       </div>
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr><th>Datum</th><th class="col-time">Zeit</th><th>Dauer</th><th>Aufgabe</th><th>Ticket</th><th>Jira</th></tr>
+            <tr><th>Datum</th><th class="col-time">Zeit</th><th>Dauer</th><th>Text</th><th>Ticket</th><th>Jira</th></tr>
           </thead>
           <tbody id="entriesTableBody"></tbody>
         </table>
@@ -117,6 +143,7 @@
 <script src="/js/util.js"></script>
 <script src="/js/api.js"></script>
 <script src="/js/update.js"></script>
+<script src="/js/jira.js"></script>
 <script src="/js/overview.js"></script>
 </body>
 </html>

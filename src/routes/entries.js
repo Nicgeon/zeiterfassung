@@ -127,13 +127,9 @@ function serialize(row) {
   };
 }
 
-// --- Wochenbericht (nur fuer Azubis) ------------------------------------
-// Liefert bewusst NUR Datum und Aufgabentext, keine Uhrzeiten und keine
-// Dauer - gedacht fuer den Wochenbericht in der Berufsschule.
+// --- Wochenbericht ---------------------------------------------------------
+// Liefert bewusst NUR Datum, Aufgabentext, Ticket und die Markierung Berufsschule, keine Uhrzeiten und keine Dauer.
 router.get('/week', (req, res) => {
-  if (!req.user.is_apprentice) {
-    return res.status(403).json({ error: 'Der Wochenbericht steht nur Azubis zur Verfuegung.' });
-  }
   const requested = DATE_RE.test(req.query.start || '') ? req.query.start : new Date().toISOString().slice(0, 10);
   const start = mondayOf(requested);
   const end = addDays(start, 6);
@@ -144,6 +140,7 @@ router.get('/week', (req, res) => {
     byDate.get(row.work_date).push({
       description: decryptField(row.description_enc),
       jiraKey: row.jira_key,
+      school: !!row.school_day,
     });
   }
 

@@ -141,9 +141,45 @@ test('Einstellungen: Unterreiter, Adresse merkt den Reiter; lokal kein Reiter "S
   });
 });
 
+test('Auswertung: Zeitstrahl je Tag filtert die Einträge, Kalender öffnet die Woche; Berichte für alle', { skip }, async () => {
+  await withApp(async ({ page, base }) => {
+    await page.goto(`${base}/index.html`);
+    await page.waitForSelector('#composer');
+    const today = await page.evaluate(() => todayISO());
+    await api(page, 'POST', '/api/entries', { work_date: today, start_time: '08:00', end_time: '09:30', description: 'Monitoring geprüft', jira_key: 'IT-1', real_times: true });
+    const e2 = (await api(page, 'POST', '/api/entries', { work_date: today, start_time: '10:00', end_time: '10:45', description: 'Drucker eingerichtet', jira_key: 'IT-2', real_times: true })).entry;
+    await api(page, 'PATCH', `/api/entries/${e2.id}/transferred`, { transferred: true });
+
+    await page.goto(`${base}/uebersicht.html`);
+    await page.waitForSelector(`.day-strip[data-day="${today}"]`);
+    assert.equal(await page.locator(`.day-strip[data-day="${today}"] .day-strip__block`).count(), 2, 'zwei Blöcke am Tag');
+    assert.equal(await page.textContent('#statOpen'), '1:30');
+    await page.click(`.day-strip[data-day="${today}"]`);
+    assert.ok(await page.isVisible('#dayFilter'), 'Tagesfilter sichtbar');
+    await page.fill('#searchInput', 'drucker');
+    assert.equal(await page.locator('#entriesTableBody tr').count(), 1, 'Suche filtert');
+    await page.click('[data-group=task]');
+    assert.equal(await page.locator('.group-row').count(), 2);
+
+    await page.click('[data-mode=month]');
+    await page.waitForSelector('.calendar');
+    await page.click(`.cal-day[data-week="${today}"]`);
+    await page.waitForSelector('.day-strips');
+    assert.equal(await page.getAttribute('[data-mode=week]', 'class'), 'seg__btn is-active');
+
+    // Berichte: auch ohne Azubi-Kennzeichnung erreichbar, Berichtsheft-Text nur für Azubis
+    await page.goto(`${base}/wochenbericht.html`);
+    await page.waitForSelector('#reportPreview');
+    assert.match(await page.textContent('#reportPreview'), /Monitoring geprüft/);
+    assert.ok(!(await page.isVisible('#bhCard')));
+    await page.click('[data-toggle=jira]');
+    assert.match(await page.textContent('#reportPreview'), /Monitoring geprüft \(IT-1\)/);
+  });
+});
+
 test('Mini-Fenster und übrige Seiten laden ohne Fehler', { skip }, async () => {
   await withApp(async ({ page, base }) => {
-    for (const p of ['/uebersicht.html', '/account.html', '/aufgaben.html', '/index.html']) {
+    for (const p of ['/uebersicht.html', '/wochenbericht.html', '/account.html', '/aufgaben.html', '/index.html']) {
       await page.goto(base + p);
       await page.waitForLoadState('networkidle');
     }

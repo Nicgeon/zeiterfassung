@@ -386,7 +386,6 @@
     try { me = await Api.get('/api/auth/me'); } catch { return; }
     el.userLabel.textContent = me.user.displayName;
     if (me.user.role === 'admin') document.getElementById('adminNavLink').classList.remove('hidden');
-    if (me.user.isApprentice) document.getElementById('weeklyNavLink').classList.remove('hidden');
     await Api.primeCsrf();
     const m = location.hash.match(/^#aufgabe-(\d+)$/);
     if (m) { state.selected = Number(m[1]); }

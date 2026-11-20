@@ -211,26 +211,7 @@
    * Mehrere Einträge erst nach Rückfrage (mit Übersicht, welches Ticket wie viele bekommt).
    */
   async function postToJira(list) {
-    if (!list.length) return;
-    if (list.length > 1) {
-      const byKey = new Map();
-      for (const e of list) { const k = e.jiraKey || 'Tagesticket'; byKey.set(k, (byKey.get(k) || 0) + 1); }
-      const lines = [...byKey].map(([k, n]) => `${k}: ${n} Eintr${n === 1 ? 'ag' : 'äge'}`).join('\n');
-      if (!window.confirm(`${list.length} Einträge als interne Kommentare nach Jira schreiben?\n\n${lines}`)) return;
-    }
-    try {
-      const { results } = await Api.post('/api/jira/comments', { ids: list.map((e) => e.id), with_times: loadShowTimes() });
-      await loadEntries();
-      const ok = results.filter((r) => r.ok);
-      const failed = results.filter((r) => !r.ok);
-      if (!failed.length) {
-        showToast(ok.length === 1 ? `In ${ok[0].key} eingetragen${ok[0].daily ? ' (Tagesticket)' : ''}.` : `${ok.length} Einträge nach Jira geschrieben.`);
-      } else {
-        showToast(`${ok.length} geschrieben, ${failed.length} nicht: ${failed[0].error}`, { durationMs: 10000 });
-      }
-    } catch (err) {
-      showToast(err.message);
-    }
+    if (await ZeitJira.postEntries(list)) await loadEntries();
   }
 
   /**
