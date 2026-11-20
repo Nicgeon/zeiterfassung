@@ -19,6 +19,10 @@
     if (window.ZeitTasks) window.ZeitTasks.render();
     renderTimeline();
     els.formTitle.textContent = timer ? 'Timer läuft' : state.editingId ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
+    // Timer aus einer Aufgabe: deren Titel steht nur als Hinweis im Feld, beschrieben wird die erledigte Arbeit
+    els.description.placeholder = timer && timer.taskTitle
+      ? `Was hast du an „${timer.taskTitle}“ gemacht?`
+      : 'Was hast du gemacht? (oder nur ein Ticket angeben)';
     clearInterval(elapsedInterval);
 
     document.title = BASE_TITLE;
@@ -101,19 +105,6 @@
   els.description.addEventListener('change', saveTimerFields);
   els.jiraKey.addEventListener('change', saveTimerFields);
 
-  // Ticketnummer eingetragen, Beschreibung noch leer: Titel aus Jira vorschlagen (nur wenn Jira unter Konto eingerichtet ist)
-  els.jiraKey.addEventListener('change', async () => {
-    if (!window.ZeitJira || els.description.value.trim()) return;
-    const key = convertTicketLinks(els.jiraKey.value).trim();
-    if (!/^[A-Z][A-Z0-9_]+-\d+$/.test(key)) return;
-    const issue = await window.ZeitJira.issue(key);
-    if (issue && issue.summary && !els.description.value.trim()) {
-      els.description.value = issue.summary;
-      els.description.dispatchEvent(new Event('input', { bubbles: true }));
-      saveTimerFields();
-    }
-  });
-
   /** Timer beenden und als Eintrag speichern; mit pause wird die Aufgabe zum Weitermachen gemerkt. */
   async function stopTimer({ pause = false } = {}) {
     setFormError(els.formError, '');
@@ -133,7 +124,7 @@
       });
       if (pause) {
         addPausedTask({
-          description,
+          description: description || data.entry.description || '',
           jiraKey,
           entryId: data.entry.id,
           minutes: data.entry.durationMinutes,
@@ -176,7 +167,7 @@
       const data = await Api.post('/api/timer', {
         work_date: todayISO(),
         start_time: nowHHMM(),
-        description: task.title,
+        description: '', // beschrieben wird, was man getan hat - nicht der Titel der Aufgabe (der steht als Hinweis im Feld)
         jira_key: task.jiraKey || null,
         task_id: task.id, // die erfasste Zeit zählt zur Aufgabe
       });

@@ -271,7 +271,7 @@
     const pad2 = (n) => String(n).padStart(2, '0');
     const now = new Date();
     try {
-      await Api.post('/api/timer', { work_date: todayISO(), start_time: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`, description: t.title, jira_key: t.jiraKey || null, task_id: t.id });
+      await Api.post('/api/timer', { work_date: todayISO(), start_time: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`, description: '', jira_key: t.jiraKey || null, task_id: t.id });
       showToast(`Timer läuft für „${t.title || t.jiraKey}“.`, { label: 'Zu Heute', durationMs: 8000, onClick: () => { window.location.href = '/index.html'; } });
     } catch (err) {
       showToast(err.status === 409 ? 'Es läuft schon ein Timer – erst stoppen oder unterbrechen (Seite „Heute“).' : err.message);

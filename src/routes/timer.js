@@ -35,7 +35,8 @@ const insertEntryStmt = db.prepare(
 );
 const getEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ?');
 const getOwnEntryStmt = db.prepare('SELECT * FROM entries WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
-const getOwnTaskStmt = db.prepare('SELECT id FROM tasks WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+const getOwnTaskStmt = db.prepare('SELECT id, title_enc FROM tasks WHERE id = ? AND user_id = ? AND deleted_at IS NULL');
+const getTaskTitleStmt = db.prepare('SELECT title_enc FROM tasks WHERE id = ?');
 const trashEntryStmt = db.prepare("UPDATE entries SET deleted_at = datetime('now') WHERE id = ? AND user_id = ?");
 
 function fromMinutes(total) {
@@ -57,6 +58,13 @@ function cleanDescription(value) {
   return text === '' ? null : text;
 }
 
+/** Titel der Aufgabe, zu der ein Timer gehört (oder ''). */
+function taskTitle(taskId) {
+  if (!taskId) return '';
+  const row = getTaskTitleStmt.get(taskId);
+  try { return row ? decryptField(row.title_enc) : ''; } catch { return ''; }
+}
+
 function serializeTimer(row) {
   if (!row) return null;
   return {
@@ -67,6 +75,7 @@ function serializeTimer(row) {
     jiraKey: row.jira_key,
     carryMinutes: row.carry_minutes || 0,
     taskId: row.task_id || null,
+    taskTitle: taskTitle(row.task_id),
     carrySegments: segments.parse(row.carry_segments_json),
   };
 }
@@ -169,7 +178,8 @@ router.post('/stop', (req, res) => {
   // laufenden Zeit gespeicherte.
   const provided = cleanDescription(req.body.description);
   const stored = timer.description_enc ? decryptField(timer.description_enc) : null;
-  const description = provided || stored || '';
+  // Nichts beschrieben und kein Ticket, aber aus einer Aufgabe gestartet: dann zählt deren Titel
+  const description = provided || stored || (!req.body.jira_key && !timer.jira_key ? taskTitle(timer.task_id) : '') || '';
   const jiraKey = req.body.jira_key !== undefined ? cleanJira(req.body.jira_key) : timer.jira_key;
   if (!description && !jiraKey) {
     return res.status(400).json({ error: 'Bitte zuerst eine Beschreibung oder ein Ticket eintragen.' });

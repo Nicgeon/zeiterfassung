@@ -76,6 +76,15 @@ test('Server: Teile beim Timer (mit Unterbrechung), beim Nachtragen, beim Bearbe
     // Erfasste Zeit an der Aufgabe
     const list = (await call('GET', '/api/tasks')).body.tasks;
     assert.deepEqual(list.find((t) => t.id === task.id).tracked, { minutes: 60, count: 1 });
+
+    // Aus einer Aufgabe ohne Ticket gestartet, nichts beschrieben: der Titel steht als Hinweis bereit und zählt beim Stoppen
+    const plain = (await call('POST', '/api/tasks', { title: 'Berichtsheft schreiben' })).body.task;
+    r = await call('POST', '/api/timer', { work_date: day, start_time: '15:00', description: '', task_id: plain.id });
+    assert.equal(r.body.timer.taskTitle, 'Berichtsheft schreiben');
+    assert.equal(r.body.timer.description, '');
+    r = await call('POST', '/api/timer/stop', { end_time: '15:30', description: '', jira_key: '' });
+    assert.equal(r.status, 201);
+    assert.equal(r.body.entry.description, 'Berichtsheft schreiben');
   } finally {
     server.kill();
   }
