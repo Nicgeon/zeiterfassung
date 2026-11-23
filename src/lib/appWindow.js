@@ -1,7 +1,7 @@
 'use strict';
 
 // App-Fenster ohne Tabs und Adressleiste (Edge/Chrome/Brave mit eigenem Profil) fuer den lokalen Betrieb.
-// Wird vom Server benutzt, wenn er den Browser selbst oeffnen soll (start-local.*), damit auch dort nie ein
+// Wird vom Server benutzt, wenn er den Browser selbst oeffnen soll (Zeiterfassung-starten.* --konsole), damit auch dort nie ein
 // neuer Tab im normalen Browserfenster entsteht. Der Starter (src/launcher.js) nutzt dieselben Bausteine.
 
 const fs = require('fs');

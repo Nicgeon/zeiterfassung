@@ -618,7 +618,7 @@ automatisch und bricht ab, solange Wörter ungeklärt sind (Exit-Code 3).
 Zeiterfassung läuft; bei der Kommandozeile: stderr), z. B. `noah/Qwen3-30B…: ok nach 94.2 s, 1234 Zeichen`
 oder `FEHLER nach …`. Mehr Einzelheiten – Anfrage-Eckdaten, Antwortstatus, Zeit bis zum Antwortkopf und zum
 ersten Token, Größe des Datenstroms, entfernter `<think>`-Block, Prüfergebnis der Antwort – gibt es mit
-`BERICHTSHEFT_DEBUG=1` (Umgebungsvariable, z. B. `BERICHTSHEFT_DEBUG=1 ./start-local.sh`) bzw. `--debug`
+`BERICHTSHEFT_DEBUG=1` (Umgebungsvariable, z. B. `BERICHTSHEFT_DEBUG=1 ./Zeiterfassung-starten.sh`) bzw. `--debug`
 auf der Kommandozeile; `voll`/`--debug-voll` zeigt zusätzlich den kompletten Prompt und die Rohantwort (der
 API-Schlüssel erscheint nie). Schlägt etwas fehl, nennt die Fehlermeldung den **Verlauf der Versuche**
 (Kommandozeile: „Verlauf der Versuche“, Weboberfläche: „Technische Details“). Noah AI und eigene Adressen
@@ -699,19 +699,22 @@ lässt sich über `LOG_TIMEZONE` in der `.env` ändern.
 
 Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Docker, Proxy, Domain oder Zertifikate. Jede Person betreibt dann ihre eigene Instanz mit eigenen Daten.
 
-**Voraussetzung:** Node.js 20 oder neuer (getestet mit 22; 24 wird unterstuetzt). Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `start-local.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
+**Voraussetzung:** Node.js 20 oder neuer (getestet mit 22; 24 wird unterstuetzt). Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `Zeiterfassung-starten.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
 
 **Start**
-- Windows: Doppelklick auf `start-local.bat` – startet inzwischen wie `Zeiterfassung.vbs` als Programm im eigenen
-  Fenster; das Konsolenfenster schließt sich gleich wieder. Mit `start-local.bat --konsole` läuft es wie früher mit
+- Windows: Doppelklick auf `Zeiterfassung-starten.bat` – startet inzwischen wie `Zeiterfassung.vbs` als Programm im eigenen
+  Fenster; das Konsolenfenster schließt sich gleich wieder. Mit `Zeiterfassung-starten.bat --konsole` läuft es wie früher mit
   sichtbarer Konsole (Ausgaben dort statt in `zeiterfassung.log`, z. B. zur Fehlersuche).
-- macOS/Linux: `./start-local.sh`
+- macOS/Linux: `./Zeiterfassung-starten.sh`
 - Alternativ: `LOCAL_MODE=true node src/server.js`
 
 Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automatisch erzeugt und der Browser geoeffnet (`http://localhost:4711`). Beenden: Fenster schliessen oder Strg+C.
 
 **Als Programm starten (empfohlen):** Statt Konsolenfenster und Browser-Tab läuft die Zeiterfassung unsichtbar im Hintergrund und öffnet sich in einem **eigenen App-Fenster** (Edge bzw. Chrome ohne Tabs und Adressleiste, mit eigenem Browser-Profil und eigenem Symbol in der Taskleiste). Dadurch landen Links aus anderen Programmen nie in diesem Fenster, und es lässt sich z. B. auf einem dritten Monitor ablegen (Größe und Position merkt sich der Browser).
-- **Windows:** Doppelklick auf **`Zeiterfassung.vbs`** (oder `start-app.bat` bzw. `start-local.bat`). Der Starter startet
+- **Windows:** Im Startmenü bzw. über die Windows-Suche **„Zeiterfassung“** (die Einträge „Zeiterfassung“ und
+  „Zeiterfassung Mini“ legt das Programm beim ersten Start selbst an und erneuert sie, wenn der Ordner umzieht), oder
+  Doppelklick auf **`Zeiterfassung.vbs`** bzw. `Zeiterfassung-starten.bat` (früher `start-local.bat`; die alten
+  `start-local.*` entfernt das Update, sobald die neuen Dateien da sind). Der Starter startet
   sich sofort ohne Konsole neu, es bleibt also kein Konsolenfenster offen – auch nicht mit Windows Terminal als
   Standard-Konsole. Nur beim ersten Start bzw. nach Updates mit neuen Abhängigkeiten erscheint kurz das Fenster
   „Zeiterfassung: Einrichtung“ (npm install), es schließt sich danach von selbst. Einmalig `app-verknuepfung-erstellen.vbs` ausführen, dann liegt „Zeiterfassung“ mit Symbol auf dem Desktop. Der Starter nutzt Edge (auf Windows 10/11 immer vorhanden) oder Chrome/Brave.
@@ -721,7 +724,11 @@ Beim ersten Start werden die Abhaengigkeiten installiert, die Schluessel automat
 - **Mini-Fenster:** Der Knopf **„Mini“** oben rechts auf der Erfassungsseite öffnet ein kleines Fenster (ca. 460 × 400) – ähnlich wie ein Timer in Windows. Oben wie im großen Fenster **„Jetzt starten“** (Aufgabe, Ticket, „Timer starten“; Enter startet) oder **„Nachtragen“** (Zeitfelder bzw. Dauer, Ticket, „Eintrag speichern“). Darunter ein **schmaler Zeitstrahl** des Tages mit Tagessumme und offener Zeit (grün in Jira, blau offen, rote Linie jetzt); ein Klick in eine Lücke öffnet „Nachtragen“ mit genau diesem Zeitraum. Es ist dieselbe Seite im Kompaktmodus (`/index.html?mini=1`), Timer, Zuschlag, Zusammenführen usw. funktionieren also genauso; Tagesliste und Seitenleiste sind ausgeblendet, die Darstellung ist etwas verkleinert, und beim laufenden Timer zeigen „Verwerfen“ und „Unterbrechen“ nur ein Symbol (Mauszeiger darauf zeigt den Namen). Alle Eingaben und Knöpfe sind gleich hoch; Dauer und Ticket stehen nebeneinander. **Pausierte Aufgaben** (nach „Unterbrechen“) erscheinen als Karte „Pausiert“ unter dem Formular: ▶ setzt den Timer fort, ＋ trägt die Zeit von Hand nach, × entfernt die Aufgabe – das Mini-Fenster muss dafür nicht mehr geschlossen werden. Unter **„Noch in Jira eintragen“** stehen die jüngsten noch nicht übertragenen Einträge: ⧉ kopiert den Eintrag (Format wie in der Tagesliste), ✓ markiert ihn als „in Jira eingetragen“. Mit **„Automatisch kopieren“** landet jeder neu gespeicherte bzw. gestoppte Eintrag sofort in der Zwischenablage – danach nur noch in Jira einfügen. Beim Öffnen des Mini-Fensters schließt sich das große Fenster von selbst (bei Browsern, die das Schließen per Skript verweigern, erscheint ein Hinweis). Das Fenster passt seine Höhe dem Inhalt an. Hauptfenster und Mini-Fenster gleichen sich ab, sobald man zu ihnen zurückkehrt (Fokus). Beide Fenster öffnet die Seite selbst als Popup (der Browser öffnet es, es kommt zuverlässig nach vorn – ein weiterer Browser-Prozess über den Starter bekäme unter Windows nicht immer den Vordergrund): Das große Fenster lässt sich schließen, während das Mini-Fenster offen ist – die Zeiterfassung läuft weiter, bis auch das letzte Fenster zu ist. Der Pfeil-Knopf oben im Mini-Fenster („Großes Fenster öffnen“) öffnet das große Fenster (ein schon offenes wird nach vorn geholt) und schließt das Mini-Fenster; der Knopf „Mini“ im großen Fenster öffnet umgekehrt das kleine. Blockiert der Browser das Popup, versucht es der Programm-Starter als eigenes App-Fenster.  Direkt als kleines Fenster starten: **`Zeiterfassung-Mini.vbs`** (Windows; `app-verknuepfung-erstellen.vbs` legt dafür auch eine Desktop-Verknüpfung „Zeiterfassung Mini“ an) bzw. `./start-app.sh --mini`.
 - **Browser wählen:** Unter *Konto → Programm → Browser für das Programmfenster* lässt sich Edge, Chrome, Brave oder Chromium festlegen (gilt ab dem nächsten Start; dort steht auch, welcher gerade benutzt wird). „Automatisch“ nimmt den Standardbrowser, wenn es einer dieser Browser ist (Windows: aus der Registrierung gelesen), sonst Edge, Chrome, Brave. Die Wahl steht in `launcher.json` im Datenordner (`{"browser": "brave"}`; dort darf von Hand auch ein Pfad zu einer `.exe` stehen). `zeiterfassung.log` nennt bei jedem Fensterstart den benutzten Browser und wie er gewählt wurde.
 - **Updates** funktionieren wie bisher; nach der Installation startet der Starter den Server neu, das Fenster bleibt offen. Beim ersten Start (oder nach Updates, die Pakete ändern) erscheint kurz ein Installationsfenster.
-- **Fehlersuche:** Ausgaben stehen in `zeiterfassung.log` im Datenordner. Fehler beim Start (Node fehlt, Port belegt, Installation fehlgeschlagen) erscheinen als Hinweisfenster. Mit `ZEIT_BROWSER=<Programm>` lässt sich ein bestimmter Chromium-Browser vorgeben. Der Starter probiert die verfügbaren Browser der Reihe nach (zuerst der gewählte) und prüft jeweils, ob das Fenster wirklich die Seite geladen hat; scheitert einer, nimmt er den nächsten. Nur wenn gar nichts klappt, erscheint ein Hinweis und erst danach wird der Standardbrowser als Tab geöffnet (das Programm läuft dann weiter, bis „Beenden“ gewählt wird). Auch `start-local.*` (Konsole sichtbar) öffnet die Seite als eigenes App-Fenster statt als Tab im normalen Browserfenster; ein Tab im Standardbrowser gibt es nur noch als letzten Ausweg.
+- **Rückmeldung beim Start:** Braucht der Start länger als ein paar Sekunden, erscheint die Benachrichtigung
+  „Zeiterfassung startet …“. Jede Seite meldet dem Starter, wann sie geladen ist. Bleibt diese Meldung aus, obwohl der
+  Browser läuft, erscheint „Zeiterfassung: kein Fenster?“ mit Hinweisen. Beim zweiten Start (Programm läuft schon,
+  z. B. im Hintergrund) wird die Seite dann im Standardbrowser geöffnet. Im Protokoll steht, wie lange das Fenster gebraucht hat.
+- **Fehlersuche:** Ausgaben stehen in `zeiterfassung.log` im Datenordner. Fehler beim Start (Node fehlt, Port belegt, Installation fehlgeschlagen) erscheinen als Hinweisfenster. Mit `ZEIT_BROWSER=<Programm>` lässt sich ein bestimmter Chromium-Browser vorgeben. Der Starter probiert die verfügbaren Browser der Reihe nach (zuerst der gewählte) und prüft jeweils, ob das Fenster wirklich die Seite geladen hat; scheitert einer, nimmt er den nächsten. Nur wenn gar nichts klappt, erscheint ein Hinweis und erst danach wird der Standardbrowser als Tab geöffnet (das Programm läuft dann weiter, bis „Beenden“ gewählt wird). Auch `Zeiterfassung-starten.* --konsole` (Konsole sichtbar) öffnet die Seite als eigenes App-Fenster statt als Tab im normalen Browserfenster; ein Tab im Standardbrowser gibt es nur noch als letzten Ausweg.
 
 **Node.js-Version gewechselt?** Das native Modul `better-sqlite3` gilt nur für die Node-Version, mit der es installiert wurde (Fehler `NODE_MODULE_VERSION … requires …`). Die Startskripte erkennen das und bauen es automatisch neu. Von Hand: `npm rebuild better-sqlite3`, notfalls den Ordner `node_modules` löschen und `npm install --omit=dev` ausführen. Die Daten sind davon nicht betroffen.
 
@@ -731,7 +738,7 @@ Der lokale Betrieb läuft auf dem Mac aus derselben Codebasis, ein eigener Branc
 
 1. **Node.js 22 oder neuer installieren**: das macOS-Paket (`.pkg`) von https://nodejs.org (läuft auf Apple Silicon und Intel) oder mit Homebrew `brew install node`.
 2. **Programmordner entpacken** (ZIP von GitHub), z. B. nach `~/Zeiterfassung`.
-3. **Starten**: im Terminal im Ordner `./start-local.sh`, oder per Doppelklick auf **`start-local.command`**. Beim ersten Doppelklick blockiert macOS die Datei evtl. („nicht verifizierter Entwickler“): Rechtsklick → *Öffnen* → *Öffnen*, oder im Terminal einmalig `xattr -dr com.apple.quarantine .` im Programmordner. Falls die Datei nicht ausführbar ist: `chmod +x start-local.sh start-local.command`.
+3. **Starten**: im Terminal im Ordner `./Zeiterfassung-starten.sh`, oder per Doppelklick auf **`Zeiterfassung-starten.command`**. Beim ersten Doppelklick blockiert macOS die Datei evtl. („nicht verifizierter Entwickler“): Rechtsklick → *Öffnen* → *Öffnen*, oder im Terminal einmalig `xattr -dr com.apple.quarantine .` im Programmordner. Falls die Datei nicht ausführbar ist: `chmod +x start-local.sh Zeiterfassung-starten.command`.
 4. Beim ersten Start werden die Abhängigkeiten installiert und der Browser geöffnet (`http://localhost:4711`). Nur falls dabei Pakete übersetzt werden müssen (selten, es gibt fertige Binärdateien), fragt macOS nach den Entwicklerwerkzeugen: `xcode-select --install`.
 5. Beenden: im Terminalfenster `Strg+C` oder das Fenster schließen.
 
@@ -870,7 +877,7 @@ jederzeit manuell prüfen.
   gegen ihren Hash geprüft. Erst wenn alles stimmt, werden sie ersetzt;
   bei einem Fehler bleibt die Installation unverändert. Die bisherigen Dateien
   liegen als Sicherung im Datenordner (`update-backup/`, die letzten 3 Stände).
-  Danach startet sich die Anwendung über `start-local` selbst neu; ändern sich
+  Danach startet sich die Anwendung über den Starter selbst neu; ändern sich
   Abhängigkeiten (`package.json`), werden sie vor dem Neustart installiert.
 - **Was nie angefasst wird:** `.env`, die Datenbank, `keys.json` und
   `node_modules`. Eigene Änderungen an Programmdateien werden beim Update

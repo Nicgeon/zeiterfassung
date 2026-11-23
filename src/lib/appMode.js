@@ -18,21 +18,23 @@ const { KINDS } = require('./launcherUtil');
 function createIdleMonitor({ idleMs = 150_000, closingMs = 10_000, onIdle, setTimer = setTimeout, clearTimer = clearTimeout }) {
   let seen = false;
   let timer = null;
+  let lastLoad = 0; // Zeitpunkt, an dem zuletzt eine Seite neu geladen wurde (Rückmeldung für den Starter)
   const arm = (ms) => {
     clearTimer(timer);
     timer = setTimer(onIdle, ms);
     if (timer && typeof timer.unref === 'function') timer.unref();
   };
   return {
-    ping() { seen = true; arm(idleMs); },
+    ping({ load = false } = {}) { seen = true; if (load) lastLoad = Date.now(); arm(idleMs); },
     closing() { if (seen) arm(closingMs); },
     stop() { clearTimer(timer); timer = null; },
     get seen() { return seen; },
+    get lastLoad() { return lastLoad; },
   };
 }
 
 /**
- * GET  /api/app/ping?state=open|closing|probe   -> { appMode }
+ * GET  /api/app/ping?state=open|closing|probe[&load=1]   -> { appMode, seen, lastLoad } (load=1: Seite neu geladen)
  * POST /api/app/window {kind:'main'|'mini'}      -> weiteres App-Fenster oeffnen (Starter) -> { opened }
  * POST /api/app/quit                            -> beendet die Zeiterfassung
  * Ping ist ein GET (die Seite nutzt beim Verlassen fetch mit keepalive), darum prueft er den Herkunfts-
@@ -46,10 +48,10 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
     const state = String(req.query.state || 'open');
     if (appMode && monitor) {
       if (state === 'closing') monitor.closing();
-      else if (state === 'open') monitor.ping();
+      else if (state === 'open') monitor.ping({ load: req.query.load === '1' });
     }
     res.set('Cache-Control', 'no-store');
-    res.json({ appMode: !!appMode, seen: !!(monitor && monitor.seen) });
+    res.json({ appMode: !!appMode, seen: !!(monitor && monitor.seen), lastLoad: (monitor && monitor.lastLoad) || 0 });
   });
   // Programm-Einstellungen: Browser fuers Fenster (gilt ab dem naechsten Start; nur Stichwoerter, nie ein Pfad aus dem
   // Netz), "im Hintergrund weiterlaufen" und "beim Anmelden im Hintergrund starten".

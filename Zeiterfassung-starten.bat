@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 
 rem Standard: als Programm starten (eigenes Fenster, kein bleibendes Konsolenfenster) - wie Zeiterfassung.vbs.
-rem "start-local.bat --konsole" startet wie frueher mit sichtbarer Konsole und Browser (z. B. zur Fehlersuche).
+rem "Zeiterfassung-starten.bat --konsole" startet wie frueher mit sichtbarer Konsole und Browser (z. B. zur Fehlersuche).
 if /i not "%~1"=="--konsole" (
   call "%~dp0start-app.bat" %*
   exit /b
@@ -26,7 +26,7 @@ if errorlevel 1 (
   echo Node.js wurde nicht gefunden.
   echo Bitte den Ordner, in dem node.exe liegt, in der Variable NODE_HOME angeben, z.B.:
   echo   set NODE_HOME=C:\Users\philipp.moser\node-v24.21.0-win-x64
-  echo   start-local.bat
+  echo   Zeiterfassung-starten.bat --konsole
   pause
   exit /b 1
 )
@@ -64,7 +64,7 @@ if errorlevel 1 (
   call npm rebuild better-sqlite3
   node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
   if errorlevel 1 (
-    echo Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und start-local.bat erneut starten.
+    echo Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und Zeiterfassung-starten.bat erneut starten.
     pause
     exit /b 1
   )

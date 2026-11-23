@@ -4,13 +4,14 @@
 // Schliessen beendet. Ausserhalb des Programm-Modus (Browser-Tab, Docker) antwortet der Server mit
 // appMode:false bzw. 404 und diese Seite tut nichts. Dazu: der "Beenden"-Knopf unter Konto.
 (function () {
-  const ping = (state, keepalive) =>
-    fetch(`/api/app/ping?state=${state}`, { credentials: 'same-origin', cache: 'no-store', keepalive: !!keepalive })
+  const ping = (state, keepalive, load) =>
+    fetch(`/api/app/ping?state=${state}${load ? '&load=1' : ''}`, { credentials: 'same-origin', cache: 'no-store', keepalive: !!keepalive })
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
 
   let timer = null;
-  ping('open').then((data) => {
+  // load=1: die Seite ist gerade geladen – daran erkennt der Starter, dass sein Fenster wirklich zu sehen ist
+  ping('open', false, true).then((data) => {
     if (!data || !data.appMode) return;
     window.zeitAppMode = true;
     timer = setInterval(() => ping('open'), 10000);

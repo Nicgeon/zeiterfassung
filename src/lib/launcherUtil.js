@@ -115,7 +115,7 @@ function appleScriptQuote(text) {
 
 /**
  * Soll sich der Starter ohne Konsole neu starten? Unter Windows läuft er sonst die ganze Zeit in dem Konsolenfenster,
- * aus dem er kam (start-app.bat, start-local.bat, Doppelklick; mit Windows Terminal als Standard-Konsole wird auch
+ * aus dem er kam (start-app.bat, Zeiterfassung-starten.bat, Doppelklick; mit Windows Terminal als Standard-Konsole wird auch
  * das "versteckte" Fenster aus Zeiterfassung.vbs sichtbar). Nicht, wenn er schon der neu gestartete ist oder
  * ausdrücklich mit Konsole laufen soll (--konsole).
  */
@@ -123,4 +123,25 @@ function shouldDetach({ platform = process.platform, env = process.env, argv = p
   return platform === 'win32' && env.ZEIT_LAUNCHER_DETACHED !== '1' && !argv.includes('--konsole');
 }
 
-module.exports = { shouldDetach, KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };
+/**
+ * PowerShell-Befehl, der die Startmenü-Einträge "Zeiterfassung" und "Zeiterfassung Mini" anlegt (bzw. erneuert).
+ * Darüber findet die Windows-Suche das Programm, egal in welchem Ordner es liegt.
+ */
+function startMenuScript({ programsDir, root }) {
+  const link = (name, target, text) => [
+    `$l = $sh.CreateShortcut(${psQuote(path.win32.join(programsDir, `${name}.lnk`))})`,
+    `$l.TargetPath = ${psQuote(path.win32.join(root, target))}`,
+    `$l.WorkingDirectory = ${psQuote(root)}`,
+    `$l.IconLocation = ${psQuote(path.win32.join(root, 'public', 'favicon.ico'))}`,
+    `$l.Description = ${psQuote(text)}`,
+    '$l.Save()',
+  ];
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    '$sh = New-Object -ComObject WScript.Shell',
+    ...link('Zeiterfassung', 'Zeiterfassung.vbs', 'Zeiterfassung starten'),
+    ...link('Zeiterfassung Mini', 'Zeiterfassung-Mini.vbs', 'Zeiterfassung als kleines Fenster starten'),
+  ].join('; ');
+}
+
+module.exports = { shouldDetach, startMenuScript, KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };

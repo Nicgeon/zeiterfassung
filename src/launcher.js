@@ -19,7 +19,8 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
-const { appWindowArgs, psQuote, appleScriptQuote, shouldDetach } = require('./lib/launcherUtil');
+const { appWindowArgs, psQuote, appleScriptQuote, shouldDetach, startMenuScript } = require('./lib/launcherUtil');
+const systemToast = require('./lib/notify');
 const { findBrowsers, profileDirFor } = require('./lib/appWindow');
 const { defaultLocalDataDir } = require('./lib/localKeys');
 
@@ -97,6 +98,33 @@ function notify(title, text, { block = false } = {}) {
   } catch { /* nur Komfort */ }
 }
 
+/** Kurze Systembenachrichtigung (verschwindet von selbst) – für Hinweise, die man nicht wegklicken muss. */
+function toast(title, body) {
+  log(`${title}: ${body}`);
+  systemToast.notify({ title, body }, { log });
+}
+
+/** Windows: Startmenü-Einträge anlegen bzw. nach einem Umzug des Programmordners erneuern (für die Windows-Suche). */
+function ensureStartMenu() {
+  if (process.platform !== 'win32' || !process.env.APPDATA) return;
+  const programsDir = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+  const marker = path.join(DATA_DIR, 'startmenu.json');
+  try {
+    if (fs.existsSync(path.join(programsDir, 'Zeiterfassung.lnk')) && JSON.parse(fs.readFileSync(marker, 'utf8')).root === ROOT) return;
+  } catch { /* neu anlegen */ }
+  try {
+    const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', startMenuScript({ programsDir, root: ROOT })], { stdio: 'ignore', windowsHide: true });
+    child.on('error', (err) => log(`Startmenü-Einträge nicht möglich: ${err.message}`));
+    child.on('exit', (code) => {
+      if (code !== 0) { log(`Startmenü-Einträge konnten nicht angelegt werden (Code ${code}).`); return; }
+      try { fs.writeFileSync(marker, JSON.stringify({ root: ROOT })); } catch { /* egal */ }
+      log('Startmenü-Einträge „Zeiterfassung“ und „Zeiterfassung Mini“ angelegt.');
+    });
+  } catch (err) {
+    log(`Startmenü-Einträge nicht möglich: ${err.message}`);
+  }
+}
+
 // --- Hilfen -----------------------------------------------------------------------------------------
 
 /** Antwort von UNSERER Zeiterfassung auf dem Port (eigene Kennung in /api/app/ping) oder null. seen: hat sich schon ein Fenster gemeldet? */
@@ -132,7 +160,7 @@ async function waitForServer(ms) {
   return false;
 }
 
-// --- Vorbereitung (wie start-local.*) ---------------------------------------------------------------------
+// --- Vorbereitung (wie Zeiterfassung-starten.*) ---------------------------------------------------------------------
 
 function runNpm(args) {
   // Unter Windows in einem sichtbaren Fenster, damit die Person sieht, dass beim ersten Start installiert wird.
@@ -255,6 +283,28 @@ function watchClose(state) {
   };
 }
 
+// Rückmeldung beim Start: hat sich seit dem Öffnen eines Fensters eine Seite geladen (Ping mit load=1)?
+let windowShown = false;
+const loadedSince = (info, since) => !!info && (info.lastLoad || 0) >= since;
+const NOT_VISIBLE_HINT = 'Falls nichts zu sehen ist: im Startmenü erneut „Zeiterfassung“ öffnen oder im Browser http://localhost:' + PORT + ' aufrufen. Einzelheiten stehen in zeiterfassung.log im Datenordner.';
+
+/** Wartet, bis sich nach "since" eine Seite geladen hat; true bei Erfolg. */
+async function waitForLoad(since, ms, state) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (loadedSince(await probeInfo(), since)) return true;
+    if (state && (state.error || (state.exited && state.code !== 0))) return false;
+    await sleep(400);
+  }
+  return false;
+}
+
+/** Fenster laut Browser offen, aber die Seite meldet sich nicht: Hinweis und im Hintergrund weiter warten. */
+function warnNoWindow(since) {
+  toast('Zeiterfassung: kein Fenster?', `Das Programm läuft, aber das Fenster meldet sich nicht. ${NOT_VISIBLE_HINT}`);
+  waitForLoad(since, 120_000).then((ok) => { if (ok) { windowShown = true; log('Fenster hat sich doch noch gemeldet.'); } });
+}
+
 /**
  * Erstes Fenster: probiert die Browser der Reihe nach und prueft, ob sich die Seite wirklich meldet (Ping).
  * Der Standardbrowser (als Tab) kommt erst, wenn keiner funktioniert hat - dann mit Hinweis.
@@ -266,17 +316,24 @@ async function openFirstWindow(w) {
     return;
   }
   for (const choice of CHOICES) {
+    const since = Date.now();
     const state = launchApp(choice, w);
     const end = Date.now() + 30_000;
     let result = 'timeout';
     while (Date.now() < end) {
-      const info = await probeInfo();
-      if (info && info.seen) { result = 'ok'; break; }
+      if (loadedSince(await probeInfo(), since)) { result = 'ok'; break; }
       if (state.error || (state.exited && state.code !== 0)) { result = 'failed'; break; }
       await sleep(400);
     }
-    if (result === 'ok' || (result === 'timeout' && !state.exited)) {
-      if (result === 'timeout') log('Noch keine Meldung vom Fenster, der Browser läuft aber - warte weiter.');
+    if (result === 'ok') {
+      windowShown = true;
+      log(`Fenster geöffnet nach ${Math.round((Date.now() - since) / 100) / 10} s.`);
+      watchClose(state);
+      return;
+    }
+    if (result === 'timeout' && !state.exited) {
+      log('Noch keine Meldung vom Fenster, der Browser läuft aber - warte weiter.');
+      warnNoWindow(since);
       watchClose(state);
       return;
     }
@@ -286,13 +343,28 @@ async function openFirstWindow(w) {
   openDefaultBrowser(w.url);
 }
 
-/** Weiteres Fenster (zweiter Start, Anforderung der Seite): erster Browser, bei Startfehler der naechste. */
-async function openExtraWindow(w) {
+/**
+ * Weiteres Fenster (zweiter Start, Anforderung der Seite): erster Browser, bei Startfehler der naechste.
+ * check: prüfen, ob sich die Seite meldet (beim zweiten Start), sonst Hinweis und Standardbrowser.
+ */
+async function openExtraWindow(w, { check = false } = {}) {
   if (!CHOICES.length) { openDefaultBrowser(w.url); return; }
   for (const choice of CHOICES) {
+    const since = Date.now();
     const state = launchApp(choice, w);
-    await sleep(1500);
-    if (!state.error) return;
+    if (!check) {
+      await sleep(1500);
+      if (!state.error) return;
+      continue;
+    }
+    if (await waitForLoad(since, 20_000, state)) { log('Weiteres Fenster geöffnet.'); return; }
+    if (!state.error && !(state.exited && state.code !== 0)) {
+      // Browser läuft, Seite meldet sich nicht: nicht noch ein Fenster mit dem nächsten Browser, sondern Hinweis
+      toast('Zeiterfassung: kein Fenster?', `Die Zeiterfassung läuft bereits, das Fenster meldet sich aber nicht. Sie wird jetzt im Standardbrowser geöffnet. ${NOT_VISIBLE_HINT}`);
+      openDefaultBrowser(w.url);
+      return;
+    }
+    log(`Mit ${choice.exe} ist kein weiteres Fenster erschienen - versuche den nächsten Browser.`);
   }
   openDefaultBrowser(w.url);
 }
@@ -308,7 +380,8 @@ async function main() {
   if (await portInUse()) {
     if (await probe()) {
       log('Zeiterfassung läuft bereits - öffne nur das Fenster.');
-      if (!NO_WINDOW) await openExtraWindow(windowFor(START_KIND));
+      ensureStartMenu();
+      if (!NO_WINDOW && !BACKGROUND_START) await openExtraWindow(windowFor(START_KIND), { check: true });
       process.exit(0);
     }
     notify('Zeiterfassung', `Der Port ${PORT} ist von einem anderen Programm belegt. Bitte mit PORT=4712 (Umgebungsvariable) starten.`);
@@ -322,6 +395,13 @@ async function main() {
     notify('Zeiterfassung', `Start fehlgeschlagen: ${err.message}`);
     stopAll(1);
   });
+
+  ensureStartMenu();
+  // Dauert der Start länger (Einrichtung, langsamer Rechner), gibt es nach ein paar Sekunden ein Lebenszeichen
+  const startHint = !NO_WINDOW && !BACKGROUND_START
+    ? setTimeout(() => { if (!windowShown) toast('Zeiterfassung startet …', 'Einen Moment, das Fenster öffnet sich gleich.'); }, 6000)
+    : null;
+  if (startHint && startHint.unref) startHint.unref();
 
   if (!NO_WINDOW) {
     if (await waitForServer(120_000)) {

@@ -10,7 +10,7 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const express = require('express');
 const { createIdleMonitor, createRouter } = require('../src/lib/appMode');
-const { findBrowser, browserCandidates, appWindowArgs, psQuote, appleScriptQuote, shouldDetach } = require('../src/lib/launcherUtil');
+const { findBrowser, browserCandidates, appWindowArgs, psQuote, appleScriptQuote, shouldDetach, startMenuScript } = require('../src/lib/launcherUtil');
 
 // --- Leerlauf-Waechter ---------------------------------------------------------------------------------
 
@@ -59,7 +59,7 @@ async function withRouter(opts, fn) {
 
 test('Ping-Route: Zustände, Herkunftsprüfung, nur im Programm-Modus wirksam', async () => {
   await withRouter({ appMode: true }, async (base, calls) => {
-    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: true, seen: false });
+    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: true, seen: false, lastLoad: 0 });
     await fetch(`${base}/ping?state=closing`);
     await fetch(`${base}/ping?state=probe`); // wirkt nicht
     assert.deepEqual(calls, ['ping', 'closing']);
@@ -83,7 +83,7 @@ test('Ping-Route: Zustände, Herkunftsprüfung, nur im Programm-Modus wirksam', 
     assert.deepEqual(await r.json(), { opened: false }); // ohne Starter: die Seite oeffnet selbst ein Popup
   });
   await withRouter({ appMode: false }, async (base, calls) => {
-    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: false, seen: false });
+    assert.deepEqual(await (await fetch(`${base}/ping?state=open`)).json(), { appMode: false, seen: false, lastLoad: 0 });
     assert.deepEqual(calls, []);
   });
 });
@@ -126,7 +126,7 @@ function freePort() {
 /** Schein-Browser: schreibt seine Argumente auf, meldet sich einmal beim Server (wie die Seite im Fenster) und lebt bis "close" erscheint. */
 function writeFakeBrowser(dir, { argsFile = 'browser-args', append = false, ping = true } = {}) {
   const file = path.join(dir, 'fake-browser.sh');
-  const pingCmd = ping ? `"${process.execPath}" -e "require('http').get('http://127.0.0.1:'+process.env.PORT+'/api/app/ping?state=open',r=>r.resume()).on('error',()=>{})"\n` : '';
+  const pingCmd = ping ? `"${process.execPath}" -e "require('http').get('http://127.0.0.1:'+process.env.PORT+'/api/app/ping?state=open&load=1',r=>r.resume()).on('error',()=>{})"\n` : '';
   fs.writeFileSync(file, `#!/bin/sh\necho "$@" ${append ? '>>' : '>'} "${dir}/${argsFile}"\n${pingCmd}while [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
   return file;
 }
@@ -323,7 +323,7 @@ test('Einstellungsroute: nur Stichwörter, Datei bleibt erhalten', async () => {
   });
 });
 
-test('openDetached (start-local): öffnet App-Fenster mit eigenem Profil, nie den Standardbrowser; ohne Browser null', () => {
+test('openDetached (Zeiterfassung-starten --konsole): öffnet App-Fenster mit eigenem Profil, nie den Standardbrowser; ohne Browser null', () => {
   const { openDetached } = require('../src/lib/appWindow');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-detached-'));
   const fake = writeFakeBrowser(dir, { ping: false });
@@ -468,4 +468,22 @@ test('Starter: unter Windows ohne Konsole neu starten (Konsolenfenster schließt
   assert.equal(shouldDetach({ platform: 'win32', env: {}, argv: ['node', 'launcher.js', '--konsole'] }), false, 'ausdrücklich mit Konsole');
   assert.equal(shouldDetach({ platform: 'linux', env: {}, argv: ['node', 'launcher.js'] }), false);
   assert.equal(shouldDetach({ platform: 'darwin', env: {}, argv: ['node', 'launcher.js'] }), false);
+});
+
+test('Startmenü: Einträge für Zeiterfassung und Mini, Pfade sicher maskiert', () => {
+  const script = startMenuScript({ programsDir: 'C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs', root: "C:\\Users\\x\\O'Brien\\zeiterfassung" });
+  assert.match(script, /Programs\\Zeiterfassung\.lnk'/);
+  assert.match(script, /Programs\\Zeiterfassung Mini\.lnk'/);
+  assert.match(script, /O''Brien\\zeiterfassung\\Zeiterfassung\.vbs'/, 'Hochkomma verdoppelt');
+  assert.match(script, /public\\favicon\.ico'/);
+});
+
+test('Leerlauf-Wächter merkt sich, wann zuletzt eine Seite geladen wurde', () => {
+  const { createIdleMonitor } = require('../src/lib/appMode');
+  const m = createIdleMonitor({ onIdle: () => {}, setTimer: () => null, clearTimer: () => {} });
+  m.ping();
+  assert.equal(m.lastLoad, 0);
+  const before = Date.now();
+  m.ping({ load: true });
+  assert.ok(m.lastLoad >= before);
 });

@@ -25,7 +25,7 @@ const ALLOWED = [
   /^src\//,
   /^public\//,
   /^package(-lock)?\.json$/,
-  /^(start-local|berichtsheft|start-app)\.(sh|bat|command)$/,
+  /^(start-local|berichtsheft|start-app|Zeiterfassung-starten)\.(sh|bat|command)$/,
   /^(Zeiterfassung|Zeiterfassung-Mini|app-verknuepfung-erstellen)\.vbs$/,
   /^Zeiterfassung\.app\//,
   /^README\.md$/,
@@ -39,6 +39,12 @@ const ALLOWED = [
 const SAFE_PATH = /^[A-Za-z0-9._\-/]+$/;
 const TEXT_FILE = /(\.(js|json|html|css|md|txt|sh|bat|vbs|plist|yml|yaml|svg|example)|(^|\/)(Dockerfile|\.gitignore|\.dockerignore|\.gitattributes)|Zeiterfassung\.app\/Contents\/MacOS\/[^/]+)$/;
 const DEPENDENCY_FILES = new Set(['package.json', 'package-lock.json']);
+// Umbenannte Dateien: die alte wird entfernt (mit Sicherung), sobald die neue da ist.
+const RENAMED = [
+  ['start-local.bat', 'Zeiterfassung-starten.bat'],
+  ['start-local.sh', 'Zeiterfassung-starten.sh'],
+  ['start-local.command', 'Zeiterfassung-starten.command'],
+];
 
 function isUpdatablePath(p) {
   return SAFE_PATH.test(p) && !p.includes('..') && !p.startsWith('/') && ALLOWED.some((re) => re.test(p));
@@ -211,10 +217,27 @@ function writeFileAtomic(target, buffer, relPath, executable) {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   const tmp = `${target}.update-tmp`;
   // Dateirechte wie im Repository: Startskripte muessen ausfuehrbar bleiben (macOS/Linux),
-  // sonst startet "./start-local.sh" nach einem Update nicht mehr.
+  // sonst startet "./Zeiterfassung-starten.sh" nach einem Update nicht mehr.
   fs.writeFileSync(tmp, data, { mode: executable ? 0o755 : 0o644 });
   if (executable) fs.chmodSync(tmp, 0o755);
   fs.renameSync(tmp, target);
+}
+
+/** Alte Namen umbenannter Dateien entfernen, wenn die neue Datei vorhanden ist (Sicherung im Update-Ordner). */
+function retireRenamed(stamp, appDir = APP_DIR, backupDir = BACKUP_DIR) {
+  const removed = [];
+  for (const [oldName, newName] of RENAMED) {
+    const oldPath = path.join(appDir, oldName);
+    if (!fs.existsSync(oldPath) || !fs.existsSync(path.join(appDir, newName))) continue;
+    try {
+      const backup = path.join(backupDir, stamp, oldName);
+      fs.mkdirSync(path.dirname(backup), { recursive: true });
+      fs.copyFileSync(oldPath, backup);
+      fs.rmSync(oldPath, { force: true });
+      removed.push(oldName);
+    } catch { /* bleibt einfach liegen */ }
+  }
+  return removed;
 }
 
 /** Laedt alle geaenderten Dateien, prueft sie und ersetzt sie erst danach. */
@@ -251,6 +274,7 @@ async function apply() {
       writeFileAtomic(path.join(APP_DIR, file.path), buffer, file.path, file.executable);
     }
     if (changed.some((f) => DEPENDENCY_FILES.has(f.path))) fs.writeFileSync(INSTALL_MARKER, 'npm install --omit=dev\n');
+    retireRenamed(stamp);
     writeState({ appliedCommit: remote.commit.sha, appliedAt: new Date().toISOString() });
     lastCheck = { at: new Date().toISOString(), commit: remote.commit, changed: [], files: remote.files };
 
@@ -276,4 +300,4 @@ async function ensureChecked() {
   return status();
 }
 
-module.exports = { check, apply, status, ensureChecked, startSchedule, blobSha, isUpdatablePath, RESTART_EXIT_CODE };
+module.exports = { check, apply, status, ensureChecked, startSchedule, blobSha, isUpdatablePath, retireRenamed, RENAMED, RESTART_EXIT_CODE };

@@ -39,11 +39,11 @@ const ZeitUpdate = (() => {
     const result = await apply();
     if (result.updated === 0) return setMessage('Bereits auf dem neuesten Stand.');
     if (!result.restart) {
-      return setMessage('Update installiert. Bitte die Anwendung beenden und start-local erneut starten.');
+      return setMessage('Update installiert. Bitte die Anwendung beenden und die Zeiterfassung erneut starten.');
     }
     setMessage('Update installiert – die Anwendung startet neu …');
     if (await waitForRestart()) window.location.reload();
-    else setMessage('Der Neustart dauert länger als erwartet. Bitte start-local erneut starten.');
+    else setMessage('Der Neustart dauert länger als erwartet. Bitte die Zeiterfassung erneut starten.');
   }
 
   function describe(s) {

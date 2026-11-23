@@ -3,7 +3,7 @@ rem Startet die Zeiterfassung als Programm (lokal). Normalerweise ueber Zeiterfa
 rem startet sich sofort ohne Konsole neu, dieses Fenster schliesst sich deshalb gleich wieder.
 cd /d "%~dp0"
 
-rem Node.js suchen: zuerst im PATH, dann in typischen Benutzerordnern (wie in start-local.bat)
+rem Node.js suchen: zuerst im PATH, dann in typischen Benutzerordnern (wie in Zeiterfassung-starten.bat)
 where node >nul 2>nul
 if errorlevel 1 (
   if defined NODE_HOME if exist "%NODE_HOME%\node.exe" set "PATH=%NODE_HOME%;%PATH%"

@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-rem Node.js suchen (wie in start-local.bat)
+rem Node.js suchen (wie in Zeiterfassung-starten.bat)
 where node >nul 2>nul
 if errorlevel 1 (
   if defined NODE_HOME if exist "%NODE_HOME%\node.exe" set "PATH=%NODE_HOME%;%PATH%"
@@ -14,12 +14,12 @@ if errorlevel 1 (
 )
 where node >nul 2>nul
 if errorlevel 1 (
-  echo Node.js wurde nicht gefunden. Bitte NODE_HOME setzen, siehe start-local.bat.
+  echo Node.js wurde nicht gefunden. Bitte NODE_HOME setzen, siehe Zeiterfassung-starten.bat.
   pause
   exit /b 1
 )
 if not exist node_modules (
-  echo Bitte zuerst start-local.bat ausfuehren ^(installiert die Abhaengigkeiten^).
+  echo Bitte zuerst Zeiterfassung-starten.bat ausfuehren ^(installiert die Abhaengigkeiten^).
   pause
   exit /b 1
 )

@@ -31,7 +31,7 @@ while true; do
     echo "Node.js-Version hat sich geaendert - better-sqlite3 wird neu gebaut ..."
     npm rebuild better-sqlite3
     if ! node -e "new (require('better-sqlite3'))(':memory:').close()" >/dev/null 2>&1; then
-      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und start-local.sh erneut starten."
+      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und Zeiterfassung-starten.sh erneut starten."
       echo "(macOS: ggf. vorher die Entwicklerwerkzeuge installieren: xcode-select --install)"; exit 1
     fi
   fi
