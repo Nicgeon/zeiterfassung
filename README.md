@@ -931,6 +931,17 @@ automatisch für beide Varianten, es gibt nichts doppelt zu pflegen.
   CSS-Klassen `local-only` bzw. `local-hide` je Variante ein- oder ausblenden.
 - Neue Routen, die Daten ändern, gehören **hinter** den CSRF-Schutz in
   `server.js`, auch im lokalen Modus.
+- **Stile** liegen in `public/css/` in neun Dateien, die jede Seite in dieser Reihenfolge lädt: `grundlagen`
+  (Farben, Grundgerüst, Formulare, Knöpfe), `bausteine` (Seitenkopf, Erfassungskarte, Listen), `marine` (Farbschemata
+  Marine), `navigation` (Seitenleiste, Aufgabenspalte), `heute` (Seite Heute und Mini-Fenster), `aufgaben`,
+  `einstellungen`, `auswertung` (Auswertung und Berichte), `dialoge`. Die CSP verbietet `style`-Attribute: Breiten und
+  Positionen setzt das JavaScript über CSSOM (`el.style.width = …`).
+- **Seite „Heute“** besteht aus mehreren Skripten unter `public/js/heute/` (`kern`, `zeitangabe`, `eingabe`,
+  `formular`, `timer`, `pausiert`, `tag`, `fenster`, `start`), die sich über `window.Heute` teilen; jede Datei sagt
+  oben, wofür sie zuständig ist. Datumsrechnung für alle Seiten steht in `public/js/util.js`.
+- **Tests:** `npm test` (Server, Logik und – wenn Playwright installiert ist – Klick-Tests im Browser). Für Umbauten
+  am CSS gibt es unter `test/tools/` einen Stil-Schnappschuss: alle Seiten in allen Designs und Breiten, berechnete
+  Stile je Element vorher/nachher vergleichen (Anleitung oben in `stil-schnappschuss.js`).
 
 ## Grenzen / bewusste Design-Entscheidungen
 

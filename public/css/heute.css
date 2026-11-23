@@ -1,0 +1,308 @@
+/* Seite "Heute" (Jetzt-Karte, Zeitstrahl, Als Nächstes | Einträge) und Mini-Fenster (index.html?mini=1).
+   Teil der Stile der Zeiterfassung; alle Seiten laden die Dateien in fester Reihenfolge:
+   grundlagen, bausteine, marine, navigation, heute, aufgaben, einstellungen, auswertung, dialoge. */
+
+/* --- Seite "Heute": Jetzt-Karte, Zeitstrahl, Als Nächstes | Einträge ----------------------------------------- */
+.today-page { max-width: 1400px; padding: 24px 28px 56px; }
+.today-page .work-col { gap: 18px; }
+.today-page .page-head { margin-bottom: 0; align-items: center; }
+.today-page .page-title { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+.today-page .eyebrow { margin-bottom: 2px; }
+
+/* Jetzt-Karte */
+html:not(.mini) .today-page .composer { padding: 22px 26px; border-radius: 28px; }
+html:not(.mini) .today-page .composer__head { gap: 12px; margin-bottom: 14px; }
+.composer__views .seg__btn { min-height: 32px; padding: 0 16px; font-size: 13px; }
+.composer__since { font-size: 13px; color: var(--ink-faint); }
+.composer__since:empty { display: none; }
+.composer:not([data-view='start']) .composer__since { display: none; }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) #formTitle { display: none; }
+/* Start-Ansicht: Aufgabe | Ticket | Timer starten in einer Zeile */
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) #entryForm {
+  display: grid; grid-template-columns: minmax(0, 1fr) 240px auto; gap: 12px; align-items: end;
+}
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__meta { display: contents; }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__when,
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .school-check,
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .hint-line,
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__footer .field-hint,
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .split,
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__head-actions { display: none !important; }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__text textarea {
+  min-height: 56px; height: 56px; padding: 15px 18px; font-size: 17px; resize: none; overflow: hidden;
+}
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__ticket .fieldblock__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { min-height: 56px; height: 56px; }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__footer { margin: 0; padding: 0; border: 0; }
+.composer[data-view='start']:not(.composer--timer):not(.composer--editing) #timerStartBtn { min-height: 56px; padding: 0 28px; font-size: 15px; }
+/* Timer läuft: Uhr groß, Aufgabe und Ticket nebeneinander */
+html:not(.mini) .today-page .composer--timer .timer-elapsed { font-size: 40px; font-weight: 600; letter-spacing: 0.01em; }
+html:not(.mini) .today-page .composer--timer .composer__head h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); }
+html:not(.mini) .today-page .composer--timer #entryForm { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; align-items: end; }
+html:not(.mini) .today-page .composer--timer .composer__meta { display: contents; }
+html:not(.mini) .today-page .composer--timer .timer-note { display: none !important; }
+html:not(.mini) .today-page .composer--timer .composer__footer { grid-column: 1 / -1; }
+
+/* Zeitstrahl-Karte (Summen oben, Zeitstrahl darunter) */
+.timeline-card.summary--band {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'label legend actions' 'total legend actions' 'tl tl tl';
+  row-gap: 4px; padding: 18px 24px;
+}
+.timeline-card .summary__bar { display: none; }
+.timeline-card .summary__legend { align-self: center; padding-top: 0; }
+.timeline-card .summary__actions { flex-direction: row; min-width: 0; }
+.timeline-card .summary__actions { justify-content: flex-end; }
+.timeline-card .summary__actions .btn { min-height: 38px; flex: 0 0 auto !important; }
+.timeline-card .timeline { grid-area: tl; margin-top: 12px; }
+@media (max-width: 1499px) {
+  .timeline-card.summary--band { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'label legend' 'total legend' 'tl tl' 'actions actions'; }
+  .timeline-card .summary__actions { margin-top: 12px; }
+}
+@media (max-width: 700px) {
+  .timeline-card.summary--band { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'label' 'total' 'legend' 'tl' 'actions'; }
+}
+.tl-track {
+  position: relative; height: 56px; border-radius: 12px;
+  background: repeating-linear-gradient(45deg, var(--surface-alt) 0 6px, color-mix(in srgb, var(--surface-alt) 60%, var(--surface)) 6px 12px);
+}
+.tl-block {
+  position: absolute; top: 6px; bottom: 6px; box-sizing: border-box; padding: 0 10px; border-radius: 8px;
+  display: flex; align-items: center; overflow: hidden; font: 600 11px var(--font-mono); white-space: nowrap;
+}
+.tl-block span { overflow: hidden; text-overflow: ellipsis; }
+.tl-block--narrow { padding: 0; min-width: 2px; }
+.tl-block--running.tl-block--narrow { min-width: 0; }
+.tl-block--done { background: var(--success); color: #062b2a; }
+.tl-block--open { background: var(--warn-bar); color: #fff; }
+.tl-block--running { background: repeating-linear-gradient(45deg, var(--accent) 0 8px, var(--accent-strong) 8px 16px); color: var(--on-accent); }
+.tl-gap {
+  position: absolute; top: 6px; bottom: 6px; padding: 0 6px; border-radius: 8px; white-space: nowrap; overflow: hidden;
+  border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-strong); font-size: 12px; font-weight: 600; opacity: 0.75;
+}
+.tl-gap:hover, .tl-gap:focus-visible { opacity: 1; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.tl-now { position: absolute; top: -6px; bottom: -6px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--danger); }
+.tl-axis { position: relative; height: 18px; margin-top: 6px; font: 500 11px var(--font-mono); color: var(--ink-faint); }
+.tl-axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.tl-axis span:first-child { transform: none; }
+.tl-axis span:last-child { transform: translateX(-100%); }
+.tl-free { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-faint); }
+.tl-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; border: 1px dashed var(--border-strong); color: var(--ink); }
+.tl-chip strong { color: var(--accent); }
+.tl-empty { padding: 14px 4px 4px; font-size: 14px; color: var(--ink-faint); }
+
+/* Unten: Als Nächstes | Einträge */
+.today-grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1099px) { .today-grid { grid-template-columns: minmax(0, 1fr); } }
+.today-entries { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.tasks-col--compact {
+  position: static; max-height: none; overflow: visible; padding: 14px; gap: 8px;
+  border-radius: 24px; background: var(--surface); border: 1px solid var(--border);
+}
+.tasks-col--compact .tasks__head { min-height: 32px; padding: 0 4px; }
+.tasks-col--compact .tasks__head h2 { font-size: 16px; }
+.tasks__all { font-size: 13px; color: var(--accent); text-decoration: none; }
+.tasks__all:hover { text-decoration: underline; }
+.tasks-col--compact .task { background: var(--bg); border-color: transparent; }
+.tasks-col--compact .tasks__add { min-height: 44px; border-style: dashed; }
+.tasks-col--compact .tasks__add input[type='text'] { min-height: 40px; height: 40px; }
+a.tasks__more-hint { color: var(--accent); text-decoration: none; }
+[data-theme='marine'] .tasks-col--compact .tasks__head h2 { color: var(--ink); }
+[data-theme='marine'] .tasks-col--compact .tasks__label, [data-theme='marine'] .tasks-col--compact .tasks__empty,
+[data-theme='marine'] .tasks-col--compact a.tasks__more-hint { color: var(--ink-muted); }
+.entry__dot { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--warn-bar); }
+.entry__dot.is-done { background: var(--success); }
+.mini-hide { }
+.mini .mini-hide { display: none !important; }
+
+/* --- Mini-Fenster (index.html?mini=1) -------------------------------------------------------
+   Nur das Eintragsformular (Aufgabe, Zeit, Ticket, Knoepfe) und darunter die pausierten Aufgaben.
+   Ein Raster: alle Eingaben und Knoepfe 44 px hoch, Symbolknoepfe quadratisch 44 px (in den Listen 36 px),
+   Hauptaktion immer als gefuellter Knopf rechts bzw. unten. Farben kommen aus dem gewaehlten Theme. */
+
+.mini .topbar,
+.mini .page-head,
+.mini .page-main > .card--flush,
+.mini .theme-menu--floating,
+.mini #mergeBanner,
+.mini .hint-line,
+.mini .composer__footer .field-hint,
+.mini .timer-note,
+.mini #timerWarning { display: none !important; }
+
+.mini { zoom: 0.9; } /* etwas kleiner als das Hauptfenster */
+.mini body { background: var(--bg) !important; padding: 0; }
+.mini body::before,
+.mini body::after { display: none !important; }
+.mini .shell { padding: 12px; max-width: none; }
+ .mini .today-page { display: flex; flex-direction: column; gap: 10px; max-width: none; padding: 12px; }
+.mini .work-col, .mini .today-grid, .mini .today-entries { display: contents; }
+.mini .today-entries > .card--flush, .mini .tasks__all, .mini .entry__dot { display: none !important; }
+.mini .composer { order: 1; }
+.mini .tasks-col { order: 2; }
+.mini .mini-recent { order: 3; }
+ .mini .work-col > *, .mini .today-grid > *, .mini .today-entries > * { align-self: stretch; }
+.mini .summary--band, .mini .ticket-card { display: none; }
+.mini .card { padding: 16px; box-shadow: none; border-radius: 24px; }
+
+/* Kopf: Titel (bzw. Uhr) links, Segment und Fenster-Wechsel rechts */
+.mini .composer__head { flex-wrap: nowrap; height: 36px; margin-bottom: 12px; gap: 8px; }
+.mini .composer__head h2 { margin-right: auto; font-size: 16px; }
+.mini .composer__head-actions { gap: 6px; }
+.mini .seg--sm .seg__btn { min-height: 28px; padding: 0 12px; font-size: 12px; }
+.mini .composer__head .icon-btn { width: 36px; height: 36px; border-radius: 999px; }
+.mini .composer--timer .composer__head h2 { display: none; }
+.mini .composer--timer .timer-clock { margin-right: auto; gap: 10px; }
+.mini .composer--timer .timer-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent); }
+.mini .composer--timer .timer-elapsed { font-size: 28px; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Aufgabe */
+.mini .composer__text textarea { min-height: 68px; font-size: 14px; line-height: 1.45; padding: 11px 14px; }
+
+/* Eingaben: eine Hoehe */
+.mini input[type='text'], .mini input[type='time'], .mini input[type='number'] { min-height: 44px; height: 44px; font-size: 14px; }
+.mini .fieldblock__label { margin-bottom: 4px; font-size: 11px; letter-spacing: 0.06em; }
+
+/* Zeit und Ticket. Dauer-Modus: Dauer und Ticket nebeneinander, darunter Schnellwahl; Zeitraum-Modus: untereinander. */
+.mini .composer__meta { grid-template-columns: minmax(0, 1fr); margin-top: 12px; gap: 12px; }
+.mini .when { flex-wrap: nowrap; gap: 6px; }
+.mini .when input[type='time'] { flex: 1 1 0; width: auto; min-width: 0; padding: 0 8px; }
+.mini .when #duration { width: 100%; }
+.mini .when--times .btn { flex: none; }
+.mini .composer__ticket input[type='text'] { width: 100%; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__meta {
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 4px 8px;
+}
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__when,
+.mini .composer[data-mode='duration']:not(.composer--timer) .when--duration,
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__ticket { display: contents; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .label-duration { grid-column: 1; grid-row: 1; margin: 0 0 0; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .composer__ticket .fieldblock__label { grid-column: 2; grid-row: 1; }
+.mini .composer[data-mode='duration']:not(.composer--timer) #duration { grid-column: 1; grid-row: 2; }
+.mini .composer[data-mode='duration']:not(.composer--timer) #jiraKey { grid-column: 2; grid-row: 2; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .duration-chips { grid-column: 1 / -1; grid-row: 3; margin-top: 4px; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .when__summary { grid-column: 1 / -1; grid-row: 4; margin: 4px 0 0; }
+.mini .composer[data-mode='duration']:not(.composer--timer) .school-check { grid-column: 1 / -1; grid-row: 5; margin-top: 8px; }
+.mini .duration-chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.mini .chip { min-height: 32px; padding: 0 4px; font-size: 12px; justify-content: center; text-align: center; }
+.mini .when__summary { font-size: 12px; margin-top: 4px; }
+.mini .school-check { margin-top: 8px; font-size: 13px; }
+
+/* Aktionen: gleich hohe Knoepfe. Bereit: Timer (Kontur) | Speichern (gefuellt). Timer laeuft: Verwerfen | Unterbrechen | Stoppen. */
+.mini .composer__footer { display: block; margin-top: 12px; padding-top: 12px; }
+.mini .composer__actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; width: 100%; margin: 0; }
+.mini .composer--timer .composer__actions { grid-template-columns: 44px 44px minmax(0, 1fr); }
+.mini .btn { min-height: 44px; height: 44px; padding: 0 12px; font-size: 14px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+.mini .composer__actions .btn { gap: 8px; }
+.mini #timerStartBtn { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.mini #timerStartBtn:hover { background: var(--accent-wash); }
+.mini .split { display: flex; width: 100%; }
+.mini .split__main { flex: 1 1 auto; border-radius: 999px 0 0 999px; }
+.mini .split__toggle { flex: none; min-width: 44px; padding: 0 10px; border-radius: 0 999px 999px 0; }
+.mini #saveBtn, .mini #saveMenuBtn { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.mini #saveBtn:hover, .mini #saveMenuBtn:hover { background: var(--accent-strong); }
+.mini #saveMenuBtn { border-left: 1px solid color-mix(in srgb, var(--on-accent) 25%, transparent); }
+.mini .split__menu { right: 0; left: auto; min-width: 250px; }
+
+/* Symbole statt Texte im Timer */
+.mini-icon { display: none; flex: none; width: 18px; height: 18px; }
+.mini .mini-icon { display: block; }
+.mini .mini-icon-btn .btn__label { display: none; }
+.mini .mini-icon-btn { width: 44px; min-width: 44px; padding: 0 !important; border-radius: 999px; }
+.mini #timerDiscardBtn { background: transparent; border: 1.5px solid var(--border-strong); color: var(--danger); }
+.mini #timerPauseBtn { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+.mini #timerDiscardBtn:hover, .mini #timerPauseBtn:hover { background: var(--accent-wash); }
+.mini #timerStopBtn { gap: 8px; }
+
+/* Knopf "Grosses Fenster" nur im Mini-Fenster */
+.mini-only { display: none; }
+.mini .mini-only { display: inline-flex; align-items: center; justify-content: center; }
+.mini .composer__head .mini-only { order: 3; }
+
+/* Aufgaben im Mini-Fenster: eine Karte; Pausiertes zuerst, dann die Aufgaben, unten das Eingabefeld */
+.mini .tasks-col {
+  position: static; max-height: none; overflow: visible; padding: 12px 12px 8px; gap: 4px;
+  border-radius: 24px; background: var(--surface); border: 1px solid var(--border);
+}
+.mini .tasks__head { min-height: 28px; padding: 0 4px 4px; }
+.mini .tasks__head h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.mini .tasks-col #resumeBar { order: 1; }
+.mini .tasks__list { order: 2; gap: 4px; }
+.mini .tasks__add { order: 3; min-height: 44px; margin-top: 4px; }
+.mini .tasks__add input[type='text'] { min-height: 40px; height: 40px; font-size: 13px; }
+.mini #taskError, .mini .tasks__custom { order: 3; }
+.mini .task { background: var(--bg); border-color: transparent; min-height: 52px; }
+.mini .task__play { width: 44px; height: 44px; }
+.mini .task-edit { background: var(--bg); }
+.mini-resume__head {
+  display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 4px 4px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint);
+}
+.mini-resume__count {
+  min-width: 20px; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-wash); color: var(--accent-strong); font-size: 11px; letter-spacing: 0;
+}
+.mini-resume__row { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 4px; border-radius: 16px; background: var(--bg); }
+.mini-resume__row button.mini-resume__play {
+  flex: none; width: 44px; height: 44px; max-width: none; padding: 0; border: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+}
+.mini-resume__row button.mini-resume__play:hover { background: var(--accent-strong); }
+.mini-resume__play svg { width: 16px; height: 16px; }
+.mini-resume__text { min-width: 0; flex: 1; }
+.mini-resume__title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-resume__sub { margin-top: 1px; font-size: 12px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-resume__btn {
+  flex: none; width: 36px; height: 36px; padding: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--ink);
+}
+.mini-resume__btn:hover { background: var(--surface-alt); }
+.mini-resume__btn--quiet { border-color: transparent; color: var(--ink-faint); }
+.mini-resume__btn svg { width: 16px; height: 16px; }
+
+/* "Noch in Jira eintragen": gleiche Karte wie "Pausiert" */
+.mini-recent { display: none; }
+.mini .mini-recent:not(.hidden) {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 12px 8px;
+  border-radius: 24px; background: var(--surface); border: 1px solid var(--border);
+}
+.mini-recent__auto { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-muted); cursor: pointer; }
+.mini-recent__auto input { width: 14px; height: 14px; margin: 0; }
+.mini-resume__row button.mini-recent__copy {
+  flex: none; width: 44px; height: 44px; padding: 0; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--accent); border: 1.5px solid var(--accent);
+}
+.mini-resume__row button.mini-recent__copy:hover { background: var(--accent-wash); }
+.mini-recent__copy svg { width: 18px; height: 18px; }
+.mini-recent__more { padding: 2px 6px 4px; font-size: 12px; color: var(--ink-faint); }
+
+/* --- Mini-Fenster: "Jetzt starten / Nachtragen" und schmaler Zeitstrahl ---------------------------------- */
+.mini .composer:not(.composer--timer):not(.composer--editing) #formTitle { display: none; }
+.mini .composer__views { margin-right: auto; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #entryForm { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__text { grid-column: 1 / -1; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__text textarea { min-height: 48px; height: 48px; padding: 12px 14px; font-size: 15px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { min-height: 44px; height: 44px; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__actions { display: flex; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #timerStartBtn {
+  min-height: 44px; height: 44px; padding: 0 18px; font-size: 14px; background: var(--accent); color: var(--on-accent); border-color: transparent;
+}
+.mini-tl { padding-top: 10px !important; padding-bottom: 8px !important; }
+.mini .mini-tl { order: 1; }
+.mini-tl__head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 12px; color: var(--ink-muted); }
+.mini-tl__head strong { margin-left: 4px; color: var(--ink); font-size: 13px; }
+.mini-tl__open { color: var(--warn-bar); font-weight: 600; }
+.timeline--slim .tl-track { height: 22px; border-radius: 7px; }
+.timeline--slim .tl-block { top: 3px; bottom: 3px; border-radius: 4px; }
+.timeline--slim .tl-gap { top: 2px; bottom: 2px; padding: 0; border-width: 1px; border-radius: 4px; font-size: 11px; line-height: 1; text-align: center; }
+.timeline--slim .tl-now { top: -3px; bottom: -3px; }
+.timeline--slim .tl-axis { height: 14px; margin-top: 3px; font-size: 10px; }
+.timeline--slim .tl-empty { display: none; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { grid-column: 1; grid-row: 2; }
+.mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__footer { grid-column: 2; grid-row: 2; }

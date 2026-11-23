@@ -1,0 +1,144 @@
+/* Seite "Aufgaben": Ansichten | Liste | gewählte Aufgabe, Hinweise aus dem Jira-Abgleich, "Meine Tickets holen".
+   Teil der Stile der Zeiterfassung; alle Seiten laden die Dateien in fester Reihenfolge:
+   grundlagen, bausteine, marine, navigation, heute, aufgaben, einstellungen, auswertung, dialoge. */
+
+/* --- Seite "Aufgaben": Ansichten | Liste | gewählte Aufgabe ----------------------------------------------- */
+.tasks-page {
+  max-width: 1560px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start;
+  padding: 24px 28px 56px;
+}
+.tasks-page.has-detail { grid-template-columns: 220px minmax(0, 1fr) 380px; }
+.tp-views { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 24px; }
+.tp-title { margin: 0 0 14px 6px; font-size: 26px; }
+.tp-viewlist { display: flex; flex-direction: column; gap: 2px; }
+.tp-view {
+  display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--ink-muted); font-size: 14px; font-weight: 500; text-align: left;
+}
+.tp-view:hover { background: var(--surface-alt); color: var(--ink); }
+.tp-view.is-active { background: var(--accent-wash); color: var(--ink); font-weight: 600; }
+.tp-count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+.tp-view.is-active .tp-count { color: var(--accent); }
+.tp-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.tp-jira { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.tp-jira .tp-label { padding: 0 6px; }
+.tp-jira-btn {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 14px;
+  border: 1px dashed var(--border-strong); background: transparent; color: var(--ink); font-size: 14px; font-weight: 500;
+}
+.tp-jira-btn svg { width: 16px; height: 16px; color: var(--accent); }
+.tp-jira-btn:hover { background: var(--surface-alt); }
+
+.tp-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
+.tp-head h2 { margin: 0; font-size: 22px; }
+.tp-hint { font-size: 13px; color: var(--ink-faint); }
+.tp-main .tasks__list { gap: 16px; }
+.tp-main .tasks__group { gap: 6px; }
+
+.tp-row {
+  display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 6px 8px 6px 14px;
+  border-radius: 16px; background: var(--surface); border: 1px solid var(--border);
+}
+.tp-row.is-overdue { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.tp-row.is-overdue .tp-row__sub { color: var(--danger); }
+.tp-row.is-selected { border: 1.5px solid var(--accent); background: var(--accent-wash); }
+.tp-row.is-done .tp-row__title { text-decoration: line-through; color: var(--ink-muted); }
+.tp-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 4px 0; border: 0; background: transparent; color: inherit; text-align: left; }
+.tp-row__title { font-size: 15px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+.tp-row__sub { font-size: 12px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tp-detail {
+  position: sticky; top: 24px; max-height: calc(100vh / var(--ui-zoom) - 48px); overflow-y: auto;
+  border-radius: 24px; background: var(--surface); border: 1px solid var(--border); padding: 20px;
+}
+.tp-form { display: flex; flex-direction: column; gap: 12px; }
+.tp-form__head { display: flex; align-items: center; gap: 8px; }
+.tp-form__head .icon-btn { margin-left: auto; width: 36px; height: 36px; }
+.tp-saved { font-size: 12px; color: var(--success); }
+.tp-form__title { min-height: 0; font-size: 16px; font-weight: 600; line-height: 1.4; resize: vertical; }
+.tp-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.tp-field input, .tp-field select, .tp-field textarea { min-height: 42px; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.tp-field textarea { resize: vertical; }
+.tp-field--check { flex-direction: row; align-items: center; gap: 8px; align-self: end; min-height: 42px; font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--ink); }
+.tp-field--check input { width: 18px; height: 18px; min-height: 0; margin: 0; }
+.tp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.tp-ticket { display: flex; align-items: flex-end; gap: 8px; }
+.tp-ticket .tp-field { flex: 1; }
+.tp-jira-open {
+  display: none; align-items: center; gap: 6px; height: 42px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--ink); font-size: 13px; font-weight: 600;
+}
+.jira-on .tp-jira-open { display: inline-flex; }
+.tp-jira-open svg { width: 14px; height: 14px; }
+.tp-jira-info { font-size: 12px; color: var(--ink-muted); }
+.tp-jira-info:empty { display: none; }
+.tp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tp-chips .chip { min-height: 32px; padding: 0 12px; font-size: 12px; }
+.tp-tracked { display: flex; align-items: baseline; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--bg); font-size: 13px; color: var(--ink-muted); }
+.tp-tracked strong { margin-left: auto; font-size: 16px; color: var(--accent); }
+.tp-tracked__n { font-size: 12px; }
+.tp-error { font-size: 13px; color: var(--danger); }
+.tp-error:empty { display: none; }
+.tp-actions { display: flex; align-items: center; gap: 8px; }
+.tp-actions__start { flex: 1; gap: 8px; }
+.tp-actions__start svg { width: 15px; height: 15px; }
+.tp-actions__delete { color: var(--danger); }
+[data-theme='marine'] .tp-title, [data-theme='marine'] .tp-head h2, [data-theme='marine'] .tp-view { color: #fafafa; }
+[data-theme='marine'] .tp-view.is-active { color: var(--ink); }
+[data-theme='marine'] .tp-hint, [data-theme='marine'] .tp-count, [data-theme='marine'] .tp-jira .tp-label { color: #d5e4ff; }
+[data-theme='marine'] .tp-jira-btn { color: #fafafa; border-color: rgba(250, 250, 250, 0.5); }
+@media (max-width: 1279px) {
+  .tasks-page, .tasks-page.has-detail { grid-template-columns: 200px minmax(0, 1fr); }
+  .tasks-page.has-detail .tp-detail { grid-column: 2; position: static; max-height: none; order: -1; }
+}
+@media (max-width: 899px) {
+  .tasks-page, .tasks-page.has-detail { grid-template-columns: minmax(0, 1fr); padding: 16px 14px 48px; }
+  .tp-views { position: static; }
+  .tp-viewlist { flex-direction: row; flex-wrap: wrap; }
+  .tasks-page.has-detail .tp-detail { grid-column: auto; }
+}
+.tasks-page .tp-title { font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+.tp-actions .btn { min-height: 46px; padding: 0 18px; font-size: 14px; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+@media (max-width: 999px) { .nav-badge { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; } }
+
+/* --- Jira-Abgleich an Aufgaben ---------------------------------------------------------------------------- */
+.tp-banners { display: flex; flex-direction: column; gap: 8px; }
+.tp-banners:empty { display: none; }
+.tp-banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 16px;
+  background: var(--accent-wash); border: 1px solid var(--accent-line); font-size: 13px;
+}
+.tp-banner--done { background: var(--success-wash); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tp-banner__text { flex: 1 1 260px; min-width: 0; line-height: 1.5; }
+.tp-banner__text .mono { font-size: 12px; font-weight: 600; }
+.tp-jira-done {
+  flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap;
+  background: var(--success-wash); color: var(--success);
+}
+.tp-jira-suggest {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px;
+  background: var(--success-wash); font-size: 13px;
+}
+.tp-jira-suggest span { flex: 1 1 200px; }
+.task--jira-done .task__sub { color: var(--success); font-weight: 600; }
+.tp-banner__actions { display: inline-flex; flex-wrap: nowrap; gap: 6px; margin-left: auto; }
+
+/* --- "Meine Tickets holen": Auswahl, Ausblenden ------------------------------------------------------------ */
+.import__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.import__head-actions { display: inline-flex; gap: 4px; }
+.import__link { padding: 2px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--accent); font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+.import__link:hover { background: var(--accent-wash); }
+.import__hint { font-size: 12px; color: var(--ink-faint); }
+.import__row { align-items: center; padding: 4px 4px 4px 0; cursor: default; }
+.import__pick { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; margin: 0; padding: 2px 4px; font-weight: 400; cursor: pointer; }
+.import__row.is-important .import__sub { color: var(--warn-bar); }
+.import__row.is-ignored { opacity: 0.75; padding-left: 8px; }
+.import__hide {
+  flex: none; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: transparent;
+  color: var(--ink-faint); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.import__hide:hover { border-color: var(--danger); color: var(--danger); }
+.import__row.is-ignored .import__hide:hover { border-color: var(--accent); color: var(--accent); }
+.import__ignored-toggle { align-self: flex-start; padding: 2px 4px; border: 0; background: transparent; color: var(--ink-faint); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.import__row.is-ignored .import__text { flex: 1; min-width: 0; }

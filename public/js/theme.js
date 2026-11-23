@@ -61,7 +61,7 @@
   applyNav(navMode());
 
   // Auswahlmenue statt Durchschalten: Knopf mit aktuellem Schema, darunter die Liste.
-  // Mini-Fenster (index.html?mini=1): nur Aufgabe und Zeit, siehe styles.css ".mini"
+  // Mini-Fenster (index.html?mini=1): nur Aufgabe und Zeit, siehe css/heute.css ".mini"
   if (/[?&]mini=1(&|$)/.test(location.search)) document.documentElement.classList.add('mini');
 
   const NAV_ICONS = {
