@@ -7,6 +7,8 @@
 // - Neue Tickets für mich: was neu unter "mir zugewiesen, nicht erledigt" auftaucht und noch keine Aufgabe ist.
 //   Der erste Abgleich merkt sich nur den Stand (keine Flut beim Einschalten).
 // Läuft im Hintergrund (lokal, mit Benachrichtigung) und beim Öffnen der Aufgaben-Seite; höchstens alle 5 Minuten.
+// "Meine Tickets" ist überall gleich gefiltert (myIssues): ohne ausgeschlossene Projekte, mit eigenem JQL-Zusatz,
+// ohne Tagestickets (Titel = Datum im Tagesticket-Projekt) und ohne Tickets, die die Person ausgeblendet hat.
 
 const jira = require('./jira');
 
@@ -22,6 +24,36 @@ function createJiraSync({ db, decryptField, fetchImpl, minIntervalMs = MIN_INTER
   const seen = db.prepare('SELECT 1 FROM jira_seen WHERE user_id = ? AND key = ?');
   const addSeen = db.prepare('INSERT OR IGNORE INTO jira_seen (user_id, key) VALUES (?, ?)');
   const configuredUsers = db.prepare('SELECT user_id FROM jira_settings');
+  const ignoredKeys = db.prepare('SELECT key FROM jira_ignored WHERE user_id = ?');
+  const ignoreStmt = db.prepare('INSERT OR IGNORE INTO jira_ignored (user_id, key) VALUES (?, ?)');
+  const unignoreStmt = db.prepare('DELETE FROM jira_ignored WHERE user_id = ? AND key = ?');
+  const DATE_TITLE = /^\d{4}-\d{2}-\d{2}$/;
+
+  /** Filter aus den Einstellungen (Projekte ausschließen, eigener JQL-Zusatz). */
+  const filters = (c) => ({ excludeProjects: Array.isArray(c.excludeProjects) ? c.excludeProjects : [], extraJql: c.jqlFilter || '' });
+
+  /**
+   * Meine offenen Tickets, gefiltert: {issues, ignored}. issues = was vorgeschlagen wird; ignored = ausgeblendete
+   * (zum Wieder-Einblenden). Tagestickets fallen ganz heraus.
+   */
+  async function myIssues(userId, { client, config } = {}) {
+    const c = config || jira.loadConfig(db, decryptField, userId);
+    if (!c || !c.token) throw new jira.JiraError('Jira ist noch nicht eingerichtet (Einstellungen → Jira).', 409);
+    const cl = client || jira.createClient({ baseUrl: c.baseUrl, email: c.email, token: c.token, fetchImpl });
+    const all = await cl.myIssues({ max: 100, ...filters(c) });
+    const daily = (c.dailyProject || '').toUpperCase();
+    const hidden = new Set(ignoredKeys.all(userId).map((r) => r.key));
+    const relevant = all.filter((i) => !(daily && i.key.startsWith(`${daily}-`) && DATE_TITLE.test(String(i.summary).trim())));
+    return { issues: relevant.filter((i) => !hidden.has(i.key)), ignored: relevant.filter((i) => hidden.has(i.key)) };
+  }
+
+  /** Ticket ausblenden bzw. wieder einblenden. */
+  function setIgnored(userId, key, ignored) {
+    const k = String(key || '').trim().toUpperCase();
+    if (!jira.KEY_RE.test(k)) throw new jira.JiraError('Ungültige Ticketnummer.', 400);
+    if (ignored) ignoreStmt.run(userId, k); else unignoreStmt.run(userId, k);
+    return k;
+  }
   const lastRun = new Map();
 
   /** Einstellungen des Abgleichs (beide standardmäßig an). */
@@ -60,7 +92,7 @@ function createJiraSync({ db, decryptField, fetchImpl, minIntervalMs = MIN_INTER
     }
 
     if (opt.notifyNew) {
-      const issues = await client.myIssues({ max: 100 });
+      const { issues } = await myIssues(userId, { client, config: c });
       const first = !seen.get(userId, '*');
       const have = new Set(taskKeys.all(userId).map((r) => r.k));
       for (const i of issues) {
@@ -96,7 +128,7 @@ function createJiraSync({ db, decryptField, fetchImpl, minIntervalMs = MIN_INTER
     }
   }
 
-  return { run, runAll, messages };
+  return { run, runAll, messages, myIssues, setIgnored };
 }
 
 /** Hintergrund-Abgleich alle 15 Minuten (erster Lauf nach einer Minute). Gibt eine Funktion zum Beenden zurück. */

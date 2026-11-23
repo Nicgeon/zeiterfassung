@@ -350,29 +350,73 @@
   }
 
   // --- Jira-Import -------------------------------------------------------------------------------------
-  let importIssues = [];
-  async function openImport() {
+  // "Meine Tickets holen": nichts ist vorausgewählt (bewusst auswählen statt alles übernehmen); wichtige und fällige
+  // Tickets stehen oben. Einzelne Tickets lassen sich dauerhaft ausblenden und unten wieder einblenden.
+  const imp = { issues: [], ignored: [], showIgnored: false, preselect: new Set() };
+  const PRIO_RANK = { highest: 0, high: 1, medium: 2, low: 3, lowest: 4 };
+  const importRank = (i) => [/^(highest|high)$/i.test(i.priority) ? 0 : 1, i.dueDate || '9999', PRIO_RANK[String(i.priority).toLowerCase()] ?? 2];
+  const cmpRank = (a, b) => { const x = importRank(a); const y = importRank(b); return x[0] - y[0] || x[1].localeCompare(y[1]) || x[2] - y[2]; };
+
+  async function openImport(preselectKeys = []) {
+    imp.preselect = new Set(preselectKeys);
     el.importPanel.classList.remove('hidden');
     el.importPanel.textContent = 'Lade deine Tickets …';
     try {
-      const all = await window.ZeitJira.myIssues();
+      const info = await window.ZeitJira.myIssuesInfo();
       const have = new Set([...state.open, ...state.done].map((t) => (t.jiraKey || '').toUpperCase()));
-      importIssues = all.filter((i) => !have.has(i.key.toUpperCase()));
-      el.importPanel.innerHTML = importIssues.length ? `
-        <div class="import__head">Offene Jira-Tickets von dir</div>
-        ${importIssues.map((i, n) => `<label class="import__row"><input type="checkbox" data-n="${n}" checked />
-          <span class="import__text"><span class="import__title">${escapeHtml(i.summary || i.key)}</span>
-          <span class="import__sub mono">${escapeHtml(i.key)}${i.status ? ` · ${escapeHtml(i.status)}` : ''}${i.dueDate ? ` · fällig ${escapeHtml(i.dueDate)}` : ''}</span></span></label>`).join('')}
-        <label class="import__due">Fällig am <select id="tpImportDue"><option value="jira">Jira-Termin (sonst ohne Datum)</option><option value="today">Heute</option><option value="none">Ohne Datum</option></select></label>
-        <div class="import__actions"><button type="button" class="btn btn--ghost btn--sm" data-act="close">Schließen</button><span class="task-edit__spacer"></span><button type="button" class="btn btn--sm" data-act="apply">Übernehmen</button></div>`
-        : '<div class="tasks__empty">Alle deine offenen Tickets sind schon in der Liste.</div><button type="button" class="btn btn--ghost btn--sm" data-act="close">Schließen</button>';
+      imp.issues = info.issues.filter((i) => !have.has(i.key.toUpperCase())).sort(cmpRank);
+      imp.ignored = info.ignored || [];
+      renderImport();
     } catch (err) {
       el.importPanel.innerHTML = `<div class="tasks__error">${escapeHtml(err.message)}</div><button type="button" class="btn btn--ghost btn--sm" data-act="close">Schließen</button>`;
     }
   }
+
+  function importRow(i, n) {
+    const today = todayISO();
+    const sub = [i.key, i.status, i.priority && /^(highest|high)$/i.test(i.priority) ? `Priorität ${i.priority}` : '',
+      i.dueDate ? `fällig ${i.dueDate < today ? 'seit ' : ''}${i.dueDate.slice(8, 10)}.${i.dueDate.slice(5, 7)}.` : ''].filter(Boolean).join(' · ');
+    return `<div class="import__row${/^(highest|high)$/i.test(i.priority) ? ' is-important' : ''}">
+      <label class="import__pick"><input type="checkbox" data-n="${n}"${imp.preselect.has(i.key) ? ' checked' : ''} />
+        <span class="import__text"><span class="import__title">${escapeHtml(i.summary || i.key)}</span><span class="import__sub mono">${escapeHtml(sub)}</span></span>
+      </label>
+      <button type="button" class="import__hide" data-ignore="${escapeHtml(i.key)}" title="Dieses Ticket nie mehr vorschlagen">Ausblenden</button>
+    </div>`;
+  }
+
+  function renderImport() {
+    const ignoredHtml = imp.ignored.length ? `
+      <button type="button" class="import__ignored-toggle" data-act="toggle-ignored">${imp.ignored.length} ausgeblendet${imp.showIgnored ? ' – zuklappen' : ' – anzeigen'}</button>
+      ${imp.showIgnored ? imp.ignored.map((i) => `<div class="import__row is-ignored"><span class="import__text"><span class="import__title">${escapeHtml(i.summary || i.key)}</span>
+        <span class="import__sub mono">${escapeHtml(i.key)}</span></span><button type="button" class="import__hide" data-unignore="${escapeHtml(i.key)}">Wieder vorschlagen</button></div>`).join('') : ''}` : '';
+    el.importPanel.innerHTML = imp.issues.length ? `
+      <div class="import__head"><span>Offene Jira-Tickets von dir · ${imp.issues.length}</span>
+        <span class="import__head-actions"><button type="button" class="import__link" data-act="select-all">Alle</button><button type="button" class="import__link" data-act="select-none">Keine</button></span></div>
+      <div class="import__hint">Wähle aus, was du als Aufgabe brauchst. Was dich nicht betrifft: „Ausblenden“.</div>
+      ${imp.issues.map(importRow).join('')}
+      ${ignoredHtml}
+      <label class="import__due">Fällig am <select id="tpImportDue"><option value="jira">Jira-Termin (sonst ohne Datum)</option><option value="today">Heute</option><option value="none">Ohne Datum</option></select></label>
+      <div class="import__actions"><button type="button" class="btn btn--ghost btn--sm" data-act="close">Schließen</button><span class="task-edit__spacer"></span><button type="button" class="btn btn--sm" data-act="apply">Auswahl übernehmen</button></div>`
+      : `<div class="tasks__empty">Keine neuen Tickets – alle sind schon Aufgaben oder ausgeblendet.</div>${ignoredHtml}<button type="button" class="btn btn--ghost btn--sm" data-act="close">Schließen</button>`;
+  }
+
+  async function setIgnored(key, ignored) {
+    try {
+      await window.ZeitJira.setIgnored(key, ignored);
+      const from = ignored ? imp.issues : imp.ignored;
+      const item = from.find((i) => i.key === key);
+      if (ignored) { imp.issues = imp.issues.filter((i) => i.key !== key); if (item) imp.ignored.push(item); }
+      else { imp.ignored = imp.ignored.filter((i) => i.key !== key); if (item) imp.issues = [...imp.issues, item].sort(cmpRank); }
+      renderImport();
+      if (ignored) showToast(`${key} wird nicht mehr vorgeschlagen.`, { label: 'Rückgängig', durationMs: 8000, onClick: () => setIgnored(key, false) });
+    } catch (err) {
+      showToast(err.message);
+    }
+  }
   async function applyImport() {
     const mode = $('#tpImportDue').value;
-    const picked = [...el.importPanel.querySelectorAll('input[data-n]:checked')].map((c) => importIssues[Number(c.dataset.n)]);
+    const picked = [...el.importPanel.querySelectorAll('input[data-n]:checked')].map((c) => imp.issues[Number(c.dataset.n)]);
+    if (!picked.length) { showToast('Bitte mindestens ein Ticket auswählen.'); return; }
     let ok = 0;
     for (const i of picked) {
       try {
@@ -443,19 +487,25 @@
     if (act === 'done-all') doneAllFromJira();
     else if (act === 'done-hide') { state.hideDone = true; renderBanners(); }
     else if (act === 'new-hide') { state.newIssues = []; renderBanners(); }
-    else if (act === 'import') { state.newIssues = []; renderBanners(); openImport(); }
+    else if (act === 'import') { const keys = state.newIssues.map((i) => i.key); state.newIssues = []; renderBanners(); openImport(keys); }
   });
 
   el.importPanel.addEventListener('click', (e) => {
+    const hide = e.target.closest('[data-ignore], [data-unignore]');
+    if (hide) { setIgnored(hide.dataset.ignore || hide.dataset.unignore, !!hide.dataset.ignore); return; }
     const b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'close') el.importPanel.classList.add('hidden');
     else if (b.dataset.act === 'apply') applyImport();
+    else if (b.dataset.act === 'toggle-ignored') { imp.showIgnored = !imp.showIgnored; renderImport(); }
+    else if (b.dataset.act === 'select-all' || b.dataset.act === 'select-none') {
+      el.importPanel.querySelectorAll('input[data-n]').forEach((c) => { c.checked = b.dataset.act === 'select-all'; });
+    }
   });
   if (window.ZeitJira) {
     window.ZeitJira.settings().then((s) => { if (s.configured) el.jira.classList.remove('hidden'); });
     window.ZeitJira.settings().then((s) => { if (s.configured && (s.syncTasks || s.notifyNew)) syncJira(); });
-    el.jiraBtn.addEventListener('click', openImport);
+    el.jiraBtn.addEventListener('click', () => openImport());
   }
 
   el.logout.addEventListener('click', async () => {

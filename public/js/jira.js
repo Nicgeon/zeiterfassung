@@ -25,31 +25,47 @@
       } catch { return null; }
     },
     async myIssues() { return (await Api.get('/api/jira/my-issues')).issues; },
+    /** Meine Tickets mit den ausgeblendeten: {issues, ignored}. */
+    myIssuesInfo() { return Api.get('/api/jira/my-issues'); },
+    /** Ticket nie mehr vorschlagen (ignored = true) bzw. wieder vorschlagen. */
+    setIgnored(key, ignored) { return Api.post('/api/jira/ignore', { key, ignored }); },
     /**
-     * Einträge als interne Kommentare nach Jira schreiben (bei mehreren mit Rückfrage und Übersicht je Ticket).
-     * Gibt false zurück, wenn abgebrochen wurde oder nichts zu tun war; Ergebnis und Fehler kommen als Hinweis.
+     * Einträge als interne Kommentare nach Jira schreiben. Vorher zeigt ein Dialog, welcher Text in welches Ticket
+     * geht (eigenes Ticket, Ticket der Aufgabe oder Tagesticket). Gibt false zurück, wenn abgebrochen wurde oder nichts
+     * zu tun war; das Ergebnis kommt als Hinweis mit den Tickets.
      */
     async postEntries(list) {
       if (!list.length) return false;
-      if (list.length > 1) {
-        const byKey = new Map();
-        for (const e of list) { const k = e.jiraKey || 'Tagesticket'; byKey.set(k, (byKey.get(k) || 0) + 1); }
-        const lines = [...byKey].map(([k, n]) => `${k}: ${n} Eintr${n === 1 ? 'ag' : 'äge'}`).join('\n');
-        if (!window.confirm(`${list.length} Einträge als interne Kommentare nach Jira schreiben?\n\n${lines}`)) return false;
-      }
+      const withTimes = loadShowTimes();
+      let items;
       try {
-        const { results } = await Api.post('/api/jira/comments', { ids: list.map((e) => e.id), with_times: loadShowTimes() });
-        const ok = results.filter((r) => r.ok);
-        const failed = results.filter((r) => !r.ok);
-        if (!failed.length) {
-          showToast(ok.length === 1 ? `In ${ok[0].key} eingetragen${ok[0].daily ? ' (Tagesticket)' : ''}.` : `${ok.length} Einträge nach Jira geschrieben.`);
-        } else {
-          showToast(`${ok.length} geschrieben, ${failed.length} nicht: ${failed[0].error}`, { durationMs: 10000 });
-        }
+        items = (await Api.post('/api/jira/comments/preview', { ids: list.map((e) => e.id), with_times: withTimes })).items;
       } catch (err) {
-        showToast(err.message);
+        showToast(err.message, { durationMs: 10000 });
+        return false;
+      }
+      const ready = items.filter((i) => !i.error);
+      if (!ready.length) { showToast(`Nicht möglich: ${items[0].error}`, { durationMs: 10000 }); return false; }
+      if (!(await confirmPost(items))) return false;
+      try {
+        const { results } = await Api.post('/api/jira/comments', { ids: ready.map((i) => i.id), with_times: withTimes });
+        reportResults(results);
+      } catch (err) {
+        showToast(err.message, { durationMs: 10000 });
       }
       return true;
+    },
+    /** Ticket in Jira öffnen (im Programmfenster über den Standardbrowser, dort ist man angemeldet). */
+    async open(key) {
+      const url = ZeitJira.ticketUrl(key);
+      if (!url) return;
+      if (window.zeitAppMode) {
+        try {
+          const r = await Api.post('/api/app/open-external', { url });
+          if (r.opened) return;
+        } catch { /* weiter mit dem Fallback */ }
+      }
+      window.open(url, '_blank', 'noopener');
     },
     reset() { settingsPromise = null; cache.clear(); },
   };
@@ -65,21 +81,84 @@
     document.documentElement.classList.toggle('jira-write', !!s.allowWrite);
   });
   ZeitJira.ticketUrl = (key) => (base ? `${base}/browse/${encodeURIComponent(String(key).toUpperCase())}` : '');
-  document.addEventListener('click', async (e) => {
+  document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-jira-open]');
     if (!el || !base) return;
     e.preventDefault();
     e.stopPropagation();
-    const url = ZeitJira.ticketUrl(el.dataset.jiraOpen);
-    if (!url) return;
-    if (window.zeitAppMode) {
-      try {
-        const r = await Api.post('/api/app/open-external', { url });
-        if (r.opened) return;
-      } catch { /* weiter mit dem Fallback */ }
-    }
-    window.open(url, '_blank', 'noopener');
+    ZeitJira.open(el.dataset.jiraOpen);
   });
+
+  // --- Schreiben: Rückfrage mit Vorschau und Ergebnis -------------------------------------------------------
+  const SOURCE = {
+    eintrag: () => 'Ticket des Eintrags',
+    aufgabe: (i) => `Ticket der Aufgabe${i.taskTitle ? ` „${i.taskTitle}“` : ''}`,
+    tagesticket: () => 'Tagesticket – für Einträge ohne Ticket',
+  };
+  const ACTION = { neu: '', aktualisieren: 'wird aktualisiert', verschieben: 'wird verschoben aus ' };
+  const shortDate = (d) => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.` : '');
+
+  /** Dialog: je Ticket die Kommentare im Wortlaut; Einträge mit Fehler stehen darunter. true = schreiben. */
+  function confirmPost(items) {
+    const ready = items.filter((i) => !i.error);
+    const failed = items.filter((i) => i.error);
+    const groups = new Map();
+    for (const i of ready) {
+      if (!groups.has(i.key)) groups.set(i.key, { ...i, list: [] });
+      groups.get(i.key).list.push(i);
+    }
+    const manyDays = new Set(ready.map((i) => i.workDate)).size > 1;
+    const n = ready.length;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'jira-dialog';
+    dialog.innerHTML = `
+      <form method="dialog">
+        <h2>Nach Jira schreiben</h2>
+        <p class="jira-dialog__lead">${n === 1 ? 'Ein interner Kommentar' : `${n} interne Kommentare`} in ${groups.size === 1 ? 'dieses Ticket' : `${groups.size} Tickets`}:</p>
+        <div class="jira-dialog__list">
+          ${[...groups.values()].map((g) => `
+            <section class="jira-dialog__group">
+              <div class="jira-dialog__ticket">
+                <span class="mono jira-dialog__key">${escapeHtml(g.key)}</span>
+                <span class="jira-dialog__summary">${escapeHtml(g.summary || '')}</span>
+              </div>
+              <div class="jira-dialog__src${g.source === 'tagesticket' ? ' is-daily' : ''}">${escapeHtml(SOURCE[g.source](g))}</div>
+              <ul>${g.list.map((i) => `<li>
+                <span class="jira-dialog__text">${manyDays ? `<span class="mono">${shortDate(i.workDate)}</span> ` : ''}${escapeHtml(i.text)}</span>
+                ${i.action !== 'neu' ? `<span class="jira-dialog__action">${escapeHtml(ACTION[i.action] + (i.from || ''))}</span>` : ''}
+              </li>`).join('')}</ul>
+            </section>`).join('')}
+          ${failed.length ? `<div class="jira-dialog__failed"><strong>${failed.length === 1 ? 'Ein Eintrag wird' : `${failed.length} Einträge werden`} nicht geschrieben:</strong>
+            ${[...new Set(failed.map((f) => f.error))].map((m) => `<div>${escapeHtml(m)}</div>`).join('')}</div>` : ''}
+        </div>
+        <div class="jira-dialog__actions">
+          <button type="submit" value="cancel" class="btn btn--ghost">Abbrechen</button>
+          <button type="submit" value="ok" class="btn">${n === 1 ? 'Kommentar schreiben' : `${n} Kommentare schreiben`}</button>
+        </div>
+      </form>`;
+    document.body.appendChild(dialog);
+    return new Promise((resolve) => {
+      dialog.addEventListener('close', () => { resolve(dialog.returnValue === 'ok'); dialog.remove(); });
+      dialog.showModal();
+      dialog.querySelector('button[value="ok"]').focus();
+    });
+  }
+
+  /** Ergebnis: welche Tickets wie viele Kommentare bekommen haben, mit "In Jira öffnen" bei genau einem Ticket. */
+  function reportResults(results) {
+    const ok = results.filter((r) => r.ok);
+    const failed = results.filter((r) => !r.ok);
+    const byKey = new Map();
+    for (const r of ok) {
+      if (!byKey.has(r.key)) byKey.set(r.key, { n: 0, daily: r.daily });
+      byKey.get(r.key).n += 1;
+    }
+    const parts = [...byKey].map(([k, v]) => `${k}${v.daily ? ' (Tagesticket)' : ''}${v.n > 1 ? ` ×${v.n}` : ''}`);
+    let msg = ok.length ? `${ok.length === 1 ? 'Kommentar' : `${ok.length} Kommentare`} geschrieben: ${parts.join(', ')}.` : '';
+    if (failed.length) msg += `${msg ? ' ' : ''}${failed.length} nicht geschrieben: ${failed[0].error}`;
+    const only = byKey.size === 1 ? [...byKey.keys()][0] : null;
+    showToast(msg, { durationMs: 10000, ...(only ? { label: 'In Jira öffnen', onClick: () => ZeitJira.open(only) } : {}) });
+  }
 
   // --- Einstellungskarte (account.html) ------------------------------------------------------------
   const card = document.getElementById('jiraCard');
@@ -90,6 +169,7 @@
     save: $('jiraSaveBtn'), test: $('jiraTestBtn'), clear: $('jiraClearBtn'),
     write: $('jiraWrite'), daily: $('jiraDailyProject'), dailyTest: $('jiraDailyTestBtn'),
     syncTasks: $('jiraSyncTasks'), notifyNew: $('jiraNotifyNew'),
+    excludeProjects: $('jiraExcludeProjects'), jqlFilter: $('jiraJqlFilter'),
   };
 
   function show(s) {
@@ -101,6 +181,8 @@
     el.write.checked = !!s.allowWrite;
     el.syncTasks.checked = s.syncTasks !== false;
     el.notifyNew.checked = s.notifyNew !== false;
+    el.excludeProjects.value = s.excludeProjects || '';
+    el.jqlFilter.value = s.jqlFilter || '';
     el.daily.value = s.dailyProject || '';
     el.dailyTest.disabled = !s.configured || !s.dailyProject;
     el.test.disabled = !s.configured;
@@ -117,6 +199,7 @@
         baseUrl: el.url.value, email: el.email.value, apiToken: el.token.value,
         allowWrite: el.write.checked, dailyProject: el.daily.value,
         syncTasks: el.syncTasks.checked, notifyNew: el.notifyNew.checked,
+        excludeProjects: el.excludeProjects.value, jqlFilter: el.jqlFilter.value,
       });
       ZeitJira.reset();
       show(s);

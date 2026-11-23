@@ -10,6 +10,15 @@ const KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
 const FIELDS = ['summary', 'status', 'priority', 'duedate'];
 const MY_ISSUES_JQL = 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC';
 
+/** Suche nach meinen offenen Tickets, optional ohne bestimmte Projekte und mit eigenem Zusatzfilter. */
+function myIssuesJql({ excludeProjects = [], extraJql = '' } = {}) {
+  let jql = 'assignee = currentUser() AND statusCategory != Done';
+  const projects = excludeProjects.filter((p) => PROJECT_RE.test(p));
+  if (projects.length) jql += ` AND project NOT IN (${projects.map((p) => `"${p}"`).join(', ')})`;
+  if (extraJql) jql += ` AND (${extraJql})`;
+  return `${jql} ORDER BY updated DESC`;
+}
+
 class JiraError extends Error {
   constructor(message, status = 502) { super(message); this.name = 'JiraError'; this.status = status; }
 }
@@ -96,7 +105,13 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       if (res.status === 403) throw new JiraError('Jira verweigert den Zugriff (fehlende Berechtigung).', 403);
       if (res.status === 404) throw new JiraError('Nicht gefunden (Ticket existiert nicht oder ist nicht sichtbar).', 404);
       if (res.status === 429) throw new JiraError('Jira meldet zu viele Anfragen. Bitte kurz warten.', 429);
-      throw new JiraError(`Jira-Fehler (${res.status}).`, res.status === 400 ? 400 : 502);
+      if (res.status === 400) {
+        // z. B. ein Fehler im eigenen JQL-Filter: Jiras Begründung mitgeben
+        let reason = '';
+        try { const j = await res.json(); reason = (j.errorMessages && j.errorMessages[0]) || ''; } catch { /* ohne Begründung */ }
+        throw new JiraError(`Jira lehnt die Anfrage ab${reason ? `: ${String(reason).slice(0, 200)}` : ' (400)'}.`, 400);
+      }
+      throw new JiraError(`Jira-Fehler (${res.status}).`, 502);
     }
     if (res.status === 204) return null; // z. B. Kommentar gelöscht
     try { return await res.json(); } catch { throw new JiraError('Jira lieferte eine unlesbare Antwort.', 502); }
@@ -160,11 +175,12 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       }
       return out;
     },
-    async myIssues({ max = 50 } = {}) {
-      const data = await request('POST', '/rest/api/3/search/jql', { jql: MY_ISSUES_JQL, fields: FIELDS, maxResults: Math.min(100, Math.max(1, max)) });
+    async myIssues({ max = 50, excludeProjects = [], extraJql = '' } = {}) {
+      const jql = myIssuesJql({ excludeProjects, extraJql });
+      const data = await request('POST', '/rest/api/3/search/jql', { jql, fields: FIELDS, maxResults: Math.min(100, Math.max(1, max)) });
       return (data.issues || []).map(issueView);
     },
   };
 }
 
-module.exports = { BASE_RE, KEY_RE, PROJECT_RE, MY_ISSUES_JQL, JiraError, normalizeBaseUrl, createClient, commentBody, loadConfig };
+module.exports = { BASE_RE, KEY_RE, PROJECT_RE, MY_ISSUES_JQL, myIssuesJql, JiraError, normalizeBaseUrl, createClient, commentBody, loadConfig };

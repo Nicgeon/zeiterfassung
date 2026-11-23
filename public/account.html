@@ -171,6 +171,21 @@
       Beim Öffnen der Seite „Aufgaben“ und – solange das Programm läuft – alle 15 Minuten auch als Benachrichtigung.
       Abgehakt wird nie automatisch. Neue Tickets sind die, die dir zugewiesen werden und noch keine Aufgabe sind.
     </p>
+    <h3 class="mt-lg">Welche Tickets vorgeschlagen werden</h3>
+    <p class="field-hint">
+      Gilt für „Meine Tickets holen“ und die Meldung neuer Tickets. Tagestickets (Titel = Datum) werden nie vorgeschlagen,
+      einzelne Tickets lassen sich beim Holen mit „Ausblenden“ dauerhaft ausschließen.
+    </p>
+    <div class="field">
+      <label for="jiraExcludeProjects">Projekte nicht vorschlagen</label>
+      <input type="text" id="jiraExcludeProjects" class="mono" maxlength="300" placeholder="z. B. PITPM, HR" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="jiraJqlFilter">Eigener Filter (JQL, optional)</label>
+      <input type="text" id="jiraJqlFilter" class="mono" maxlength="300" placeholder="z. B. priority in (High, Highest) OR duedate &lt;= 7d" autocomplete="off" />
+      <p class="field-hint">Wird mit UND an „mir zugewiesen, nicht erledigt“ angehängt. Weitere Beispiele: <span class="mono">updated &gt;= -30d</span>,
+        <span class="mono">sprint in openSprints()</span>, <span class="mono">labels = wichtig</span>.</p>
+    </div>
     <div class="flex gap-sm flex-wrap">
       <button type="button" class="btn" id="jiraSaveBtn">Speichern</button>
       <button type="button" class="btn btn--secondary btn--sm" id="jiraTestBtn" disabled>Verbindung testen</button>

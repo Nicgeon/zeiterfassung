@@ -510,8 +510,15 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
 `*.atlassian.net` akzeptiert. Nach Jira geschrieben wird nur, wenn du es ausdrücklich einschaltest (Kommentare, unten).
 
 - **Meine Jira-Tickets holen** (über der Aufgabenliste): zeigt deine offenen Tickets (`assignee = currentUser() AND
-  statusCategory != Done`), die noch keine Aufgabe sind; ausgewählte werden mit Titel, Ticket, Priorität (High/Highest
-  = „Wichtig“) und wahlweise dem Jira-Termin, heute oder ohne Datum übernommen.
+  statusCategory != Done`), die noch keine Aufgabe sind. Wichtige und fällige stehen oben, **nichts ist vorausgewählt**
+  („Alle“ / „Keine“ zum schnellen Auswählen); ausgewählte werden mit Titel, Ticket, Priorität (High/Highest =
+  „Wichtig“) und wahlweise dem Jira-Termin, heute oder ohne Datum übernommen.
+  - **Ausblenden:** Tickets, die dich nicht betreffen, werden mit „Ausblenden“ nie mehr vorgeschlagen (auch nicht als
+    „neues Ticket“); unten unter „… ausgeblendet – anzeigen“ lassen sie sich wieder einblenden.
+  - **Filter** (*Einstellungen → Jira → Welche Tickets vorgeschlagen werden*): Projekte ausschließen (z. B. `PITPM, HR`)
+    und ein eigener JQL-Zusatz, der mit UND angehängt wird (z. B. `priority in (High, Highest) OR duedate <= 7d`,
+    `updated >= -30d`, `sprint in openSprints()`). Tagestickets (Titel = Datum im Tagesticket-Projekt) werden nie
+    vorgeschlagen. Ein Fehler im eigenen Filter kommt mit Jiras Begründung zurück.
 - **Titel nachladen:** Gibst du nur eine Ticketnummer ein (neue Aufgabe oder Ticketfeld im Erfassungsformular bei noch
   leerer Beschreibung), wird der Jira-Titel als Text vorgeschlagen.
 - **Ticket in Jira öffnen:** Mit eingerichtetem Jira sind Ticketnummern anklickbar (in der Tagesliste, unter „Nach
@@ -523,7 +530,12 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
   welches Ticket wie viele Einträge bekommt). Ein Kommentar je Eintrag, Text wie die Kopierzeile
   (`45 Min – Netzwerkdoku ergänzt`, Zeit mit Zuschlag), als interner Kommentar (`sd.public.comment` – in
   Service-Management-Projekten nur fürs Team sichtbar; in normalen Projekten sehen ihn alle mit Zugriff aufs Ticket).
-  Danach ist der Eintrag „in Jira eingetragen“. **Ohne Ticket** geht der Eintrag ins **Tagesticket**: das Ticket im
+  Danach ist der Eintrag „in Jira eingetragen“. **Ziel:** das Ticket des Eintrags; hat er keins, aber gehört zu einer
+  **Aufgabe mit Ticket**, deren Ticket; erst dann das Tagesticket. **Vor dem Schreiben** zeigt ein Dialog je Ticket
+  Nummer, Titel aus Jira und warum es dieses Ticket ist (Ticket des Eintrags / der Aufgabe / Tagesticket), darunter jeden
+  Kommentar im Wortlaut und ob er neu ist, aktualisiert oder verschoben wird; Einträge, die nicht gehen (z. B. kein
+  Tagesticket gefunden), stehen mit Grund darunter. Danach meldet das Programm, welche Tickets wie viele Kommentare
+  bekommen haben (bei genau einem Ticket mit „In Jira öffnen“). **Ganz ohne Ticket** geht der Eintrag ins **Tagesticket**: das Ticket im
   eingestellten Projekt (z. B. `PITPM`), dessen Titel das Datum des Eintrags ist (`2026-11-20`); jede Person stellt ihr
   Projekt selbst ein, „Tagesticket von heute suchen“ prüft es. **Änderst** du einen geschriebenen Eintrag, wird sein
   Kommentar angepasst (bei neuem Ticket verschoben); **löschst** du ihn, wird der Kommentar entfernt (Rückgängig stellt

@@ -24,6 +24,8 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     hasToken: !!(c && c.token),
     allowWrite: !!(c && c.allowWrite),
     dailyProject: (c && c.dailyProject) || '',
+    excludeProjects: (c && Array.isArray(c.excludeProjects) ? c.excludeProjects : []).join(', '), // nicht vorschlagen
+    jqlFilter: (c && c.jqlFilter) || '', // eigener Zusatzfilter für "meine Tickets"
     syncTasks: !c || c.syncTasks !== false, // Abgleich: erledigte Tickets erkennen (Standard an)
     notifyNew: !c || c.notifyNew !== false, // neue Tickets für mich melden (Standard an)
   });
@@ -60,7 +62,21 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     let dailyProject = body.dailyProject !== undefined ? String(body.dailyProject || '').trim().toUpperCase() : current.dailyProject || '';
     if (dailyProject && !jira.PROJECT_RE.test(dailyProject)) throw new jira.JiraError('Ungültiger Projektschlüssel für Tagestickets (z. B. PITPM).', 400);
     const flag = (name) => (body[name] !== undefined ? body[name] === true : current[name] !== false);
-    const next = { baseUrl, email, token, allowWrite, dailyProject, syncTasks: flag('syncTasks'), notifyNew: flag('notifyNew') };
+    // Filter für "meine Tickets": Projekte ausschließen (Liste von Schlüsseln), eigener JQL-Zusatz (eine Zeile)
+    let excludeProjects = Array.isArray(current.excludeProjects) ? current.excludeProjects : [];
+    if (body.excludeProjects !== undefined) {
+      excludeProjects = [...new Set(String(body.excludeProjects || '').toUpperCase().split(/[\s,;]+/).filter(Boolean))];
+      const bad = excludeProjects.find((p) => !jira.PROJECT_RE.test(p));
+      if (bad) throw new jira.JiraError(`Ungültiger Projektschlüssel „${bad}“ (z. B. PITPM, HR).`, 400);
+      if (excludeProjects.length > 30) throw new jira.JiraError('Höchstens 30 Projekte.', 400);
+    }
+    let jqlFilter = current.jqlFilter || '';
+    if (body.jqlFilter !== undefined) {
+      jqlFilter = String(body.jqlFilter || '').trim();
+      if (jqlFilter.length > 300 || /[\r\n]/.test(jqlFilter)) throw new jira.JiraError('Der eigene Filter darf höchstens 300 Zeichen in einer Zeile haben.', 400);
+      if (/\border\s+by\b/i.test(jqlFilter)) throw new jira.JiraError('Der eigene Filter darf kein ORDER BY enthalten.', 400);
+    }
+    const next = { baseUrl, email, token, allowWrite, dailyProject, excludeProjects, jqlFilter, syncTasks: flag('syncTasks'), notifyNew: flag('notifyNew') };
     putStmt.run(req.user.id, encryptField(JSON.stringify(next)));
     audit(req.user.id, 'jira_settings_changed', `${baseUrl}${allowWrite ? ' (schreiben)' : ''}`, req.ip);
     res.json(describe(next));
@@ -91,6 +107,13 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     res.json({ results });
   }));
 
+  // Vorschau vor dem Schreiben: welcher Eintrag mit welchem Text in welches Ticket geht
+  router.post('/comments/preview', wrap(async (req, res) => {
+    const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.filter(Number.isInteger).slice(0, 200) : [];
+    if (!ids.length) throw new jira.JiraError('Keine Einträge angegeben.', 400);
+    res.json({ items: await comments.plan(req.user.id, ids, { withTimes: !!(req.body && req.body.with_times) }) });
+  }));
+
   // Tagesticket zu einem Datum (zum Prüfen in den Einstellungen)
   router.get('/daily/:date', wrap(async (req, res) => {
     const c = load(req.user.id);
@@ -104,8 +127,16 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     res.json(r || { configured: false });
   }));
 
+  // Meine offenen Tickets (gefiltert, siehe jiraSync.myIssues): {issues, ignored}
   router.get('/my-issues', wrap(async (req, res) => {
-    res.json({ issues: await clientFor(req.user.id).myIssues() });
+    res.json(await sync.myIssues(req.user.id));
+  }));
+
+  // Ticket nie mehr vorschlagen bzw. wieder vorschlagen
+  router.post('/ignore', wrap((req, res) => {
+    const body = req.body || {};
+    const key = sync.setIgnored(req.user.id, body.key, body.ignored !== false);
+    res.json({ key, ignored: body.ignored !== false });
   }));
 
   return router;

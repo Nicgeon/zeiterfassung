@@ -134,6 +134,13 @@ CREATE TABLE IF NOT EXISTS jira_seen (
   seen_at  TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, key)
 );
+-- Jira-Tickets, die nie als Aufgabe vorgeschlagen werden sollen ("Ausblenden" beim Holen)
+CREATE TABLE IF NOT EXISTS jira_ignored (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key         TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, key)
+);
 CREATE TABLE IF NOT EXISTS reminder_log (
   user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind     TEXT NOT NULL,
