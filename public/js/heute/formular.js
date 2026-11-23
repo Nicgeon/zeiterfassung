@@ -1,132 +1,17 @@
 'use strict';
 
-// Erfassen: Jetzt-Karte ("Jetzt starten" / "Nachtragen"), Dauer und Zeitraum, Vorschläge, Speichern und Bearbeiten.
+// Erfassen: Jetzt-Karte ("Jetzt starten" / "Nachtragen"), Lücke nachtragen, neuer Eintrag, Bearbeiten, Speichern
+// (mit Zusammenführen und "Speichern & unterbrechen"). Zeitangaben stehen in heute/zeitangabe.js, Vorschläge und
+// Ticket-Links in heute/eingabe.js.
 // Teil der Seite "Heute" (index.html); gemeinsamer Zustand in heute/kern.js, Start in heute/start.js.
 (function () {
   const H = window.Heute;
-  const { $, state, els, formState, MAX_DURATION_MINUTES, ENTRY_MODE_KEY } = H;
+  const { state, els, formState } = H;
   // aus anderen Teilen (erst beim Aufruf nachgeschlagen, weil die Dateien nacheinander laden)
-  const { addPausedTask, autoCopyEntry, currentSurcharge, describeSurcharge, effectiveEnd, loadEntries, removePausedTaskByEntry, saveTimerFields, stopTimer, surchargeBounds, typicalSurcharge } = H.later;
-
-  /** "= 45 Min + 35 Min aus dem unterbrochenen Teil + 5 Min Zuschlag = 1 Std 25 Min" */
-  function describeTotal(base) {
-    const carry = formState.merge ? formState.merge.carry : 0;
-    const range = surchargeBounds();
-    if (!carry && !range.max) return `= ${formatDurationLong(base)}`;
-    const total = surchargeIsRandom(range)
-      ? `${formatDurationLong(base + carry + range.min)} – ${formatDurationLong(base + carry + range.max)}`
-      : formatDurationLong(base + carry + range.min);
-    return (
-      `= ${formatDurationLong(base)}` +
-      (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
-      (range.max ? ` + ${describeSurcharge(range)}` : '') +
-      ` = ${total}`
-    );
-  }
-
-  /** Zusammenfassung neben den Zeitfeldern: im Zeitraum-Modus die Dauer, im Dauer-Modus der Zeitraum. */
-  function updateDurationHint() {
-    updateOverlapHint();
-    const s = els.startTime.value;
-    const e = els.endTime.value;
-    const diff = s && e ? hmToMinutes(e) - hmToMinutes(s) : 0;
-    let text = '';
-    let isError = false;
-    if (formState.durationError) {
-      text = formState.durationError;
-      isError = true;
-    } else if (formState.mode === 'times' && s && e && diff <= 0) {
-      text = 'Ende muss nach dem Start liegen.';
-      isError = true;
-    } else if (diff > 0 && currentSurcharge() > 0 && els.endTime.value && !effectiveEnd(e)) {
-      text = loadShowTimes()
-        ? 'Mit Zuschlag endet der Eintrag nach Mitternacht – bitte Zeit anpassen.'
-        : 'Der Tag ist voll – der Eintrag würde über Mitternacht hinausgehen.';
-      isError = true;
-    } else if (!loadShowTimes()) {
-      // Ohne Uhrzeiten zeigt die Zusammenfassung nur die Rechnung der Dauer
-      const minutes = parseDuration(els.duration.value);
-      if (minutes && minutes > 0 && minutes <= MAX_DURATION_MINUTES) text = describeTotal(minutes);
-    } else if (formState.mode === 'times') {
-      if (diff > 0) text = describeTotal(diff);
-    } else if (diff > 0 && els.duration.value.trim()) {
-      const range = surchargeBounds();
-      const carry = formState.merge ? formState.merge.carry : 0;
-      text = `${s} – ${e} Uhr` + (carry ? ` + ${carry} Min aus dem unterbrochenen Teil` : '') +
-        (range.max > 0 ? ` + ${describeSurcharge(range)}` : '') +
-        (range.max > 0 && !surchargeIsRandom(range) ? ` → Ende ${effectiveEnd(e)}` : '');
-    } else if (s) {
-      text = `Beginnt um ${s}, das Ende ergibt sich aus der Dauer.`;
-    }
-    els.durationHint.textContent = text || '';
-    els.durationHint.classList.toggle('is-error', isError);
-  }
-
-  function setEntryMode(requested, { focus } = {}) {
-    const mode = loadShowTimes() ? requested : 'duration';
-    formState.mode = mode;
-    els.composer.dataset.mode = mode;
-    els.modeTimesBtn.classList.toggle('is-active', mode === 'times');
-    els.modeDurationBtn.classList.toggle('is-active', mode === 'duration');
-    els.modeTimesBtn.setAttribute('aria-pressed', String(mode === 'times'));
-    els.modeDurationBtn.setAttribute('aria-pressed', String(mode === 'duration'));
-    if (mode === 'duration') {
-      formState.anchor = 'duration';
-      if (!els.duration.value) syncDurationFromTimes();
-    }
-    updateDurationHint();
-    if (focus) (mode === 'duration' ? els.duration : els.startTime).focus();
-  }
-
-  /** Dauerfeld aus Start und Ende fuellen (oder leeren, wenn dort nichts Gueltiges steht). */
-  function syncDurationFromTimes() {
-    const s = els.startTime.value;
-    const e = els.endTime.value;
-    const diff = s && e ? hmToMinutes(e) - hmToMinutes(s) : 0;
-    els.duration.value = diff > 0 ? formatDurationField(diff) : '';
-  }
-
-  /** Das Dauerfeld wurde geaendert: Ende (bzw. Start) daraus berechnen. */
-  function applyDuration() {
-    formState.durationError = '';
-    const raw = els.duration.value.trim();
-    if (raw) {
-      const minutes = parseDuration(raw);
-      if (minutes === null || minutes <= 0) {
-        formState.durationError = 'Dauer nicht erkannt – z. B. 45, 1:30 oder 1,5h.';
-      } else if (minutes > MAX_DURATION_MINUTES) {
-        formState.durationError = 'Dauer wirkt unrealistisch hoch (mehr als 16 Stunden).';
-      } else {
-        const start = els.startTime.value;
-        const end = els.endTime.value;
-        const noEntriesToday = state.entries.length === 0 && isTodayISO(state.viewDate) && !state.editingId;
-        if (formState.startIsDefault && noEntriesToday) {
-          // Erster Eintrag heute: die Arbeit ist gerade fertig, also endet sie jetzt.
-          const now = hmToMinutes(nowHHMM());
-          if (now - minutes < 0) {
-            formState.durationError = 'Das würde vor Mitternacht beginnen – bitte Start von Hand eintragen.';
-          } else {
-            els.startTime.value = minutesToHM(now - minutes);
-            els.endTime.value = minutesToHM(now);
-          }
-        } else if (start) {
-          const total = hmToMinutes(start) + minutes;
-          if (total > 24 * 60 - 1) {
-            formState.durationError = 'Endet nach Mitternacht – bitte auf zwei Einträge aufteilen.';
-          } else {
-            els.endTime.value = minutesToHM(total);
-          }
-        } else if (end) {
-          const from = hmToMinutes(end) - minutes;
-          if (from < 0) formState.durationError = 'Das würde vor Mitternacht beginnen.';
-          else els.startTime.value = minutesToHM(from);
-        } else {
-          formState.durationError = 'Bitte Start oder Ende angeben.';
-        }
-      }
-    }
-    updateDurationHint();
-  }
+  const {
+    addPausedTask, applyDuration, autoCopyEntry, effectiveEnd, loadEntries, removePausedTaskByEntry, setEntryMode,
+    stopTimer, syncDurationFromTimes, typicalSurcharge, updateDurationHint,
+  } = H.later;
 
   // --- Jetzt-Karte: "Jetzt starten" (eine Zeile + Timer) oder "Nachtragen" (ganzes Formular) ------------------
   const composeView = () => els.composer.dataset.view || 'add';
@@ -171,20 +56,6 @@
     els.composer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     els.description.focus();
     showToast(`Zeitraum ${start}–${end} übernommen – jetzt Aufgabe eintragen.`);
-  }
-
-  /** Warnt (ohne zu blockieren), wenn der Zeitraum einen anderen Eintrag des Tages ueberschneidet. */
-  function updateOverlapHint() {
-    const s = els.startTime.value;
-    const e = els.endTime.value ? effectiveEnd(els.endTime.value) || els.endTime.value : '';
-    let text = '';
-    if (loadShowTimes() && !formState.merge && s && e && e > s) {
-      const hits = state.entries.filter((x) => x.id !== state.editingId && x.startTime < e && s < x.endTime);
-      if (hits.length > 0) {
-        text = `⚠ Überschneidet sich mit ${hits.map((x) => `${x.startTime}–${x.endTime}`).join(', ')}.`;
-      }
-    }
-    els.overlapHint.textContent = text;
   }
 
   /** Hinweis, solange die Zeit eines unterbrochenen Teils auf den neuen Eintrag draufgelegt wird. */
@@ -281,164 +152,6 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('Text, Ticket und Dauer übernommen – Zeiten prüfen.');
   }
-
-  function attachSuggest(input, list, onApply) {
-    let timer = null;
-    let suggestions = [];
-
-    const hide = () => list.classList.add('hidden');
-
-    function render() {
-      if (suggestions.length === 0) return hide();
-      list.innerHTML = suggestions
-        .map(
-          (s, i) => `<li class="suggest-item" data-index="${i}">
-              <span>${escapeHtml(s.description)}</span>
-              ${s.jiraKey ? `<span class="jira-tag">${escapeHtml(s.jiraKey)}</span>` : ''}
-            </li>`
-        )
-        .join('');
-      list.classList.remove('hidden');
-    }
-
-    async function fetchSuggestions() {
-      const query = input.value.trim();
-      // Mehrzeilige Texte sind meist fertig getippt - dann nicht vorschlagen.
-      if (query.includes('\n')) return hide();
-      try {
-        const data = await Api.get(`/api/entries/suggestions?q=${encodeURIComponent(query)}`);
-        suggestions = data.suggestions.filter((s) => s.description !== query);
-        // Antwort kam erst nach dem Verlassen des Feldes: Liste nicht mehr einblenden
-        if (document.activeElement !== input) return hide();
-        render();
-      } catch {
-        hide();
-      }
-    }
-
-    const schedule = (ms) => {
-      clearTimeout(timer);
-      timer = setTimeout(fetchSuggestions, ms);
-    };
-
-    input.addEventListener('input', () => schedule(180));
-    input.addEventListener('focus', () => schedule(120));
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') hide();
-    });
-    input.addEventListener('blur', () => {
-      clearTimeout(timer);
-      setTimeout(hide, 120);
-    });
-    list.addEventListener('mousedown', (e) => {
-      // mousedown statt click: sonst schliesst das blur-Ereignis die Liste zuerst
-      const item = e.target.closest('.suggest-item');
-      if (!item) return;
-      e.preventDefault();
-      const suggestion = suggestions[Number(item.dataset.index)];
-      if (!suggestion) return;
-      input.value = suggestion.description;
-      hide();
-      input.focus();
-      onApply(suggestion);
-    });
-  }
-
-  attachSuggest(els.description, els.suggestList, (s) => {
-    if (s.jiraKey && !els.jiraKey.value.trim()) els.jiraKey.value = s.jiraKey;
-    saveTimerFields(); // wirkt nur, solange ein Timer laeuft
-  });
-
-
-
-  // --- Jira-Links -> Ticketnummern ----------------------------------
-  /** Ticketfeld: ein eingefuegter Jira-Link wird sofort zur Ticketnummer. */
-  function convertLinksInTicketField(input, onChange) {
-    input.addEventListener('input', () => {
-      const converted = convertTicketLinks(input.value);
-      if (converted === input.value) return;
-      input.value = converted.trim();
-      if (onChange) onChange();
-    });
-  }
-
-  /**
-   * Textfeld: Jira-Links im eingefuegten Text werden zu Ticketnummern. Ist das
-   * Ticketfeld noch leer, wird die erste gefundene Nummer dort eingetragen.
-   */
-  function convertLinksOnPaste(input, onTicketKey) {
-    input.addEventListener('paste', (e) => {
-      const text = e.clipboardData && e.clipboardData.getData('text');
-      if (!text) return;
-      const converted = convertTicketLinks(text);
-      if (converted === text) return;
-      e.preventDefault();
-      // insertText erhaelt den Rueckgaengig-Verlauf des Browsers
-      if (!document.execCommand('insertText', false, converted)) {
-        input.setRangeText(converted, input.selectionStart, input.selectionEnd, 'end');
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      const key = firstLinkedKey(text);
-      if (key) onTicketKey(key);
-    });
-  }
-
-  convertLinksInTicketField(els.jiraKey, saveTimerFields);
-  convertLinksOnPaste(els.description, (key) => {
-    if (!els.jiraKey.value.trim()) els.jiraKey.value = key;
-    saveTimerFields();
-  });
-
-  // Strg+Enter (bzw. Cmd+Enter) speichert aus dem Textfeld; Enter im Timerfeld startet den Timer.
-  els.description.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      els.form.requestSubmit();
-    } else if (e.key === 'Enter' && !e.shiftKey && composeView() === 'start' && !state.timer && !state.editingId) {
-      // "Jetzt starten": eine Zeile wie ein Suchfeld, Enter startet den Timer
-      e.preventDefault();
-      els.suggestList.classList.add('hidden');
-      els.timerStartBtn.click();
-    }
-  });
-
-
-  // --- Events -------------------------------------------------------
-  els.startTime.addEventListener('input', () => {
-    formState.startIsDefault = false;
-    formState.durationError = '';
-    if (formState.anchor === 'duration' && parseDuration(els.duration.value)) applyDuration();
-    else { syncDurationFromTimes(); updateDurationHint(); }
-  });
-  els.endTime.addEventListener('input', () => {
-    formState.anchor = 'times';
-    formState.durationError = '';
-    syncDurationFromTimes();
-    updateDurationHint();
-  });
-  els.nowBtn.addEventListener('click', () => {
-    els.endTime.value = nowHHMM();
-    formState.anchor = 'times';
-    formState.durationError = '';
-    syncDurationFromTimes();
-    updateDurationHint();
-  });
-  els.modeTimesBtn.addEventListener('click', () => {
-    try { localStorage.setItem(ENTRY_MODE_KEY, 'times'); } catch { /* nur Komfort */ }
-    setEntryMode('times');
-  });
-  els.modeDurationBtn.addEventListener('click', () => {
-    try { localStorage.setItem(ENTRY_MODE_KEY, 'duration'); } catch { /* nur Komfort */ }
-    setEntryMode('duration', { focus: true });
-  });
-  els.duration.addEventListener('input', () => { formState.anchor = 'duration'; applyDuration(); });
-  els.durationChips.addEventListener('click', (e) => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    els.duration.value = formatDurationField(Number(chip.dataset.minutes));
-    formState.anchor = 'duration';
-    applyDuration();
-  });
 
   els.cancelEditBtn.addEventListener('click', () => resetFormForNewEntry());
 
@@ -569,6 +282,5 @@
     updateDurationHint();
   });
 
-
-  Object.assign(H, { applyDuration, attachSuggest, composeView, convertLinksInTicketField, convertLinksOnPaste, defaultStartTime, describeTotal, fillFormForEdit, fillGap, renderMergeBanner, resetFormForNewEntry, saveEntry, setComposeView, setEntryMode, startFromEntry, syncDurationFromTimes, toggleSaveMenu, updateDurationHint, updateOverlapHint });
+  Object.assign(H, { composeView, defaultStartTime, fillFormForEdit, fillGap, renderMergeBanner, resetFormForNewEntry, saveEntry, setComposeView, startFromEntry, toggleSaveMenu });
 })();

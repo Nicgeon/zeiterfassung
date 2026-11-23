@@ -18,6 +18,39 @@ function isTodayISO(dateStr) {
   return dateStr === todayISO();
 }
 
+// --- Datum als "JJJJ-MM-TT" (lokale Zeit) -----------------------------------------------------------------
+
+/** "2026-11-20" -> Date (lokale Mitternacht) */
+function dateFromISO(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+/** Date -> "2026-11-20" */
+function isoFromDate(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+/** Tage addieren, auch über Monats- und Jahresgrenzen: addDaysISO("2026-12-30", 3) -> "2027-01-02" */
+function addDaysISO(dateStr, days) {
+  const date = dateFromISO(dateStr);
+  date.setDate(date.getDate() + days);
+  return isoFromDate(date);
+}
+/** Wochentag mit Montag = 0 … Sonntag = 6 */
+function weekdayIndexISO(dateStr) {
+  return (dateFromISO(dateStr).getDay() + 6) % 7;
+}
+/** Montag der Woche, in der der Tag liegt */
+function mondayOfISO(dateStr) {
+  return addDaysISO(dateStr, -weekdayIndexISO(dateStr));
+}
+/** Kalenderwoche nach ISO 8601 (Woche mit dem ersten Donnerstag ist KW 1) */
+function isoWeekOf(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  return Math.ceil(((date - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
+}
+
 /** 105 -> "1 Std 45 Min" */
 function formatDurationLong(minutes) {
   const h = Math.floor(minutes / 60);

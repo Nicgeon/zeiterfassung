@@ -21,15 +21,8 @@
   const KEY_RE = /\b[A-Z][A-Z0-9_]+-\d+\b/;
 
   // --- Datum -----------------------------------------------------------------------------------------------
-  function addDays(dateStr, days) {
-    const [y, m, d] = parts(dateStr);
-    return iso(new Date(y, m - 1, d + days));
-  }
-  function nextMonday(dateStr) {
-    const [y, m, d] = parts(dateStr);
-    const weekday = (new Date(y, m - 1, d).getDay() + 6) % 7; // Mo = 0
-    return addDays(dateStr, 7 - weekday);
-  }
+  const addDays = addDaysISO;
+  const nextMonday = (dateStr) => addDaysISO(dateStr, 7 - weekdayIndexISO(dateStr));
   /** Monate addieren; der Tag wird aufs Monatsende gekürzt (31. Jan + 1 Monat = 28./29. Feb). */
   function addMonths(dateStr, months) {
     const [y, m, d] = parts(dateStr);

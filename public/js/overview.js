@@ -67,25 +67,15 @@
 
   const parts = (dateStr) => { const [y, m, d] = dateStr.split('-').map(Number); return { y, m, d }; };
   const iso = (y, m, d) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  const dateOf = (dateStr) => { const { y, m, d } = parts(dateStr); return new Date(y, m - 1, d); };
-  function shiftDays(dateStr, days) {
-    const date = dateOf(dateStr);
-    date.setDate(date.getDate() + days);
-    return iso(date.getFullYear(), date.getMonth() + 1, date.getDate());
-  }
-  const weekdayIndex = (dateStr) => (dateOf(dateStr).getDay() + 6) % 7; // Mo = 0
-  const mondayOf = (dateStr) => shiftDays(dateStr, -weekdayIndex(dateStr));
+  const dateOf = dateFromISO;
+  const shiftDays = addDaysISO;
+  const weekdayIndex = weekdayIndexISO; // Mo = 0
+  const mondayOf = mondayOfISO;
+  const isoWeek = isoWeekOf;
   const daysBetween = (a, b) => Math.round((dateOf(b) - dateOf(a)) / 86400000);
   const dayLabel = (dateStr) => `${dateOf(dateStr).toLocaleDateString('de-DE', { weekday: 'short' })} ${dateStr.slice(8, 10)}.${dateStr.slice(5, 7)}.`;
   const monthName = (dateStr) => dateOf(dateStr).toLocaleDateString('de-DE', { month: 'long' });
   const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
-  function isoWeek(dateStr) {
-    const { y, m, d } = parts(dateStr);
-    const date = new Date(Date.UTC(y, m - 1, d));
-    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-    return Math.ceil(((date - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
-  }
-
   function currentRange() {
     if (state.mode === 'range' && state.range) return state.range;
     if (state.mode === 'month') {

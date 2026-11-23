@@ -38,29 +38,10 @@
     document.querySelectorAll('[data-toggle]').forEach((b) => b.setAttribute('aria-pressed', String(!!state.opts[b.dataset.toggle])));
   }
 
-  function shiftDate(dateStr, days) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    date.setDate(date.getDate() + days);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  }
-
-  function weekdayName(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('de-DE', { weekday: 'long' });
-  }
-
-  function shortDate(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  }
-
-  function isoWeek(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date = new Date(Date.UTC(y, m - 1, d));
-    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
-    return Math.ceil(((date - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7);
-  }
+  const shiftDate = addDaysISO;
+  const isoWeek = isoWeekOf;
+  const weekdayName = (dateStr) => dateFromISO(dateStr).toLocaleDateString('de-DE', { weekday: 'long' });
+  const shortDate = (dateStr) => dateFromISO(dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   function taskLines(tasks) {
     const withJira = state.opts.jira;
