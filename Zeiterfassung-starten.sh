@@ -13,13 +13,14 @@ if ! command -v node >/dev/null 2>&1; then
   echo "Node.js fehlt. Bitte Version 22 oder neuer installieren: https://nodejs.org (oder mit Homebrew: brew install node)."; exit 1
 fi
 MAJOR=$(node -p "process.versions.node.split('.')[0]")
-if [ "$MAJOR" -lt 20 ]; then echo "Node.js $MAJOR ist zu alt (benoetigt: 20 oder neuer)."; exit 1; fi
+if [ "$MAJOR" -lt 22 ]; then echo "Node.js $MAJOR ist zu alt (benoetigt: 22 oder neuer)."; exit 1; fi
 
 export LOCAL_MODE=true ZEIT_SUPERVISED=1
 OPEN=1
 while true; do
   [ -d node_modules ] || { echo "Erster Start: Abhaengigkeiten werden installiert ..."; npm install --omit=dev || exit 1; }
-  # Ein Update hat Abhaengigkeiten geaendert: vor dem Start installieren.
+  # Ein Update hat Abhaengigkeiten geaendert (oder die Pakete passen nicht zur Paketliste): vor dem Start installieren.
+  node src/lib/depsCheck.js || touch .update-install-pending
   if [ -f .update-install-pending ]; then
     echo "Update: Abhaengigkeiten werden installiert ..."
     npm install --omit=dev || exit 1

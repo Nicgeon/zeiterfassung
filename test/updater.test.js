@@ -33,3 +33,21 @@ test('Updater: alte Startdatei wird erst entfernt, wenn die neue da ist (mit Sic
   assert.ok(fs.existsSync(path.join(app, 'start-local.sh')), 'ohne neue .sh bleibt die alte');
   assert.equal(fs.readFileSync(path.join(backup, 's2', 'start-local.bat'), 'utf8'), 'alt');
 });
+
+test('Pakete: Abweichung zwischen node_modules und package-lock wird erkannt (dann wird beim Start nachinstalliert)', () => {
+  const { dependencyMismatches } = require('../src/lib/depsCheck');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-deps-'));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ dependencies: { otplib: '^13.6.0', express: '^4.22.3' } }));
+  fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ packages: { 'node_modules/otplib': { version: '13.6.0' }, 'node_modules/express': { version: '4.22.3' } } }));
+  const install = (name, version) => {
+    fs.mkdirSync(path.join(root, 'node_modules', name), { recursive: true });
+    fs.writeFileSync(path.join(root, 'node_modules', name, 'package.json'), JSON.stringify({ version }));
+  };
+  install('express', '4.22.3');
+  install('otplib', '12.0.1'); // Update hat die Paketliste geändert, nachinstalliert wurde nicht
+  assert.deepEqual(dependencyMismatches(root), [{ name: 'otplib', installed: '12.0.1', expected: '13.6.0' }]);
+  install('otplib', '13.6.0');
+  assert.deepEqual(dependencyMismatches(root), []);
+  fs.rmSync(path.join(root, 'node_modules', 'express'), { recursive: true });
+  assert.deepEqual(dependencyMismatches(root), [{ name: 'express', installed: null, expected: '4.22.3' }]);
+});

@@ -6,16 +6,25 @@
 // - Ein Code gilt ±30 Sekunden (Uhren laufen nie genau gleich) und wird nur EINMAL angenommen: verifyToken liefert
 //   den Zeitschritt des Codes, der Aufrufer merkt ihn sich (users.totp_last_step) und gibt ihn beim nächsten Mal mit.
 
-const otplib = require('otplib');
-const qrcode = require('qrcode');
 const crypto = require('crypto');
 const { encryptField, decryptField } = require('./crypto');
 
 const EPOCH_TOLERANCE = 30; // Sekunden, also ein Zeitschritt davor und danach
-const LEGACY_GUARDRAILS = otplib.createGuardrails({ MIN_SECRET_BYTES: 10 }); // 80-Bit-Geheimnisse aus otplib 12
+
+// otplib (und qrcode) erst laden, wenn 2FA wirklich gebraucht wird: Im lokalen Betrieb gibt es keine 2FA, ein
+// Problem mit diesen Paketen darf dort den Start nicht verhindern.
+let lib = null;
+function otp() {
+  if (!lib) {
+    const otplib = require('otplib');
+    // 80-Bit-Geheimnisse aus otplib 12 ausdrücklich weiter zulassen
+    lib = { otplib, legacy: otplib.createGuardrails({ MIN_SECRET_BYTES: 10 }) };
+  }
+  return lib;
+}
 
 function generateSecret() {
-  return otplib.generateSecret(); // 20 Byte = 160 Bit
+  return otp().otplib.generateSecret(); // 20 Byte = 160 Bit
 }
 
 function encryptSecret(secret) {
@@ -27,8 +36,8 @@ function decryptSecret(encSecret) {
 }
 
 async function buildQrCodeDataUrl(secret, accountLabel, issuer) {
-  const otpauth = otplib.generateURI({ issuer, label: accountLabel, secret });
-  return qrcode.toDataURL(otpauth);
+  const otpauth = otp().otplib.generateURI({ issuer, label: accountLabel, secret });
+  return require('qrcode').toDataURL(otpauth);
 }
 
 /**
@@ -40,7 +49,8 @@ function verifyToken(token, secret, { afterTimeStep = null } = {}) {
   const clean = String(token).replace(/\s+/g, '');
   if (!/^\d{6}$/.test(clean)) return false;
   try {
-    const result = otplib.verifySync({ secret, token: clean, epochTolerance: EPOCH_TOLERANCE, guardrails: LEGACY_GUARDRAILS });
+    const { otplib, legacy } = otp();
+    const result = otplib.verifySync({ secret, token: clean, epochTolerance: EPOCH_TOLERANCE, guardrails: legacy });
     if (!result || !result.valid) return false;
     if (afterTimeStep !== null && afterTimeStep !== undefined && result.timeStep <= afterTimeStep) return false;
     return result.timeStep;

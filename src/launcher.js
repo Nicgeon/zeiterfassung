@@ -188,9 +188,14 @@ function sqliteWorks() {
 
 function ensureSetup() {
   const pending = path.join(ROOT, '.update-install-pending');
-  if (!fs.existsSync(path.join(ROOT, 'node_modules')) || fs.existsSync(pending)) {
+  // Pakete passen nicht zur Paketliste (z. B. Nachinstallieren nach einem Update abgebrochen): ebenfalls installieren
+  const mismatches = fs.existsSync(path.join(ROOT, 'node_modules')) ? require('./lib/depsCheck').dependencyMismatches(ROOT) : [];
+  if (mismatches.length) log(`Pakete passen nicht zur Paketliste: ${mismatches.map((m) => `${m.name} ${m.installed || 'fehlt'} statt ${m.expected}`).join(', ')}`);
+  if (!fs.existsSync(path.join(ROOT, 'node_modules')) || fs.existsSync(pending) || mismatches.length) {
     notify('Zeiterfassung', 'Abhängigkeiten werden installiert (nur beim ersten Start oder nach manchen Updates). Das dauert einen Moment, danach öffnet sich das Fenster.');
-    if (runNpm(['install', '--omit=dev']) !== 0) throw new Error('npm install ist fehlgeschlagen (Einzelheiten in zeiterfassung.log).');
+    if (runNpm(['install', '--omit=dev']) !== 0) throw new Error('npm install ist fehlgeschlagen. Bitte „Zeiterfassung-starten.bat --konsole“ ausführen, dort steht der Grund (z. B. keine Verbindung zu registry.npmjs.org).');
+    const still = require('./lib/depsCheck').dependencyMismatches(ROOT);
+    if (still.length) throw new Error(`Pakete fehlen nach der Installation noch: ${still.map((m) => m.name).join(', ')}. Bitte den Ordner node_modules löschen und erneut starten.`);
     fs.rmSync(pending, { force: true });
   }
   if (!sqliteWorks()) {

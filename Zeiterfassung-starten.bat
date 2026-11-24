@@ -45,7 +45,9 @@ if not exist node_modules (
   )
 )
 
-rem Ein Update hat Abhaengigkeiten geaendert: vor dem Start installieren.
+rem Ein Update hat Abhaengigkeiten geaendert (oder die Pakete passen nicht zur Paketliste): vor dem Start installieren.
+node src\lib\depsCheck.js
+if errorlevel 1 echo update > .update-install-pending
 if exist .update-install-pending (
   echo Update: Abhaengigkeiten werden installiert ...
   call npm install --omit=dev
