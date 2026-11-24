@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const { KINDS } = require('./launcherUtil');
+const { nodeAdvice } = require('./nodeVersion');
 
 /**
  * Leerlauf-Waechter. Erst nach dem ersten Ping aktiv (sonst wuerde ein Server beenden, dessen Fenster
@@ -65,6 +66,7 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
       autostartSupported: !!(autostart && autostart.supported),
       current: currentBrowser || null,
       options: ['auto', ...KINDS],
+      node: nodeAdvice(), // installierte Node.js-Version, mit Hinweis, wenn sie Sicherheitslücken hat
     };
   };
   router.get('/settings', (req, res) => res.json(describe()));

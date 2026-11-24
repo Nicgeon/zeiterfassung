@@ -32,7 +32,12 @@ function loadOrCreateLocalKeys(dir) {
   const keyFile = path.join(dir, 'keys.json');
   if (fs.existsSync(keyFile)) {
     const parsed = JSON.parse(fs.readFileSync(keyFile, 'utf8'));
-    return { encryptionKey: parsed.encryptionKey, sessionSecret: parsed.sessionSecret };
+    // Zugangsschlüssel (seit 11/2026): fehlt er in einer älteren Datei, wird er ergänzt
+    if (!parsed.accessToken) {
+      parsed.accessToken = crypto.randomBytes(32).toString('hex');
+      fs.writeFileSync(keyFile, JSON.stringify(parsed, null, 2), { mode: 0o600 });
+    }
+    return { encryptionKey: parsed.encryptionKey, sessionSecret: parsed.sessionSecret, accessToken: parsed.accessToken };
   }
   if (fs.existsSync(path.join(dir, 'app.db'))) {
     console.error(
@@ -46,9 +51,16 @@ function loadOrCreateLocalKeys(dir) {
   const keys = {
     encryptionKey: crypto.randomBytes(32).toString('hex'),
     sessionSecret: crypto.randomBytes(48).toString('hex'),
+    // Zugangsschlüssel: nur wer ihn kennt (das Programmfenster), wird lokal angemeldet – siehe localMode.js
+    accessToken: crypto.randomBytes(32).toString('hex'),
   };
   fs.writeFileSync(keyFile, JSON.stringify(keys, null, 2), { mode: 0o600 });
   return keys;
 }
 
-module.exports = { defaultLocalDataDir, loadOrCreateLocalKeys };
+/** Nur den Zugangsschlüssel lesen (für den Starter; null, solange es noch keine keys.json gibt). */
+function readAccessToken(dir) {
+  try { return JSON.parse(fs.readFileSync(path.join(dir, 'keys.json'), 'utf8')).accessToken || null; } catch { return null; }
+}
+
+module.exports = { defaultLocalDataDir, loadOrCreateLocalKeys, readAccessToken };

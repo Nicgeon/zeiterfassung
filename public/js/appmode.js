@@ -37,6 +37,14 @@
           document.getElementById('autostartHint').textContent = 'Auf diesem System nicht verfügbar.';
         }
       }
+      // Hinweis, wenn die installierte Node.js-Version bekannte Sicherheitslücken hat
+      const nodeBox = document.getElementById('nodeHint');
+      if (nodeBox && s.node) {
+        nodeBox.classList.remove('hidden');
+        nodeBox.innerHTML = s.node.outdated
+          ? `<div class="alert alert--error">${escapeHtml(s.node.text)} Download: nodejs.org (für Windows ohne Administratorrechte das ZIP-Archiv in den Benutzerordner entpacken, z. B. C:\\Users\\NAME\\node-v${escapeHtml(s.node.recommended || '')}-win-x64). Danach die Zeiterfassung einmal beenden und neu starten.</div>`
+          : `<p class="field-hint">Node.js ${escapeHtml(s.node.version)} – aktuell, keine bekannten Sicherheitslücken.</p>`;
+      }
       const cur = s.current;
       hint.textContent = 'Gilt ab dem nächsten Start des Programms. ' +
         (cur && cur.exe ? `Aktuell in Benutzung: ${names[cur.kind] || 'Browser'} (${cur.exe}).` : 'Derzeit läuft kein Programmfenster dieser Sitzung (oder es wurde ein Browser-Tab verwendet).');

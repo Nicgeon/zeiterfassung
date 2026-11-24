@@ -33,8 +33,33 @@ test('Server: Teile beim Timer (mit Unterbrechung), beim Nachtragen, beim Bearbe
     let ok = false;
     for (let i = 0; i < 80 && !ok; i++) { try { ok = (await fetch(`${base}/api/health`)).ok; } catch { await sleep(150); } }
     assert.ok(ok, 'Server startet');
-    const tokenRes = await fetch(`${base}/api/csrf-token`);
-    const cookie = tokenRes.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    // Zugangsschlüssel wie das Programmfenster (ohne ihn meldet der lokale Server niemanden an)
+    const access = `zeit.zugang=${JSON.parse(fs.readFileSync(path.join(dir, 'keys.json'), 'utf8')).accessToken}`;
+    assert.equal((await fetch(`${base}/api/csrf-token`)).status, 401, 'ohne Schlüssel kein Zugang');
+    // Zugangsschlüssel: falsch -> kein Zugang; richtig -> Cookie (nur HTTP, SameSite=Strict) und Adresse ohne Schlüssel
+    const token = access.split('=')[1];
+    assert.equal((await fetch(`${base}/index.html?zugang=${'0'.repeat(64)}`, { redirect: 'manual' })).status, 401);
+    const swap = await fetch(`${base}/index.html?mini=1&zugang=${token}`, { redirect: 'manual' });
+    assert.equal(swap.status, 302);
+    assert.equal(swap.headers.get('location'), '/index.html?mini=1');
+    assert.match(swap.headers.getSetCookie().join(';'), /zeit\.zugang=[0-9a-f]{64}; Max-Age=\d+; Path=\/; Expires=[^;]+; HttpOnly; SameSite=Strict/);
+    const page = await fetch(`${base}/index.html`);
+    assert.equal(page.status, 401);
+    assert.match(await page.text(), /Kein Zugang/);
+    assert.equal((await fetch(`${base}/api/entries?date=2026-11-19`)).status, 401);
+    assert.equal((await fetch(`${base}/api/health`)).status, 200, 'Lebenszeichen ohne Daten bleibt offen');
+    // eine schon angemeldete Sitzung (Fenster von vor dem Update) bekommt das Cookie nachgereicht, eine neue nicht
+    const fresh = await fetch(`${base}/api/csrf-token`);
+    const freshSid = fresh.headers.getSetCookie().map((c) => c.split(';')[0]).find((c) => c.startsWith('zeit.sid=')) || '';
+    assert.equal(fresh.status, 401);
+    assert.equal(freshSid, '', 'ohne Schlüssel entsteht keine Sitzung');
+    const tokenRes = await fetch(`${base}/api/csrf-token`, { headers: { cookie: access } });
+    const cookie = [access, ...tokenRes.headers.getSetCookie().map((c) => c.split(';')[0])].join('; ');
+    // Übergang nach dem Update: dieselbe, schon angemeldete Sitzung ohne Zugangs-Cookie wird weiter bedient und bekommt es
+    const sidOnly = tokenRes.headers.getSetCookie().map((c) => c.split(';')[0]).filter((c) => c.startsWith('zeit.sid=')).join('; ');
+    const carried = await fetch(`${base}/api/timer`, { headers: { cookie: sidOnly } });
+    assert.equal(carried.status, 200);
+    assert.match(carried.headers.getSetCookie().join(';'), /zeit\.zugang=[0-9a-f]{64}/);
     const { csrfToken } = await tokenRes.json();
     const call = async (method, p, body) => {
       const res = await fetch(base + p, { method, headers: { cookie, 'x-csrf-token': csrfToken, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });

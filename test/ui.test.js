@@ -34,6 +34,9 @@ async function withApp(fn, { width = 1360, height = 900, theme = 'marine-dark' }
     const ctx = await browser.newContext({ viewport: { width, height } });
     await ctx.addInitScript((t) => { try { localStorage.setItem('zeit.theme', t); localStorage.setItem('zeit.nav2', 'expanded'); } catch { /* egal */ } }, theme);
     const page = await ctx.newPage();
+    // wie der Starter: einmal mit dem Zugangsschlüssel öffnen, danach trägt das Fenster ihn als Cookie
+    const token = JSON.parse(fs.readFileSync(path.join(dir, 'keys.json'), 'utf8')).accessToken;
+    await page.goto(`${base}/?zugang=${token}`);
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

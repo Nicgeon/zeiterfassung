@@ -126,7 +126,10 @@ function freePort() {
 /** Schein-Browser: schreibt seine Argumente auf, meldet sich einmal beim Server (wie die Seite im Fenster) und lebt bis "close" erscheint. */
 function writeFakeBrowser(dir, { argsFile = 'browser-args', append = false, ping = true } = {}) {
   const file = path.join(dir, 'fake-browser.sh');
-  const pingCmd = ping ? `"${process.execPath}" -e "require('http').get('http://127.0.0.1:'+process.env.PORT+'/api/app/ping?state=open&load=1',r=>r.resume()).on('error',()=>{})"\n` : '';
+  // wie die Seite im Fenster: der Zugangsschlüssel kommt mit der Fensteradresse (--app=…?zugang=…), danach als Cookie
+  const pingJs = "const a=process.argv.find(x=>x.startsWith('--app='));const z=a?new URL(a.slice(6)).searchParams.get('zugang'):'';" +
+    "require('http').get({host:'127.0.0.1',port:process.env.PORT,path:'/api/app/ping?state=open&load=1',headers:{Cookie:'zeit.zugang='+z}},r=>r.resume()).on('error',()=>{})";
+  const pingCmd = ping ? `"${process.execPath}" -e "${pingJs}" -- "$@"\n` : '';
   fs.writeFileSync(file, `#!/bin/sh\necho "$@" ${append ? '>>' : '>'} "${dir}/${argsFile}"\n${pingCmd}while [ ! -f "${dir}/close" ]; do sleep 0.2; done\n`, { mode: 0o755 });
   return file;
 }
@@ -137,8 +140,13 @@ async function until(fn, ms = 20000) {
   while (Date.now() < end) { const v = await fn(); if (v) return v; await sleep(150); }
   throw new Error('Zeitüberschreitung beim Warten');
 }
+// Zugangsschlüssel je Testinstanz (Port -> Datenordner), damit die Prüfanfragen wie das Programmfenster ankommen
+const dirByPort = new Map();
+const accessCookie = (port) => {
+  try { return { Cookie: `zeit.zugang=${JSON.parse(fs.readFileSync(path.join(dirByPort.get(port), 'keys.json'), 'utf8')).accessToken}` }; } catch { return {}; }
+};
 const get = (port, p, headers = {}) => new Promise((resolve, reject) => {
-  http.get({ host: '127.0.0.1', port, path: p, headers }, (res) => {
+  http.get({ host: '127.0.0.1', port, path: p, headers: { ...accessCookie(port), ...headers } }, (res) => {
     let b = ''; res.on('data', (c) => (b += c)); res.on('end', () => resolve({ status: res.statusCode, body: b }));
   }).on('error', reject);
 });
@@ -146,6 +154,7 @@ const get = (port, p, headers = {}) => new Promise((resolve, reject) => {
 test('Starter: Server unsichtbar mit App-Fenster; Ende des Fensters beendet alles; Ping-Ende ebenso', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir);
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_IDLE_MS: '60000', ZEIT_CLOSING_MS: '400' };
   delete env.ENCRYPTION_KEY;
@@ -185,6 +194,7 @@ test('Starter: Server unsichtbar mit App-Fenster; Ende des Fensters beendet alle
 test('Starter: Schließt die Person das Fenster (Browser-Prozess endet), beendet sich auch der Server', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher2-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir, { argsFile: 'unused' });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_MIN_WINDOW_MS: '800' };
   delete env.ENCRYPTION_KEY;
@@ -206,6 +216,7 @@ test('Starter: Schließt die Person das Fenster (Browser-Prozess endet), beendet
 test('Starter: Beenden-Route der Seite beendet Server und Starter', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher3-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), UPDATE_CHECK: 'false' };
   delete env.ENCRYPTION_KEY;
   const launcher = spawn(process.execPath, [path.join(__dirname, '..', 'src', 'launcher.js'), '--kein-fenster'], { env, stdio: 'ignore' });
@@ -213,8 +224,9 @@ test('Starter: Beenden-Route der Seite beendet Server und Starter', async () => 
   try {
     await until(async () => (await get(port, '/api/app/ping?state=probe').catch(() => null)));
     // POST braucht den CSRF-Token der Sitzung: Cookie + Token holen wie die Seite
-    const tokenRes = await fetch(`http://127.0.0.1:${port}/api/csrf-token`);
-    const cookies = tokenRes.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    const access = accessCookie(port).Cookie;
+    const tokenRes = await fetch(`http://127.0.0.1:${port}/api/csrf-token`, { headers: { cookie: access } });
+    const cookies = [access, ...tokenRes.headers.getSetCookie().map((c) => c.split(';')[0])].join('; ');
     const { csrfToken } = await tokenRes.json();
     const quit = await fetch(`http://127.0.0.1:${port}/api/app/quit`, { method: 'POST', headers: { cookie: cookies, 'x-csrf-token': csrfToken, 'content-type': 'application/json' }, body: '{}' });
     assert.equal(quit.status, 200);
@@ -227,6 +239,7 @@ test('Starter: Beenden-Route der Seite beendet Server und Starter', async () => 
 test('Starter mit --mini: öffnet nur das kleine Fenster mit fester Größe', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher4-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir);
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
   delete env.ENCRYPTION_KEY;
@@ -250,6 +263,7 @@ test('appWindowArgs: Größe nur auf Wunsch', () => {
 test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster beim Starter an (Mini und groß)', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher5-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir, { argsFile: 'browser-calls', append: true });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false' };
   delete env.ENCRYPTION_KEY;
@@ -258,8 +272,11 @@ test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster bei
   try {
     await until(() => calls().length >= 1);
     assert.match(calls()[0], new RegExp(`--app=http://localhost:${port}(?!/index)`)); // erstes Fenster: gross
-    const tokenRes = await fetch(`http://127.0.0.1:${port}/api/csrf-token`);
-    const cookies = tokenRes.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+    // die Fensteradresse trägt den Zugangsschlüssel, der Rest kommt danach als Cookie
+    assert.match(calls()[0], /[?&]zugang=[0-9a-f]{64}/);
+    const access = accessCookie(port).Cookie;
+    const tokenRes = await fetch(`http://127.0.0.1:${port}/api/csrf-token`, { headers: { cookie: access } });
+    const cookies = [access, ...tokenRes.headers.getSetCookie().map((c) => c.split(';')[0])].join('; ');
     const { csrfToken } = await tokenRes.json();
     const post = (body) => fetch(`http://127.0.0.1:${port}/api/app/window`, { method: 'POST', headers: { cookie: cookies, 'x-csrf-token': csrfToken, 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
@@ -271,7 +288,7 @@ test('Fensterwechsel: Die Seite fordert über den Server weitere App-Fenster bei
 
     assert.deepEqual(await (await post({ kind: 'main' })).json(), { opened: true });
     await until(() => calls().length >= 3);
-    assert.match(calls()[2], new RegExp(`--app=http://localhost:${port} `)); // grosses Fenster, ohne feste Größe
+    assert.match(calls()[2], new RegExp(`--app=http://localhost:${port}\\?zugang=[0-9a-f]{64} `)); // grosses Fenster, ohne feste Größe
     assert.doesNotMatch(calls()[2], /--window-size/);
 
     assert.equal((await post({ kind: 'quatsch' })).status, 400);
@@ -402,6 +419,7 @@ test('Starter im Hintergrund-Betrieb: Fenster zu, Programm läuft weiter; Beende
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-bg-'));
   fs.writeFileSync(path.join(dir, 'launcher.json'), JSON.stringify({ background: true }));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir, { argsFile: 'unused' });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_MIN_WINDOW_MS: '800', ZEIT_IDLE_MS: '60000', ZEIT_CLOSING_MS: '400', ZEIT_NO_REMINDERS: '1' };
   delete env.ENCRYPTION_KEY;
@@ -425,6 +443,7 @@ test('Starter im Hintergrund-Betrieb: Fenster zu, Programm läuft weiter; Beende
 test('Hintergrund-Start (--hintergrund): kein Fenster, Server läuft', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zeit-launcher-bg2-'));
   const port = await freePort();
+  dirByPort.set(port, dir);
   const fake = writeFakeBrowser(dir, { argsFile: 'browser-args' });
   const env = { ...process.env, DATA_DIR: dir, PORT: String(port), ZEIT_BROWSER: fake, UPDATE_CHECK: 'false', ZEIT_NO_REMINDERS: '1' };
   delete env.ENCRYPTION_KEY;
@@ -486,4 +505,17 @@ test('Leerlauf-Wächter merkt sich, wann zuletzt eine Seite geladen wurde', () =
   const before = Date.now();
   m.ping({ load: true });
   assert.ok(m.lastLoad >= before);
+});
+
+test('Node.js-Version: Hinweis bei bekannten Sicherheitslücken bzw. nicht mehr unterstützter Reihe', () => {
+  const { nodeAdvice } = require('../src/lib/nodeVersion');
+  assert.equal(nodeAdvice('24.21.0').outdated, true);
+  assert.equal(nodeAdvice('24.21.0').recommended, '24.22.3');
+  assert.equal(nodeAdvice('24.22.3').outdated, false);
+  assert.equal(nodeAdvice('24.30.0').outdated, false);
+  assert.equal(nodeAdvice('22.23.4').outdated, true);
+  assert.equal(nodeAdvice('20.19.0').outdated, true, 'Node 20 wird nicht mehr unterstützt');
+  assert.equal(nodeAdvice('27.1.0').outdated, true, 'ungerade Reihe');
+  assert.equal(nodeAdvice('28.0.0').outdated, false, 'neue gerade Reihe ohne Eintrag');
+  assert.match(nodeAdvice('24.21.0').text, /24\.22\.3/);
 });

@@ -1,8 +1,9 @@
-// Testdaten für den Stil-Schnappschuss (siehe stil-schnappschuss.js). Aufruf: node stil-testdaten.js <port>
+// Testdaten für den Stil-Schnappschuss (siehe stil-schnappschuss.js). Aufruf: node stil-testdaten.js <port> <datenordner>
 const base = `http://localhost:${process.argv[2]}`;
+const access = `zeit.zugang=${JSON.parse(require('fs').readFileSync(require('path').join(process.argv[3], 'keys.json'), 'utf8')).accessToken}`;
 (async () => {
-  const t = await fetch(`${base}/api/csrf-token`);
-  const cookie = t.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+  const t = await fetch(`${base}/api/csrf-token`, { headers: { cookie: access } });
+  const cookie = [access, ...t.headers.getSetCookie().map((c) => c.split(';')[0])].join('; ');
   const { csrfToken } = await t.json();
   const call = async (method, p, body) => { const r = await fetch(base + p, { method, headers: { cookie, 'x-csrf-token': csrfToken, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); return r.json(); };
   await call('PATCH', '/api/account/settings', { isApprentice: true });

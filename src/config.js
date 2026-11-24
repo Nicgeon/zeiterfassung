@@ -38,11 +38,13 @@ const dataDir = optional('DATA_DIR', localMode ? defaultLocalDataDir() : '/app/d
 
 let encryptionKeyHex;
 let sessionSecret;
+let localAccessToken = null;
 
 if (localMode) {
   const keys = loadOrCreateLocalKeys(dataDir);
   encryptionKeyHex = optional('ENCRYPTION_KEY', keys.encryptionKey);
   sessionSecret = optional('SESSION_SECRET', keys.sessionSecret);
+  localAccessToken = keys.accessToken;
 } else {
   try {
     encryptionKeyHex = required('ENCRYPTION_KEY');
@@ -131,6 +133,8 @@ module.exports = {
   // Lokal nur auf dem eigenen Rechner lauschen, nie im Netzwerk.
   host: localMode ? '127.0.0.1' : null,
   dataDir,
+  // Lokal: nur wer diesen Schlüssel kennt (Programmfenster, über den Starter), wird angemeldet
+  localAccessToken,
   encryptionKey: Buffer.from(encryptionKeyHex, 'hex'),
   sessionSecret,
   cookieSecure: localMode ? false : optionalBool('COOKIE_SECURE', isProduction),

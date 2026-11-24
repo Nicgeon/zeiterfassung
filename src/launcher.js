@@ -22,7 +22,7 @@ const { spawn, spawnSync } = require('child_process');
 const { appWindowArgs, psQuote, appleScriptQuote, shouldDetach, startMenuScript } = require('./lib/launcherUtil');
 const systemToast = require('./lib/notify');
 const { findBrowsers, profileDirFor } = require('./lib/appWindow');
-const { defaultLocalDataDir } = require('./lib/localKeys');
+const { defaultLocalDataDir, readAccessToken } = require('./lib/localKeys');
 
 const ROOT = path.resolve(__dirname, '..');
 process.chdir(ROOT);
@@ -128,9 +128,20 @@ function ensureStartMenu() {
 // --- Hilfen -----------------------------------------------------------------------------------------
 
 /** Antwort von UNSERER Zeiterfassung auf dem Port (eigene Kennung in /api/app/ping) oder null. seen: hat sich schon ein Fenster gemeldet? */
+// Zugangsschlüssel (keys.json im Datenordner): ohne ihn meldet der Server niemanden an. Er steht erst nach dem ersten
+// Serverstart fest, deshalb wird er bei Bedarf gelesen. Nie ins Protokoll schreiben.
+const accessToken = () => readAccessToken(DATA_DIR);
+/** Fensteradresse mit Schlüssel; der Server tauscht ihn gegen ein Cookie und lädt die Adresse ohne ihn neu. */
+function withAccess(url) {
+  const token = accessToken();
+  return token ? `${url}${url.includes('?') ? '&' : '?'}zugang=${encodeURIComponent(token)}` : url;
+}
+
 function probeInfo() {
   return new Promise((resolve) => {
-    const req = http.get({ host: '127.0.0.1', port: PORT, path: '/api/app/ping?state=probe', timeout: 1500 }, (res) => {
+    const token = accessToken();
+    const headers = token ? { Cookie: `zeit.zugang=${token}` } : {};
+    const req = http.get({ host: '127.0.0.1', port: PORT, path: '/api/app/ping?state=probe', timeout: 1500, headers }, (res) => {
       let body = '';
       res.on('data', (c) => (body += c));
       res.on('end', () => {
@@ -259,7 +270,7 @@ function launchApp(choice, { url, size }) {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`App-Fenster: ${choice.exe} (${choice.kind || 'angegeben'}, ${choice.how})`);
   const state = { started: Date.now(), exited: false, code: null, error: null, onExit: null };
-  const child = spawn(choice.exe, appWindowArgs(url, PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
+  const child = spawn(choice.exe, appWindowArgs(withAccess(url), PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
   child.on('error', (err) => { state.error = err; log(`Browser konnte nicht gestartet werden: ${err.message}`); });
   child.on('exit', (code) => {
     state.exited = true;
@@ -312,7 +323,7 @@ function warnNoWindow(since) {
 async function openFirstWindow(w) {
   if (!CHOICES.length) {
     notify('Zeiterfassung', 'Es wurde weder Edge noch Chrome noch Brave gefunden. Die Zeiterfassung wird im Standardbrowser geöffnet (als Tab). Mit ZEIT_BROWSER oder unter Konto → Programm lässt sich ein Browser festlegen.');
-    openDefaultBrowser(w.url);
+    openDefaultBrowser(withAccess(w.url));
     return;
   }
   for (const choice of CHOICES) {
@@ -340,7 +351,7 @@ async function openFirstWindow(w) {
     log(`Mit ${choice.exe} ist kein Fenster erschienen (${result}${state.code !== null ? `, Code ${state.code}` : ''}) - versuche den nächsten Browser.`);
   }
   notify('Zeiterfassung', 'Das Programmfenster ließ sich mit keinem Browser öffnen (Einzelheiten in zeiterfassung.log im Datenordner). Die Zeiterfassung wird deshalb im Standardbrowser geöffnet.');
-  openDefaultBrowser(w.url);
+  openDefaultBrowser(withAccess(w.url));
 }
 
 /**
@@ -348,7 +359,7 @@ async function openFirstWindow(w) {
  * check: prüfen, ob sich die Seite meldet (beim zweiten Start), sonst Hinweis und Standardbrowser.
  */
 async function openExtraWindow(w, { check = false } = {}) {
-  if (!CHOICES.length) { openDefaultBrowser(w.url); return; }
+  if (!CHOICES.length) { openDefaultBrowser(withAccess(w.url)); return; }
   for (const choice of CHOICES) {
     const since = Date.now();
     const state = launchApp(choice, w);
@@ -361,12 +372,12 @@ async function openExtraWindow(w, { check = false } = {}) {
     if (!state.error && !(state.exited && state.code !== 0)) {
       // Browser läuft, Seite meldet sich nicht: nicht noch ein Fenster mit dem nächsten Browser, sondern Hinweis
       toast('Zeiterfassung: kein Fenster?', `Die Zeiterfassung läuft bereits, das Fenster meldet sich aber nicht. Sie wird jetzt im Standardbrowser geöffnet. ${NOT_VISIBLE_HINT}`);
-      openDefaultBrowser(w.url);
+      openDefaultBrowser(withAccess(w.url));
       return;
     }
     log(`Mit ${choice.exe} ist kein weiteres Fenster erschienen - versuche den nächsten Browser.`);
   }
-  openDefaultBrowser(w.url);
+  openDefaultBrowser(withAccess(w.url));
 }
 
 // --- Ablauf -----------------------------------------------------------------------------------------------------------

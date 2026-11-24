@@ -3,15 +3,17 @@
 //
 // Ablauf (nicht Teil von npm test, braucht Playwright):
 //   1. Server mit leerem Datenordner starten:  DATA_DIR=/tmp/stil LOCAL_MODE=true ZEIT_NO_REMINDERS=1 PORT=4790 node src/server.js
-//   2. Testdaten anlegen:                     node test/tools/stil-testdaten.js 4790
-//   3. vorher:  node test/tools/stil-schnappschuss.js 4790 vorher.json
-//   4. CSS ändern, dann: node test/tools/stil-schnappschuss.js 4790 nachher.json
+//   2. Testdaten anlegen:                     node test/tools/stil-testdaten.js 4790 /tmp/stil
+//   3. vorher:  node test/tools/stil-schnappschuss.js 4790 vorher.json /tmp/stil
+//   4. CSS ändern, dann: node test/tools/stil-schnappschuss.js 4790 nachher.json /tmp/stil
 //   5. node test/tools/stil-vergleich.js vorher.json nachher.json   (Exit 0 = keine sichtbare Änderung)
 const { chromium } = require('playwright');
 const fs = require('fs');
 
 const PORT = process.argv[2];
 const OUT = process.argv[3];
+// Zugangsschlüssel des lokalen Servers (keys.json im Datenordner)
+const TOKEN = JSON.parse(fs.readFileSync(require('path').join(process.argv[4], 'keys.json'), 'utf8')).accessToken;
 const BASE = `http://localhost:${PORT}`;
 const PROPS = ['display', 'position', 'top', 'left', 'right', 'bottom', 'width', 'height', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
   'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'color', 'background-color', 'background-image', 'border-top-width', 'border-top-color',
@@ -50,6 +52,7 @@ const PAGES = [
         }, [theme, pg.ls]);
         const page = await ctx.newPage();
         await page.clock.setFixedTime(new Date('2026-11-23T11:30:00+01:00'));
+        await page.goto(`${BASE}/?zugang=${TOKEN}`);
         await page.goto(BASE + pg.url);
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(700);

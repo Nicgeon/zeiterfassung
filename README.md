@@ -7,9 +7,10 @@ das Ende des letzten Eintrags angehängt), die Minuten werden automatisch
 berechnet. Der fertige Eintrag lässt sich mit einem Klick als Text kopieren,
 um ihn in ein Jira-Ticket/-Worklog einzufügen.
 
-Standardmäßig **kein** Jira-API-Zugriff (optional und nur lesend einschaltbar, siehe „Jira-Anbindung“): Das Tool verwaltet keine
-Jira-Zugangsdaten oder -Berechtigungen, sondern erzeugt nur den fertigen
-Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
+Standardmäßig **kein** Jira-API-Zugriff: Ohne Einrichtung erzeugt das Tool nur den fertigen Text zum Einfügen. Optional
+lässt sich Jira Cloud mit einem persönlichen API-Token anbinden (Titel nachladen, Aufgaben abgleichen und – nur nach
+ausdrücklichem Einschalten – interne Kommentare schreiben bzw. Tagestickets abschließen, siehe „Jira-Anbindung“). Der
+Token liegt verschlüsselt in der Datenbank und wird nie wieder angezeigt.
 
 ## Inhalt
 
@@ -35,8 +36,8 @@ Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
 | Bereich | Umsetzung |
 |---|---|
 | Transportverschlüsselung | Nicht Teil dieser App – wird von eurem nginx proxy manager (Let's Encrypt) davorgeschaltet. Die App selbst spricht nur HTTP im internen Netz. |
-| Login | Benutzername/Passwort, Passwort-Hashing mit Argon2id, erzwungener Passwortwechsel bei neuen/zurückgesetzten Konten, Konto-Sperre nach mehreren Fehlversuchen |
-| Zweiter Faktor | TOTP (Authenticator-App) optional pro Nutzer, inkl. Wiederherstellungs-Codes |
+| Login | Benutzername/Passwort, Passwort-Hashing mit Argon2id, erzwungener Passwortwechsel bei neuen/zurückgesetzten Konten, Konto-Sperre nach mehreren Fehlversuchen (Passwort und 2FA-Codes zusammen gezählt), gleiche Antwort und Antwortzeit für unbekannte Benutzernamen |
+| Zweiter Faktor | TOTP (Authenticator-App, 160-Bit-Geheimnis) optional pro Nutzer, inkl. Wiederherstellungs-Codes; jeder Code gilt nur einmal, nach 5 falschen Codes muss das Passwort neu eingegeben werden |
 | Passkeys | WebAuthn/FIDO2 (Windows Hello, Touch ID, YubiKey, …) als Alternative zu Passwort+2FA |
 | Sitzungen | Server-seitige Sessions (in der eigenen SQLite-DB), httpOnly + secure Cookies, Ablauf nach Inaktivität |
 | CSRF-Schutz | Double-Submit-Cookie-Verfahren für alle ändernden Requests |
@@ -46,6 +47,8 @@ Text zum Einfügen. Das hält den Sicherheits- und Wartungsaufwand klein.
 | Protokollierung | Sicherheits-Audit-Log (Logins, Passwort-/2FA-Änderungen, Admin-Aktionen) – **enthält keine Aufgaben-Inhalte** |
 | Zugriffs-Isolation | Jede Person sieht nur ihre eigenen Zeiteinträge – auch Admins können fremde Aufgaben-Texte nicht einsehen. Admin-Rechte betreffen ausschließlich Nutzerverwaltung (siehe [Grenzen](#grenzen--bewusste-design-entscheidungen)) |
 | Erreichbarkeit | Nicht Teil dieser App – wird über eure IP-Beschränkung (z.B. im nginx proxy manager oder vorgelagerter Firewall) auf das Firmennetz begrenzt |
+| Lokaler Betrieb | Nur auf `127.0.0.1`, fremde Hostnamen abgewiesen (DNS-Rebinding). Angemeldet wird nur, wer den **Zugangsschlüssel** aus `keys.json` kennt: Der Starter öffnet das Fenster damit, der Server tauscht ihn gegen ein Cookie (nur HTTP, SameSite=Strict). Andere Programme und – auf Terminalservern – andere Benutzer kommen über `localhost` nicht an die Daten |
+| Abhängigkeiten | `npm audit` ohne Befund (Stand 24.11.2026); SQLite 3.54.1 über better-sqlite3 13; Node.js 22 oder neuer, die Einstellungen warnen bei einer Node.js-Version mit bekannten Lücken |
 
 Was die App **nicht** selbst übernimmt und was ihr auf Infrastruktur-Ebene
 sicherstellen solltet: Betriebssystem-/Docker-Host-Härtung, Firewall/IP-
@@ -766,7 +769,8 @@ Die Daten liegen unter `~/Library/Application Support/Zeiterfassung` (ein bereit
 
 **Was im lokalen Modus anders ist**
 - Die App lauscht ausschliesslich auf `127.0.0.1`; aus dem Netzwerk ist sie nicht erreichbar. Fremde Hostnamen werden abgewiesen (Schutz gegen DNS-Rebinding).
-- Es gibt keine Anmeldung: Der lokale Nutzer ist automatisch angemeldet. Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Geschuetzt sind die Daten durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschluesselung der Beschreibungen (AES-256-GCM).
+- Es gibt keine Anmeldung mit Passwort: Passwort, 2FA, Passkeys, Abmelden und Team-Verwaltung entfallen. Das Programmfenster wird über den **Zugangsschlüssel** angemeldet (steht in `keys.json`, der Starter übergibt ihn beim Öffnen, danach liegt er als Cookie im Profil des Programmfensters). Wer die Adresse `http://localhost:4711` ohne ihn aufruft – ein anderes Programm, ein anderer Benutzer auf demselben Rechner –, sieht nur „Kein Zugang“. Mit sichtbarer Konsole (`Zeiterfassung-starten.bat --konsole`) steht die Adresse samt Schlüssel in der Konsole.
+- Geschützt sind die Daten außerdem durch das Betriebssystem-Benutzerkonto (Bildschirmsperre!) und die Verschlüsselung der Beschreibungen, Notizen, Jira- und KI-Zugangsdaten (AES-256-GCM). Der Schlüssel dafür liegt in `keys.json` im selben, nur für dich lesbaren Ordner: Die Verschlüsselung schützt eine einzeln weitergegebene oder gesicherte Datenbank, nicht gegen jemanden, der dein Windows-Konto benutzen kann. Ein JSON-Export (*Einstellungen → Daten*) ist unverschlüsselt – wie eine ausgedruckte Liste behandeln.
 - Den Azubi-Schalter (Berichtsheft-Text unter „Berichte“) gibt es unter *Einstellungen → Allgemein*.
 - Anderen Port: Umgebungsvariable `PORT`, z.B. `PORT=4712`.
 
