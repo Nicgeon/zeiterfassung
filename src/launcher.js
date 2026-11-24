@@ -193,15 +193,17 @@ function ensureSetup() {
   if (mismatches.length) log(`Pakete passen nicht zur Paketliste: ${mismatches.map((m) => `${m.name} ${m.installed || 'fehlt'} statt ${m.expected}`).join(', ')}`);
   if (!fs.existsSync(path.join(ROOT, 'node_modules')) || fs.existsSync(pending) || mismatches.length) {
     notify('Zeiterfassung', 'Abhängigkeiten werden installiert (nur beim ersten Start oder nach manchen Updates). Das dauert einen Moment, danach öffnet sich das Fenster.');
-    if (runNpm(['install', '--omit=dev']) !== 0) throw new Error('npm install ist fehlgeschlagen. Bitte „Zeiterfassung-starten.bat --konsole“ ausführen, dort steht der Grund (z. B. keine Verbindung zu registry.npmjs.org).');
+    if (runNpm(['install', '--omit=dev', '--ignore-scripts']) !== 0) throw new Error('npm install ist fehlgeschlagen. Bitte „Zeiterfassung-starten.bat --konsole“ ausführen, dort steht der Grund (z. B. keine Verbindung zu registry.npmjs.org).');
     const still = require('./lib/depsCheck').dependencyMismatches(ROOT);
     if (still.length) throw new Error(`Pakete fehlen nach der Installation noch: ${still.map((m) => m.name).join(', ')}. Bitte den Ordner node_modules löschen und erneut starten.`);
     fs.rmSync(pending, { force: true });
   }
   if (!sqliteWorks()) {
-    log('Node.js-Version hat sich geändert - better-sqlite3 wird neu gebaut ...');
-    runNpm(['rebuild', 'better-sqlite3']);
-    if (!sqliteWorks()) throw new Error('better-sqlite3 lässt sich nicht laden. Bitte den Ordner node_modules löschen und erneut starten (macOS: ggf. xcode-select --install).');
+    // better-sqlite3 bringt fertige Module für alle Node-Versionen mit. Ein selbst kompiliertes Modul (Ordner build)
+    // hat Vorrang und passt nach einem Wechsel der Node-Version nicht mehr: dann entfernen.
+    const built = path.join(ROOT, 'node_modules', 'better-sqlite3', 'build');
+    if (fs.existsSync(built)) { log('better-sqlite3: selbst kompiliertes Modul passt nicht, es wird das mitgelieferte verwendet.'); fs.rmSync(built, { recursive: true, force: true }); }
+    if (!sqliteWorks()) throw new Error('better-sqlite3 lässt sich nicht laden. Bitte den Ordner node_modules löschen und erneut starten.');
   }
 }
 

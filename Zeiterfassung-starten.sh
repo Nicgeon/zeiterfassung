@@ -18,22 +18,21 @@ if [ "$MAJOR" -lt 22 ]; then echo "Node.js $MAJOR ist zu alt (benoetigt: 22 oder
 export LOCAL_MODE=true ZEIT_SUPERVISED=1
 OPEN=1
 while true; do
-  [ -d node_modules ] || { echo "Erster Start: Abhaengigkeiten werden installiert ..."; npm install --omit=dev || exit 1; }
+  [ -d node_modules ] || { echo "Erster Start: Abhaengigkeiten werden installiert ..."; npm install --omit=dev --ignore-scripts || exit 1; }
   # Ein Update hat Abhaengigkeiten geaendert (oder die Pakete passen nicht zur Paketliste): vor dem Start installieren.
   node src/lib/depsCheck.js || touch .update-install-pending
   if [ -f .update-install-pending ]; then
     echo "Update: Abhaengigkeiten werden installiert ..."
-    npm install --omit=dev || exit 1
+    npm install --omit=dev --ignore-scripts || exit 1
     rm -f .update-install-pending
   fi
-  # Native Module (better-sqlite3) gelten nur fuer die Node-Version, mit der sie installiert wurden.
-  # Wechselt die Version, wird das Modul automatisch neu gebaut.
+  # better-sqlite3 bringt fertige Module fuer alle Node-Versionen mit. Ein selbst kompiliertes Modul (Ordner build)
+  # hat Vorrang und passt nach einem Wechsel der Node-Version nicht mehr: dann entfernen.
   if ! node -e "new (require('better-sqlite3'))(':memory:').close()" >/dev/null 2>&1; then
-    echo "Node.js-Version hat sich geaendert - better-sqlite3 wird neu gebaut ..."
-    npm rebuild better-sqlite3
+    echo "better-sqlite3 laesst sich nicht laden - es wird das mitgelieferte Modul verwendet ..."
+    rm -rf node_modules/better-sqlite3/build
     if ! node -e "new (require('better-sqlite3'))(':memory:').close()" >/dev/null 2>&1; then
-      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und Zeiterfassung-starten.sh erneut starten."
-      echo "(macOS: ggf. vorher die Entwicklerwerkzeuge installieren: xcode-select --install)"; exit 1
+      echo "Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und Zeiterfassung-starten.sh erneut starten."; exit 1
     fi
   fi
   OPEN_BROWSER=$OPEN node src/server.js

@@ -51,3 +51,14 @@ test('Pakete: Abweichung zwischen node_modules und package-lock wird erkannt (da
   fs.rmSync(path.join(root, 'node_modules', 'express'), { recursive: true });
   assert.deepEqual(dependencyMismatches(root), [{ name: 'express', installed: null, expected: '4.22.3' }]);
 });
+
+test('Pakete: .npmrc schaltet Installationsskripte ab (nichts kompilieren), Update darf sie verteilen', () => {
+  const npmrc = fs.readFileSync(path.join(__dirname, '..', '.npmrc'), 'utf8');
+  assert.match(npmrc, /^ignore-scripts=true$/m);
+  assert.ok(isUpdatablePath('.npmrc'));
+  for (const f of ['Zeiterfassung-starten.bat', 'Zeiterfassung-starten.sh', 'src/launcher.js']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    assert.ok(!/npm rebuild/.test(src), `${f}: kein npm rebuild mehr`);
+    for (const m of src.matchAll(/npm install --[^\n]*|\['install'[^\]]*\]/g)) assert.match(m[0], /ignore-scripts/, `${f}: ${m[0]}`);
+  }
+});

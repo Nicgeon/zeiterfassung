@@ -31,13 +31,14 @@ const ALLOWED = [
   /^README\.md$/,
   /^\.env\.example$/,
   /^\.gitattributes$/,
+  /^\.npmrc$/,
   /^\.gitignore$/,
   /^\.dockerignore$/,
   /^Dockerfile$/,
   /^docker-compose\.yml$/,
 ];
 const SAFE_PATH = /^[A-Za-z0-9._\-/]+$/;
-const TEXT_FILE = /(\.(js|json|html|css|md|txt|sh|bat|vbs|plist|yml|yaml|svg|example)|(^|\/)(Dockerfile|\.gitignore|\.dockerignore|\.gitattributes)|Zeiterfassung\.app\/Contents\/MacOS\/[^/]+)$/;
+const TEXT_FILE = /(\.(js|json|html|css|md|txt|sh|bat|vbs|plist|yml|yaml|svg|example)|(^|\/)(Dockerfile|\.gitignore|\.dockerignore|\.gitattributes|\.npmrc)|Zeiterfassung\.app\/Contents\/MacOS\/[^/]+)$/;
 const DEPENDENCY_FILES = new Set(['package.json', 'package-lock.json']);
 // Umbenannte Dateien: die alte wird entfernt (mit Sicherung), sobald die neue da ist.
 const RENAMED = [
@@ -273,7 +274,7 @@ async function apply() {
     for (const { file, buffer } of downloaded) {
       writeFileAtomic(path.join(APP_DIR, file.path), buffer, file.path, file.executable);
     }
-    if (changed.some((f) => DEPENDENCY_FILES.has(f.path))) fs.writeFileSync(INSTALL_MARKER, 'npm install --omit=dev\n');
+    if (changed.some((f) => DEPENDENCY_FILES.has(f.path))) fs.writeFileSync(INSTALL_MARKER, 'npm install --omit=dev --ignore-scripts\n');
     retireRenamed(stamp);
     writeState({ appliedCommit: remote.commit.sha, appliedAt: new Date().toISOString() });
     lastCheck = { at: new Date().toISOString(), commit: remote.commit, changed: [], files: remote.files };

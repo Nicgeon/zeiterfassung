@@ -38,7 +38,7 @@ set OPEN_BROWSER=1
 :run
 if not exist node_modules (
   echo Erster Start: Abhaengigkeiten werden installiert ...
-  call npm install --omit=dev
+  call npm install --omit=dev --ignore-scripts
   if errorlevel 1 (
     pause
     exit /b 1
@@ -50,7 +50,7 @@ node src\lib\depsCheck.js
 if errorlevel 1 echo update > .update-install-pending
 if exist .update-install-pending (
   echo Update: Abhaengigkeiten werden installiert ...
-  call npm install --omit=dev
+  call npm install --omit=dev --ignore-scripts
   if errorlevel 1 (
     pause
     exit /b 1
@@ -58,12 +58,12 @@ if exist .update-install-pending (
   del .update-install-pending
 )
 
-rem Native Module (better-sqlite3) gelten nur fuer die Node-Version, mit der sie installiert wurden.
-rem Wechselt die Version, wird das Modul automatisch neu gebaut.
+rem better-sqlite3 bringt fertige Module fuer alle Node-Versionen mit. Ein selbst kompiliertes Modul (Ordner build)
+rem hat Vorrang und passt nach einem Wechsel der Node-Version nicht mehr: dann entfernen.
 node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
 if errorlevel 1 (
-  echo Node.js-Version hat sich geaendert - better-sqlite3 wird neu gebaut ...
-  call npm rebuild better-sqlite3
+  echo better-sqlite3 laesst sich nicht laden - es wird das mitgelieferte Modul verwendet ...
+  if exist node_modules\better-sqlite3\build rmdir /s /q node_modules\better-sqlite3\build
   node -e "new (require('better-sqlite3'))(':memory:').close()" >nul 2>nul
   if errorlevel 1 (
     echo Das hat nicht geklappt. Bitte den Ordner node_modules loeschen und Zeiterfassung-starten.bat erneut starten.
