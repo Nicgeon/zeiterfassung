@@ -199,6 +199,12 @@ function formatAuditLine({ userId, event, detail, ip }) {
 // Spalten, die nach dem ersten Release dazugekommen sind, werden hier
 // nachgezogen, damit ein Update ohne Datenverlust moeglich ist.
 const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+// 2FA: Zeitschritt des zuletzt angenommenen Codes (ein Code gilt nur einmal)
+if (!userColumns.includes('totp_last_step')) {
+  db.exec('ALTER TABLE users ADD COLUMN totp_last_step INTEGER');
+  // eslint-disable-next-line no-console
+  console.log('[MIGRATION] Spalte "totp_last_step" (2FA-Code nur einmal gueltig) zur Tabelle users hinzugefuegt.');
+}
 if (!userColumns.includes('is_apprentice')) {
   db.exec('ALTER TABLE users ADD COLUMN is_apprentice INTEGER NOT NULL DEFAULT 0');
   // eslint-disable-next-line no-console

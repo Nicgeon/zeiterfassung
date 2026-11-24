@@ -1,14 +1,21 @@
 'use strict';
 
-const { authenticator } = require('otplib');
+// Zwei-Faktor-Anmeldung mit Authenticator-App (TOTP, RFC 6238) und Backup-Codes (nur Serverbetrieb).
+// - Neue Geheimnisse haben 160 Bit (RFC 4226 empfiehlt das). Ältere, mit otplib 12 eingerichtete Konten haben 80 Bit;
+//   sie funktionieren weiter (ausdrückliche Ausnahme über die "Guardrails"), neu einrichten bringt das volle Maß.
+// - Ein Code gilt ±30 Sekunden (Uhren laufen nie genau gleich) und wird nur EINMAL angenommen: verifyToken liefert
+//   den Zeitschritt des Codes, der Aufrufer merkt ihn sich (users.totp_last_step) und gibt ihn beim nächsten Mal mit.
+
+const otplib = require('otplib');
 const qrcode = require('qrcode');
 const crypto = require('crypto');
 const { encryptField, decryptField } = require('./crypto');
 
-authenticator.options = { window: 1 }; // allow ±1 step (±30s) clock drift
+const EPOCH_TOLERANCE = 30; // Sekunden, also ein Zeitschritt davor und danach
+const LEGACY_GUARDRAILS = otplib.createGuardrails({ MIN_SECRET_BYTES: 10 }); // 80-Bit-Geheimnisse aus otplib 12
 
 function generateSecret() {
-  return authenticator.generateSecret();
+  return otplib.generateSecret(); // 20 Byte = 160 Bit
 }
 
 function encryptSecret(secret) {
@@ -20,14 +27,23 @@ function decryptSecret(encSecret) {
 }
 
 async function buildQrCodeDataUrl(secret, accountLabel, issuer) {
-  const otpauth = authenticator.keyuri(accountLabel, issuer, secret);
+  const otpauth = otplib.generateURI({ issuer, label: accountLabel, secret });
   return qrcode.toDataURL(otpauth);
 }
 
-function verifyToken(token, secret) {
+/**
+ * Prüft einen Code. Ergebnis: der Zeitschritt des Codes (Zahl) oder false.
+ * afterTimeStep: zuletzt angenommener Zeitschritt – derselbe oder ein älterer Code wird abgelehnt (keine Wiederholung).
+ */
+function verifyToken(token, secret, { afterTimeStep = null } = {}) {
   if (!token || !secret) return false;
+  const clean = String(token).replace(/\s+/g, '');
+  if (!/^\d{6}$/.test(clean)) return false;
   try {
-    return authenticator.verify({ token: String(token).replace(/\s+/g, ''), secret });
+    const result = otplib.verifySync({ secret, token: clean, epochTolerance: EPOCH_TOLERANCE, guardrails: LEGACY_GUARDRAILS });
+    if (!result || !result.valid) return false;
+    if (afterTimeStep !== null && afterTimeStep !== undefined && result.timeStep <= afterTimeStep) return false;
+    return result.timeStep;
   } catch {
     return false;
   }

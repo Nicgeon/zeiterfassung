@@ -719,7 +719,7 @@ lässt sich über `LOG_TIMEZONE` in der `.env` ändern.
 
 Die Anwendung kann auch komplett lokal auf dem eigenen Rechner laufen - ohne Docker, Proxy, Domain oder Zertifikate. Jede Person betreibt dann ihre eigene Instanz mit eigenen Daten.
 
-**Voraussetzung:** Node.js 20 oder neuer (getestet mit 22; 24 wird unterstuetzt). Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `Zeiterfassung-starten.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
+**Voraussetzung:** Node.js 22 oder neuer (getestet mit 22 und 24). Bitte immer die neueste Version der jeweiligen Reihe nehmen, Node.js schließt darin Sicherheitslücken (Stand November 2026: 22.23.5, 24.22.3 bzw. 26.13.1); *Einstellungen → Programm & Updates* zeigt einen Hinweis, wenn die installierte Version veraltet ist. Ohne Administratorrechte genuegt das ZIP-Archiv von https://nodejs.org, entpackt in einen Benutzerordner (z.B. `C:\Users\NAME\node-v24.21.0-win-x64`). `Zeiterfassung-starten.bat` findet Node dort automatisch; liegt es woanders, vorher `set NODE_HOME=<Ordner mit node.exe>` setzen.
 
 **Start**
 - Windows: Doppelklick auf `Zeiterfassung-starten.bat` – startet inzwischen wie `Zeiterfassung.vbs` als Programm im eigenen

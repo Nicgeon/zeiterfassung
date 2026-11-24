@@ -22,7 +22,7 @@ router.patch('/settings', (req, res) => {
 const getUserById = db.prepare('SELECT * FROM users WHERE id = ?');
 const setPasswordStmt = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
 const setTotpStmt = db.prepare(
-  'UPDATE users SET totp_secret_enc = ?, totp_enabled = 1 WHERE id = ?'
+  'UPDATE users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ? WHERE id = ?'
 );
 const disableTotpStmt = db.prepare(
   'UPDATE users SET totp_secret_enc = NULL, totp_enabled = 0 WHERE id = ?'
@@ -85,10 +85,12 @@ router.post('/totp/confirm', secondFactorLimiter, (req, res) => {
   const secret = req.session.pendingTotpSecret;
   if (!secret) return res.status(400).json({ error: 'Kein 2FA-Setup gestartet.' });
   const { code } = req.body || {};
-  if (!totp.verifyToken(code, secret)) {
+  const step = totp.verifyToken(code, secret);
+  if (step === false) {
     return res.status(400).json({ error: 'Code ungueltig. Bitte erneut versuchen.' });
   }
-  setTotpStmt.run(totp.encryptSecret(secret), req.user.id);
+  // der Bestätigungs-Code ist damit verbraucht und gilt nicht noch einmal fürs Anmelden
+  setTotpStmt.run(totp.encryptSecret(secret), step, req.user.id);
   delete req.session.pendingTotpSecret;
 
   deleteBackupCodesStmt.run(req.user.id);
@@ -102,7 +104,7 @@ router.post('/totp/confirm', secondFactorLimiter, (req, res) => {
   res.json({ status: 'ok', backupCodes: codes });
 });
 
-router.post('/totp/disable', async (req, res) => {
+router.post('/totp/disable', secondFactorLimiter, async (req, res) => {
   const { currentPassword } = req.body || {};
   const user = getUserById.get(req.user.id);
   const valid = await verifyPassword(user.password_hash, currentPassword || '');

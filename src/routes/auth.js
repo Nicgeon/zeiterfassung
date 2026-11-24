@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const express = require('express');
 const { db, audit } = require('../db');
 const { verifyPassword, hashPassword, isPasswordStrongEnough } = require('../lib/passwords');
@@ -12,6 +13,7 @@ const router = express.Router();
 
 const getUserByUsername = db.prepare('SELECT * FROM users WHERE username = ?');
 const getUserById = db.prepare('SELECT * FROM users WHERE id = ?');
+const setTotpLastStep = db.prepare('UPDATE users SET totp_last_step = ? WHERE id = ?');
 const getPasskeysByUser = db.prepare('SELECT * FROM passkeys WHERE user_id = ?');
 const getPasskeyByCredentialId = db.prepare('SELECT * FROM passkeys WHERE credential_id = ?');
 const touchPasskey = db.prepare(
@@ -56,6 +58,23 @@ function regenerateSession(req) {
 
 // --- Password login (step 1) -------------------------------------------
 
+// Gleich lange Antwortzeit für unbekannte Namen: ohne Konto wird trotzdem ein Passwort-Hash geprüft, sonst ließe sich
+// an der Antwortzeit ablesen, welche Benutzernamen es gibt.
+let dummyHashPromise = null;
+const dummyHash = () => (dummyHashPromise ||= hashPassword(crypto.randomBytes(16).toString('hex')));
+
+/** Fehlversuch zählen und ab der eingestellten Zahl das Konto vorübergehend sperren (Passwort und 2FA gemeinsam). */
+function countFailure(user) {
+  const attempts = (user.failed_login_count || 0) + 1;
+  const lockedUntil = attempts >= config.loginMaxAttempts
+    ? new Date(Date.now() + config.loginLockMinutes * 60000).toISOString().slice(0, 19)
+    : null;
+  bumpFailedLogin.run(attempts, lockedUntil, user.id);
+  return attempts;
+}
+
+const MAX_SECOND_FACTOR_TRIES = 5; // danach muss das Passwort neu eingegeben werden
+
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
@@ -66,7 +85,8 @@ router.post('/login', loginLimiter, async (req, res) => {
   const genericError = { error: 'Benutzername oder Passwort ist falsch.' };
 
   if (!user || !user.active) {
-    audit(null, 'login_failed', `unknown_or_inactive:${username}`, req.ip);
+    await verifyPassword(await dummyHash(), String(password));
+    audit(null, 'login_failed', `unknown_or_inactive:${String(username).slice(0, 64)}`, req.ip);
     return res.status(401).json(genericError);
   }
 
@@ -79,17 +99,14 @@ router.post('/login', loginLimiter, async (req, res) => {
 
   const valid = await verifyPassword(user.password_hash, password);
   if (!valid) {
-    const attempts = (user.failed_login_count || 0) + 1;
-    let lockedUntil = null;
-    if (attempts >= config.loginMaxAttempts) {
-      lockedUntil = new Date(Date.now() + config.loginLockMinutes * 60000).toISOString().slice(0, 19);
-    }
-    bumpFailedLogin.run(attempts, lockedUntil, user.id);
+    const attempts = countFailure(user);
     audit(user.id, 'login_failed', `attempt_${attempts}`, req.ip);
     return res.status(401).json(genericError);
   }
 
-  resetFailedLogin.run(user.id);
+  // Mit 2FA zählen Fehlversuche weiter, bis auch der Code stimmt (sonst setzte jedes richtige Passwort den Zähler
+  // zurück und Codes ließen sich in Runden zu fünf beliebig oft durchprobieren)
+  if (!user.totp_enabled) resetFailedLogin.run(user.id);
 
   // Neue Session-ID nach erfolgreicher Passwortpruefung (Schutz gegen
   // Session-Fixation): eine evtl. vorher untergeschobene/geteilte
@@ -165,13 +182,26 @@ router.post('/login/verify-totp', secondFactorLimiter, (req, res) => {
     }
   } else if (code) {
     const secret = totp.decryptSecret(user.totp_secret_enc);
-    ok = totp.verifyToken(code, secret);
+    // jeder Code nur einmal: ein mitgelesener Code lässt sich nicht noch einmal verwenden
+    const step = totp.verifyToken(code, secret, { afterTimeStep: user.totp_last_step });
+    if (step !== false) {
+      setTotpLastStep.run(step, user.id);
+      ok = true;
+    }
   }
 
   if (!ok) {
-    audit(user.id, 'login_failed_totp', null, req.ip);
+    // Fehlversuche zählen fürs Konto (Sperre wie beim Passwort); nach einigen falschen Codes zurück zum Passwort
+    countFailure(user);
+    pending.tries = (pending.tries || 0) + 1;
+    audit(user.id, 'login_failed_totp', `attempt_${pending.tries}`, req.ip);
+    if (pending.tries >= MAX_SECOND_FACTOR_TRIES) {
+      delete req.session.pending;
+      return res.status(401).json({ error: 'Zu viele falsche Codes. Bitte neu anmelden.', restart: true });
+    }
     return res.status(401).json({ error: 'Code ungueltig.' });
   }
+  resetFailedLogin.run(user.id);
 
   req.session.userId = user.id;
   delete req.session.pending;
