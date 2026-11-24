@@ -50,6 +50,7 @@
       try {
         const { results } = await Api.post('/api/jira/comments', { ids: ready.map((i) => i.id), with_times: withTimes });
         reportResults(results);
+        refreshDailyClose(); // vielleicht ist der Tag jetzt vollständig in Jira
       } catch (err) {
         showToast(err.message, { durationMs: 10000 });
       }
@@ -88,6 +89,61 @@
     e.stopPropagation();
     ZeitJira.open(el.dataset.jiraOpen);
   });
+
+  // --- Tagesticket abschließen (Seite "Heute"): Rückfrage, erst der Klick ändert den Status in Jira ----------------
+  const dailyBox = document.getElementById('dailyClose');
+  const LATER_KEY = 'zeit.dailyCloseLater';
+  const laterDates = () => { try { return JSON.parse(sessionStorage.getItem(LATER_KEY) || '[]'); } catch { return []; } };
+  const dayText = (d) => `${dateFromISO(d).toLocaleDateString('de-DE', { weekday: 'short' })} ${d.slice(8, 10)}.${d.slice(5, 7)}.`;
+
+  async function refreshDailyClose() {
+    if (!dailyBox) return;
+    const s = await ZeitJira.settings();
+    if (!s.configured || !s.allowWrite || !s.closeDaily) { dailyBox.innerHTML = ''; return; }
+    let pending = [];
+    try { pending = (await Api.get('/api/jira/daily-close')).pending; } catch { return; }
+    const later = laterDates();
+    dailyBox.innerHTML = pending.filter((p) => !later.includes(p.date)).map((p) => `
+      <div class="daily-close__item" data-date="${p.date}">
+        <span class="daily-close__text"><strong>Tagesticket <span class="mono">${escapeHtml(p.key)}</span> abschließen?</strong>
+          ${p.count === 1 ? 'Der Eintrag' : `Alle ${p.count} Einträge`} vom ${dayText(p.date)} (${formatHM(p.minutes)}) ${p.count === 1 ? 'steht' : 'stehen'} in Jira. Das Ticket wird auf „Fertig“ gesetzt.</span>
+        <span class="daily-close__actions">
+          <button type="button" class="btn btn--sm" data-daily="close">Abschließen</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-daily="later" title="Bis zum nächsten Öffnen des Programms nicht mehr fragen">Später</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-daily="dismiss" title="Für diesen Tag nicht mehr fragen">Nicht abschließen</button>
+        </span>
+      </div>`).join('');
+  }
+
+  if (dailyBox) {
+    dailyBox.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-daily]');
+      if (!b) return;
+      const date = b.closest('[data-date]').dataset.date;
+      if (b.dataset.daily === 'later') {
+        try { sessionStorage.setItem(LATER_KEY, JSON.stringify([...laterDates(), date])); } catch { /* nur Komfort */ }
+        refreshDailyClose();
+        return;
+      }
+      b.disabled = true;
+      try {
+        if (b.dataset.daily === 'dismiss') {
+          await Api.post('/api/jira/daily-close/dismiss', { date });
+          showToast(`Das Tagesticket vom ${dayText(date)} bleibt offen.`);
+        } else {
+          b.textContent = 'Wird abgeschlossen …';
+          const r = await Api.post('/api/jira/daily-close', { date });
+          showToast(r.already ? `${r.key} war schon „${r.status}“.` : `${r.key} ist jetzt „${r.status}“.`, { label: 'In Jira öffnen', durationMs: 10000, onClick: () => ZeitJira.open(r.key) });
+        }
+      } catch (err) {
+        showToast(err.message, { durationMs: 12000 });
+      }
+      refreshDailyClose();
+    });
+    refreshDailyClose();
+    setInterval(refreshDailyClose, 5 * 60_000);
+    window.addEventListener('focus', refreshDailyClose);
+  }
 
   // --- Schreiben: Rückfrage mit Vorschau und Ergebnis -------------------------------------------------------
   const SOURCE = {
@@ -168,7 +224,7 @@
     error: $('jiraError'), badge: $('jiraBadge'), url: $('jiraUrl'), email: $('jiraEmail'), token: $('jiraToken'),
     save: $('jiraSaveBtn'), test: $('jiraTestBtn'), clear: $('jiraClearBtn'),
     write: $('jiraWrite'), daily: $('jiraDailyProject'), dailyTest: $('jiraDailyTestBtn'),
-    syncTasks: $('jiraSyncTasks'), notifyNew: $('jiraNotifyNew'),
+    syncTasks: $('jiraSyncTasks'), notifyNew: $('jiraNotifyNew'), closeDaily: $('jiraCloseDaily'),
     excludeProjects: $('jiraExcludeProjects'), jqlFilter: $('jiraJqlFilter'),
   };
 
@@ -181,6 +237,7 @@
     el.write.checked = !!s.allowWrite;
     el.syncTasks.checked = s.syncTasks !== false;
     el.notifyNew.checked = s.notifyNew !== false;
+    el.closeDaily.checked = !!s.closeDaily;
     el.excludeProjects.value = s.excludeProjects || '';
     el.jqlFilter.value = s.jqlFilter || '';
     el.daily.value = s.dailyProject || '';
@@ -198,7 +255,7 @@
       const s = await Api.put('/api/jira/settings', {
         baseUrl: el.url.value, email: el.email.value, apiToken: el.token.value,
         allowWrite: el.write.checked, dailyProject: el.daily.value,
-        syncTasks: el.syncTasks.checked, notifyNew: el.notifyNew.checked,
+        syncTasks: el.syncTasks.checked, notifyNew: el.notifyNew.checked, closeDaily: el.closeDaily.checked,
         excludeProjects: el.excludeProjects.value, jqlFilter: el.jqlFilter.value,
       });
       ZeitJira.reset();

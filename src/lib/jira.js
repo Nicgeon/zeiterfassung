@@ -108,7 +108,11 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
       if (res.status === 400) {
         // z. B. ein Fehler im eigenen JQL-Filter: Jiras Begründung mitgeben
         let reason = '';
-        try { const j = await res.json(); reason = (j.errorMessages && j.errorMessages[0]) || ''; } catch { /* ohne Begründung */ }
+        try {
+          const j = await res.json();
+          // errorMessages: allgemein; errors: je Feld (z. B. Pflichtfeld beim Statuswechsel)
+          reason = (j.errorMessages && j.errorMessages[0]) || (j.errors ? Object.entries(j.errors).map(([f, m]) => `${f}: ${m}`).join('; ') : '');
+        } catch { /* ohne Begründung */ }
         throw new JiraError(`Jira lehnt die Anfrage ab${reason ? `: ${String(reason).slice(0, 200)}` : ' (400)'}.`, 400);
       }
       throw new JiraError(`Jira-Fehler (${res.status}).`, 502);
@@ -158,6 +162,39 @@ function createClient({ baseUrl, email, token, fetchImpl = globalThis.fetch, tim
      * Status mehrerer Tickets: Map Ticketnummer -> {key, summary, status, done}. Unbekannte oder nicht sichtbare
      * Tickets fehlen einfach (Jira lehnt eine Suche mit unbekannter Nummer ab, dann wird einzeln nachgefragt).
      */
+    /**
+     * Ticket auf einen Status der Kategorie "Fertig" setzen. Ist es schon fertig, passiert nichts.
+     * Ein Pflichtfeld "Lösung" (resolution) wird mit "Fertig"/"Done"/"Erledigt" (sonst dem ersten Wert) gefüllt;
+     * andere Pflichtfelder ohne Vorgabe führen zu einer verständlichen Meldung statt zu einem halben Versuch.
+     * Ergebnis: {key, status, already}.
+     */
+    async closeIssue(key) {
+      const k = checkKey(key);
+      const current = issueView(await request('GET', `/rest/api/3/issue/${encodeURIComponent(k)}?fields=summary,status`));
+      if (current.done) return { key: k, status: current.status, already: true };
+      const data = await request('GET', `/rest/api/3/issue/${encodeURIComponent(k)}/transitions?expand=transitions.fields`);
+      const list = (data && data.transitions) || [];
+      const t = list.find((x) => x.to && x.to.statusCategory && x.to.statusCategory.key === 'done');
+      if (!t) {
+        const names = list.map((x) => (x.to && x.to.name) || x.name).filter(Boolean).join(', ');
+        throw new JiraError(`${k} lässt sich von „${current.status}“ aus nicht auf „Fertig“ setzen${names ? ` (möglich: ${names})` : ''}.`, 409);
+      }
+      const fields = {};
+      const missing = [];
+      for (const [id, f] of Object.entries(t.fields || {})) {
+        if (!f || !f.required || f.hasDefaultValue) continue;
+        const values = Array.isArray(f.allowedValues) ? f.allowedValues : [];
+        if (id === 'resolution' && values.length) {
+          const pick = values.find((v) => /^(fertig|done|erledigt|behoben|fixed)$/i.test(String(v.name || '').trim())) || values[0];
+          fields.resolution = { id: String(pick.id) };
+        } else {
+          missing.push(f.name || id);
+        }
+      }
+      if (missing.length) throw new JiraError(`Jira verlangt beim Abschließen von ${k} noch: ${missing.join(', ')}. Bitte einmal von Hand in Jira abschließen.`, 409);
+      await request('POST', `/rest/api/3/issue/${encodeURIComponent(k)}/transitions`, { transition: { id: String(t.id) }, ...(Object.keys(fields).length ? { fields } : {}) });
+      return { key: k, status: (t.to && t.to.name) || 'Fertig', already: false };
+    },
     async statuses(keys) {
       const list = [...new Set(keys.map((k) => String(k || '').trim().toUpperCase()).filter((k) => KEY_RE.test(k)))];
       const out = new Map();

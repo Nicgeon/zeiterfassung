@@ -65,11 +65,12 @@ async function withApp(fetchImpl, fn) {
   db.exec('CREATE TABLE jira_settings (user_id INTEGER PRIMARY KEY, config_enc TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime(\'now\')))');
   db.exec(`CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, work_date TEXT, start_time TEXT, end_time TEXT,
     duration_minutes INTEGER, description_enc TEXT, jira_key TEXT, transferred_to_jira INTEGER NOT NULL DEFAULT 0, deleted_at TEXT,
-    jira_comment_issue TEXT, jira_comment_id TEXT, updated_at TEXT, task_id INTEGER)`);
+    jira_comment_issue TEXT, jira_comment_id TEXT, updated_at TEXT, task_id INTEGER, school_day INTEGER NOT NULL DEFAULT 0)`);
   db.exec(`CREATE TABLE tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, title_enc TEXT, jira_key TEXT, status TEXT NOT NULL DEFAULT 'open',
     deleted_at TEXT, jira_status TEXT, jira_done_hint TEXT)`);
   db.exec("CREATE TABLE jira_seen (user_id INTEGER, key TEXT, seen_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, key))");
   db.exec("CREATE TABLE jira_ignored (user_id INTEGER, key TEXT, created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, key))");
+  db.exec('CREATE TABLE jira_daily_close (user_id INTEGER, work_date TEXT, key TEXT, status TEXT, updated_at TEXT, PRIMARY KEY (user_id, work_date))');
   const audits = [];
   const app = express();
   app.use(express.json());
@@ -87,14 +88,14 @@ async function withApp(fetchImpl, fn) {
 
 test('Einstellungen: prüfen, verschlüsselt speichern, Token nie ausgeben, Token bleibt beim Ändern, entfernen', async () => {
   await withApp(async () => jsonRes(200, {}), async ({ call, db, audits }) => {
-    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false, allowWrite: false, dailyProject: '', excludeProjects: '', jqlFilter: '', syncTasks: true, notifyNew: true });
+    assert.deepEqual((await call('GET', '/settings')).body, { configured: false, baseUrl: '', email: '', hasToken: false, allowWrite: false, dailyProject: '', closeDaily: false, excludeProjects: '', jqlFilter: '', syncTasks: true, notifyNew: true });
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://evil.com', email: 'a@b.de', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'keine-mail', apiToken: 'x' })).status, 400);
     assert.equal((await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net', email: 'a@b.de' })).status, 400, 'Token fehlt');
 
     let r = await call('PUT', '/settings', { baseUrl: 'https://f.atlassian.net/browse/X-1', email: 'a@b.de', apiToken: 'GEHEIM-123' });
     assert.equal(r.status, 200);
-    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true, allowWrite: false, dailyProject: '', excludeProjects: '', jqlFilter: '', syncTasks: true, notifyNew: true });
+    assert.deepEqual(r.body, { configured: true, baseUrl: 'https://f.atlassian.net', email: 'a@b.de', hasToken: true, allowWrite: false, dailyProject: '', closeDaily: false, excludeProjects: '', jqlFilter: '', syncTasks: true, notifyNew: true });
     assert.doesNotMatch(JSON.stringify((await call('GET', '/settings')).body), /GEHEIM/);
     assert.doesNotMatch(db.prepare('SELECT config_enc FROM jira_settings').get().config_enc.replace(/^enc:/, ''), /GEHEIM/); // base64, nicht Klartext
     // E-Mail ändern ohne neuen Token: der alte bleibt

@@ -541,6 +541,14 @@ Token wird nie wieder angezeigt oder protokolliert; „Verbindung testen“ prü
   Kommentar angepasst (bei neuem Ticket verschoben); **löschst** du ihn, wird der Kommentar entfernt (Rückgängig stellt
   nur den Eintrag wieder her, er gilt dann wieder als offen). Unterbrochene Teile, die schon in Jira stehen, werden
   beim Weitermachen nicht zusammengeführt.
+- **Tagestickets abschließen** (*Einstellungen → Jira*, „Tagestickets nach Feierabend auf „Fertig“ setzen – mit
+  Rückfrage“, standardmäßig aus): Stehen alle Einträge eines Tages in Jira (Berufsschule zählt nicht) und liegt
+  mindestens einer im Tagesticket, fragt die Seite „Heute“ ab Feierabend (Uhrzeit unter *Erinnerungen*) bzw. für
+  zurückliegende Tage (bis 14 Tage) „Tagesticket PITPM-40 abschließen?“ mit **Abschließen**, **Später** (fragt beim
+  nächsten Öffnen wieder) und **Nicht abschließen** (für diesen Tag nie mehr). Erst der Klick auf „Abschließen“ setzt das
+  Ticket in Jira auf einen Status der Kategorie „Fertig“; ein Pflichtfeld „Lösung“ wird dabei mit „Fertig“/„Done“
+  gefüllt, andere Pflichtfelder werden mit Namen gemeldet. Läuft das Programm, kommt dazu einmal je Tag eine
+  Benachrichtigung, die zur Bestätigung ins Programm schickt. Andere Tickets werden nie abgeschlossen.
 - **Abgleich mit den Aufgaben** (*Einstellungen → Jira*, beides standardmäßig an): Beim Öffnen der Seite „Aufgaben“
   und – solange das Programm läuft – alle 15 Minuten fragt das Programm bei Jira nach (höchstens alle 5 Minuten).
   - **Ticket erledigt:** Ist das Ticket einer offenen Aufgabe in Jira erledigt (Statuskategorie „Fertig“), erscheint an

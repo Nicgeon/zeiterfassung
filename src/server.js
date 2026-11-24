@@ -31,6 +31,7 @@ const { createAutostart } = require('./lib/autostart');
 const { startReminderLoop } = require('./lib/taskReminders');
 const { createWorkReminders, startWorkReminderLoop } = require('./lib/workReminders');
 const { createJiraSync, startJiraSyncLoop } = require('./lib/jiraSync');
+const { createJiraDaily } = require('./lib/jiraDaily');
 const remindersRoutes = require('./routes/reminders');
 const systemNotify = require('./lib/notify');
 const updater = require('./lib/updater');
@@ -218,7 +219,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/entries', requireAuth, entriesRoutes);
 app.use('/api/timer', requireAuth, timerRoutes);
 const jiraSync = createJiraSync({ db, decryptField });
-app.use('/api/jira', requireAuth, jiraRoutes.createRouter({ db, encryptField, decryptField, audit, sync: jiraSync }));
+// Feierabend-Uhrzeit aus den Erinnerungen (workReminders wird weiter unten angelegt, gebraucht erst zur Laufzeit)
+const jiraDaily = createJiraDaily({ db, decryptField, endTimeFor: (userId) => workReminders.settings(userId).endTime });
+app.use('/api/jira', requireAuth, jiraRoutes.createRouter({ db, encryptField, decryptField, audit, sync: jiraSync, daily: jiraDaily }));
 app.use('/api/tasks', requireAuth, tasksRoutes.createRouter({ db, encryptField, decryptField, convertTicketLinks }));
 // Erinnerungen als Systembenachrichtigung gibt es nur lokal (dort läuft das Programm auf dem eigenen Rechner)
 const remindersActive = config.localMode && process.env.ZEIT_NO_REMINDERS !== '1';
@@ -342,6 +345,8 @@ const server = app.listen(...listenArgs, () => {
     startReminderLoop({ db, decryptField, notify: showNotification, allow: (userId) => workReminders.settings(userId).tasks, log });
     startWorkReminderLoop({ reminders: workReminders, notify: showNotification, log });
     startJiraSyncLoop({ sync: jiraSync, notify: showNotification, log });
+    // Tagestickets: einmal je Tag melden, dass abgeschlossen werden kann (bestätigt wird im Programm)
+    setInterval(() => jiraDaily.notifyAll({ notify: showNotification, log }), 5 * 60_000).unref();
   }
   if (localMode.announce()) return;
   // eslint-disable-next-line no-console

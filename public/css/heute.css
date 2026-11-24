@@ -306,3 +306,14 @@ a.tasks__more-hint { color: var(--accent); text-decoration: none; }
 .timeline--slim .tl-empty { display: none; }
 .mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) #jiraKey { grid-column: 1; grid-row: 2; }
 .mini .composer[data-view='start']:not(.composer--timer):not(.composer--editing) .composer__footer { grid-column: 2; grid-row: 2; }
+
+/* Rückfrage "Tagesticket abschließen" über dem Zeitstrahl */
+.daily-close { display: flex; flex-direction: column; gap: 8px; }
+.daily-close:empty { display: none; }
+.daily-close__item {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; border-radius: 18px;
+  background: var(--success-wash); border: 1px solid color-mix(in srgb, var(--success) 45%, transparent); font-size: 13px;
+}
+.daily-close__text { flex: 1 1 320px; min-width: 0; line-height: 1.5; }
+.daily-close__text .mono { font-size: 12px; }
+.daily-close__actions { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }

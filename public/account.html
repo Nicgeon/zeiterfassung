@@ -172,6 +172,11 @@
       </div>
       <p class="field-hint">Einträge ohne Ticket landen im Ticket dieses Projekts, dessen Titel das Datum ist (z. B. „2026-11-20“).</p>
     </div>
+    <label class="checkbox-label"><input type="checkbox" id="jiraCloseDaily" /> Tagestickets nach Feierabend auf „Fertig“ setzen – mit Rückfrage</label>
+    <p class="field-hint">
+      Stehen alle Einträge eines Tages in Jira und ist Feierabend (Uhrzeit unter Erinnerungen) bzw. der Tag vorbei, fragt die
+      Seite „Heute“, ob das Tagesticket abgeschlossen werden soll. Erst nach „Abschließen“ wird es in Jira auf „Fertig“ gesetzt.
+    </p>
     <h3 class="mt-lg">Abgleich mit den Aufgaben</h3>
     <label class="checkbox-label"><input type="checkbox" id="jiraSyncTasks" /> Erledigte Tickets erkennen und Abhaken vorschlagen</label>
     <label class="checkbox-label"><input type="checkbox" id="jiraNotifyNew" /> Neue Tickets für mich melden</label>

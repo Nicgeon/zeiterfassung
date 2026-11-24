@@ -141,6 +141,16 @@ CREATE TABLE IF NOT EXISTS jira_ignored (
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, key)
 );
+-- Tagestickets abschließen (mit Rückfrage): je Person und Tag der Stand ('notified' = gemeldet, noch offen;
+-- 'closed' = in Jira auf "Fertig" gesetzt; 'dismissed' = "Nicht abschließen")
+CREATE TABLE IF NOT EXISTS jira_daily_close (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  work_date   TEXT NOT NULL,
+  key         TEXT NOT NULL,
+  status      TEXT NOT NULL,
+  updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, work_date)
+);
 CREATE TABLE IF NOT EXISTS reminder_log (
   user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   kind     TEXT NOT NULL,

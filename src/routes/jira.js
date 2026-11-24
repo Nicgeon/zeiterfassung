@@ -7,8 +7,13 @@ const express = require('express');
 const jira = require('../lib/jira');
 const { createJiraComments } = require('../lib/jiraComments');
 const { createJiraSync } = require('../lib/jiraSync');
+const { createJiraDaily } = require('../lib/jiraDaily');
 
-function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchImpl, sync = createJiraSync({ db, decryptField, fetchImpl }) }) {
+function createRouter({
+  db, encryptField, decryptField, audit = () => {}, fetchImpl,
+  sync = createJiraSync({ db, decryptField, fetchImpl }),
+  daily = createJiraDaily({ db, decryptField, fetchImpl }),
+}) {
   const router = express.Router();
   const putStmt = db.prepare(
     `INSERT INTO jira_settings (user_id, config_enc, updated_at) VALUES (?, ?, datetime('now'))
@@ -24,6 +29,7 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     hasToken: !!(c && c.token),
     allowWrite: !!(c && c.allowWrite),
     dailyProject: (c && c.dailyProject) || '',
+    closeDaily: !!(c && c.closeDaily), // Tagestickets nach Feierabend abschließen (mit Rückfrage), Standard aus
     excludeProjects: (c && Array.isArray(c.excludeProjects) ? c.excludeProjects : []).join(', '), // nicht vorschlagen
     jqlFilter: (c && c.jqlFilter) || '', // eigener Zusatzfilter für "meine Tickets"
     syncTasks: !c || c.syncTasks !== false, // Abgleich: erledigte Tickets erkennen (Standard an)
@@ -76,7 +82,8 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
       if (jqlFilter.length > 300 || /[\r\n]/.test(jqlFilter)) throw new jira.JiraError('Der eigene Filter darf höchstens 300 Zeichen in einer Zeile haben.', 400);
       if (/\border\s+by\b/i.test(jqlFilter)) throw new jira.JiraError('Der eigene Filter darf kein ORDER BY enthalten.', 400);
     }
-    const next = { baseUrl, email, token, allowWrite, dailyProject, excludeProjects, jqlFilter, syncTasks: flag('syncTasks'), notifyNew: flag('notifyNew') };
+    const closeDaily = body.closeDaily !== undefined ? body.closeDaily === true : !!current.closeDaily;
+    const next = { baseUrl, email, token, allowWrite, dailyProject, closeDaily, excludeProjects, jqlFilter, syncTasks: flag('syncTasks'), notifyNew: flag('notifyNew') };
     putStmt.run(req.user.id, encryptField(JSON.stringify(next)));
     audit(req.user.id, 'jira_settings_changed', `${baseUrl}${allowWrite ? ' (schreiben)' : ''}`, req.ip);
     res.json(describe(next));
@@ -126,6 +133,22 @@ function createRouter({ db, encryptField, decryptField, audit = () => {}, fetchI
     const r = await sync.run(req.user.id, { force: !!(req.body && req.body.force) });
     res.json(r || { configured: false });
   }));
+
+  // Tagestickets abschließen: Vorschläge, Abschließen (nur auf ausdrücklichen Klick), "Nicht abschließen"
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const dateOf = (req) => {
+    const d = String((req.body && req.body.date) || '');
+    if (!DATE_RE.test(d)) throw new jira.JiraError('Ungültiges Datum.', 400);
+    return d;
+  };
+  router.get('/daily-close', wrap((req, res) => res.json({ pending: daily.pending(req.user.id) })));
+  router.post('/daily-close', wrap(async (req, res) => {
+    const date = dateOf(req);
+    const r = await daily.close(req.user.id, date);
+    audit(req.user.id, 'jira_daily_closed', `${r.key} (${date})`, req.ip);
+    res.json(r);
+  }));
+  router.post('/daily-close/dismiss', wrap((req, res) => res.json({ ok: daily.dismiss(req.user.id, dateOf(req)) })));
 
   // Meine offenen Tickets (gefiltert, siehe jiraSync.myIssues): {issues, ignored}
   router.get('/my-issues', wrap(async (req, res) => {
