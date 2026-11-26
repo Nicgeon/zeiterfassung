@@ -13,7 +13,7 @@ process.env.LOCAL_MODE = 'true';
 const { isUpdatablePath, retireRenamed } = require('../src/lib/updater');
 
 test('Updater: neue Startdateien sind erlaubt, fremde Dateien und Pfade nicht', () => {
-  for (const ok of ['Zeiterfassung-starten.bat', 'Zeiterfassung-starten.sh', 'Zeiterfassung-starten.command', 'start-app.bat', 'src/server.js']) {
+  for (const ok of ['Zeiterfassung-Browser.vbs', 'Zeiterfassung-starten.bat', 'Zeiterfassung-starten.sh', 'Zeiterfassung-starten.command', 'start-app.bat', 'src/server.js']) {
     assert.ok(isUpdatablePath(ok), ok);
   }
   for (const bad of ['evil.bat', '../x.js', '.env', 'data/app.db', 'Zeiterfassung starten.bat']) {

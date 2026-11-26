@@ -290,7 +290,16 @@
       <label class="check-inline"><input type="checkbox" id="autostartCheck" /> Beim Anmelden automatisch im Hintergrund starten</label>
       <p class="field-hint" id="autostartHint">Legt einen Autostart-Eintrag im eigenen Benutzerordner an (keine Administratorrechte nötig) und schaltet das Weiterlaufen im Hintergrund ein.</p>
     </div>
-    <button type="button" class="btn btn--secondary" id="quitBtn">Zeiterfassung beenden</button>
+    <div class="field">
+      <p class="field-hint">Lieber im normalen Browser? „Im Standardbrowser öffnen“ öffnet die Zeiterfassung dort als Tab. Danach
+        lässt sie sich in diesem Browser auch über <code id="localUrl">http://localhost:4711</code> (z. B. als Lesezeichen) aufrufen. Ohne
+        diesen Schritt zeigt der Browser „Kein Zugang“ – so kommen andere Programme nicht an die Daten. Alternativ im Startmenü
+        „Zeiterfassung im Browser“.</p>
+    </div>
+    <div class="flex gap-sm flex-wrap">
+      <button type="button" class="btn btn--secondary" id="openInBrowserBtn">Im Standardbrowser öffnen</button>
+      <button type="button" class="btn btn--secondary" id="quitBtn">Zeiterfassung beenden</button>
+    </div>
   </div>
 
   <!-- Updates (nur lokaler Betrieb) -->

@@ -26,7 +26,7 @@ const ALLOWED = [
   /^public\//,
   /^package(-lock)?\.json$/,
   /^(start-local|berichtsheft|start-app|Zeiterfassung-starten)\.(sh|bat|command)$/,
-  /^(Zeiterfassung|Zeiterfassung-Mini|app-verknuepfung-erstellen)\.vbs$/,
+  /^(Zeiterfassung|Zeiterfassung-Mini|Zeiterfassung-Browser|app-verknuepfung-erstellen)\.vbs$/,
   /^Zeiterfassung\.app\//,
   /^README\.md$/,
   /^\.env\.example$/,

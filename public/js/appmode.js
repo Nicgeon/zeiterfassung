@@ -76,6 +76,20 @@
     autoBox.addEventListener('change', () => saveSetting({ autostart: autoBox.checked }, autoBox, (r) => { autoBox.checked = !!r.autostart; if (bgBox) bgBox.checked = !!r.background; }));
   }
 
+  const openInBrowserBtn = document.getElementById('openInBrowserBtn');
+  const localUrl = document.getElementById('localUrl');
+  if (localUrl) localUrl.textContent = window.location.origin;
+  if (openInBrowserBtn) {
+    openInBrowserBtn.addEventListener('click', async () => {
+      try {
+        const r = await Api.post('/api/app/open-in-browser');
+        showToast(r && r.opened ? 'Im Standardbrowser geöffnet.' : 'Der Standardbrowser ließ sich nicht öffnen.');
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+  }
+
   const quitBtn = document.getElementById('quitBtn');
   if (quitBtn) {
     quitBtn.addEventListener('click', async () => {

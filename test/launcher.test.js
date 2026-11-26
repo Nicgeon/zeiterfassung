@@ -479,6 +479,32 @@ test('Ticket im Standardbrowser öffnen: nur feste Jira-Adressen, keine Shell, k
   assert.deepEqual(calls.map((c) => c[0]), ['cmd', 'open', 'xdg-open']);
   assert.deepEqual(calls[0][1], ['/c', 'start', '""', 'https://f.atlassian.net/browse/IT-1']);
   assert.equal(openInDefaultBrowser('x', { spawnImpl: () => { throw new Error('weg'); } }), false);
+  // cmd schneidet sonst an "&" ab (Mini-Fenster mit Zugangsschlüssel)
+  calls.length = 0;
+  openInDefaultBrowser('http://localhost:4711/index.html?mini=1&zugang=ab12', { platform: 'win32', spawnImpl });
+  assert.deepEqual(calls[0][1], ['/c', 'start', '""', 'http://localhost:4711/index.html?mini=1^&zugang=ab12']);
+});
+
+test('Zeiterfassung selbst im Standardbrowser öffnen: nur per POST, Adresse kommt vom Server', async () => {
+  let opened = 0;
+  await withRouter({ appMode: true, openSelfInBrowser: () => { opened++; return true; } }, async (base) => {
+    assert.equal((await fetch(`${base}/open-in-browser`)).status, 404, 'kein GET');
+    assert.deepEqual(await (await fetch(`${base}/open-in-browser`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"url":"https://evil.com"}' })).json(), { opened: true });
+  });
+  assert.equal(opened, 1);
+  await withRouter({ appMode: false }, async (base) => {
+    assert.deepEqual(await (await fetch(`${base}/open-in-browser`, { method: 'POST' })).json(), { opened: false }, 'ohne lokalen Betrieb nichts');
+  });
+});
+
+test('Fenster überlebt den Starter: Browser wird detached gestartet (Windows-Job-Objekt beendet sonst alles mit)', () => {
+  const { windowSpawnOptions } = require('../src/lib/launcherUtil');
+  assert.equal(windowSpawnOptions().detached, true);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'launcher.js'), 'utf8');
+  assert.match(src, /appWindowArgs\(withAccess\(url\), PROFILE_DIR, \{ size \}\), windowSpawnOptions\(\)\)/);
+  assert.ok(!/detached: false/.test(src), 'kein Kindprozess mehr ohne detached, der den Starter überleben muss');
+  const notifySrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'notify.js'), 'utf8');
+  assert.match(notifySrc, /detached: true/);
 });
 
 test('Starter: unter Windows ohne Konsole neu starten (Konsolenfenster schließt sich), sonst nicht', () => {
@@ -493,6 +519,8 @@ test('Startmenü: Einträge für Zeiterfassung und Mini, Pfade sicher maskiert',
   const script = startMenuScript({ programsDir: 'C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs', root: "C:\\Users\\x\\O'Brien\\zeiterfassung" });
   assert.match(script, /Programs\\Zeiterfassung\.lnk'/);
   assert.match(script, /Programs\\Zeiterfassung Mini\.lnk'/);
+  assert.match(script, /Programs\\Zeiterfassung im Browser\.lnk'/);
+  assert.match(script, /zeiterfassung\\Zeiterfassung-Browser\.vbs'/);
   assert.match(script, /O''Brien\\zeiterfassung\\Zeiterfassung\.vbs'/, 'Hochkomma verdoppelt');
   assert.match(script, /public\\favicon\.ico'/);
 });

@@ -6,7 +6,6 @@
 
 const crypto = require('crypto');
 const os = require('os');
-const { spawn } = require('child_process');
 const config = require('./config');
 const { db } = require('./db');
 
@@ -28,8 +27,11 @@ function urlWithAccess(url, token = config.localAccessToken) {
 
 const NO_ACCESS_PAGE = `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Zeiterfassung</title>
 <link rel="stylesheet" href="/css/grundlagen.css"></head><body><div class="shell"><div class="card">
-<h2>Kein Zugang</h2><p>Bitte die Zeiterfassung über die Verknüpfung bzw. im Startmenü („Zeiterfassung“) öffnen.
-Ohne das Programm lassen sich die Daten nicht aufrufen – auch nicht von anderen Programmen auf diesem Rechner.</p>
+<h2>Kein Zugang</h2><p>Die Zeiterfassung ist geschützt: Ohne Zugangsschlüssel kommen weder Browser noch andere Programme
+auf diesem Rechner an die Daten.</p><p><strong>Im Browser öffnen:</strong> im Startmenü „Zeiterfassung im Browser“ wählen
+(Windows) bzw. im Programmfenster unter Konto → Programm „Im Standardbrowser öffnen“. Danach funktioniert diese Adresse
+in diesem Browser auch direkt, z. B. als Lesezeichen.</p><p>Sonst einfach die Zeiterfassung über die Verknüpfung bzw. im
+Startmenü („Zeiterfassung“) öffnen.</p>
 </div></div></body></html>`;
 
 // Lokal laeuft die App ueber http://localhost - nicht auf https hochstufen.
@@ -112,15 +114,7 @@ function openBrowser(url) {
     log: (m) => console.log(m),
   });
   if (choice) return;
-  const [cmd, args] =
-    process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
-      : process.platform === 'darwin' ? ['open', [url]]
-        : ['xdg-open', [url]];
-  try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
-    child.on('error', () => {});
-    child.unref();
-  } catch { /* Browser oeffnen ist nur Komfort */ }
+  require('./lib/appWindow').openInDefaultBrowser(url);
 }
 
 /** Startmeldung; true, wenn sie im lokalen Modus ausgegeben wurde. */

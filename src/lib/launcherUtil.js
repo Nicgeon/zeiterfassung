@@ -127,6 +127,15 @@ function shouldDetach({ platform = process.platform, env = process.env, argv = p
  * PowerShell-Befehl, der die Startmenü-Einträge "Zeiterfassung" und "Zeiterfassung Mini" anlegt (bzw. erneuert).
  * Darüber findet die Windows-Suche das Programm, egal in welchem Ordner es liegt.
  */
+/**
+ * Startoptionen für das Browserfenster: detached, damit es den Starter überlebt. Unter Windows legt Node Kindprozesse
+ * ohne detached in ein Job-Objekt, das sie beim Ende des Elternprozesses mitbeendet (das Fenster ging beim zweiten
+ * Start sofort wieder zu). Das Ende des Browsers meldet Node trotzdem (solange nicht unref aufgerufen wird).
+ */
+function windowSpawnOptions() {
+  return { stdio: 'ignore', detached: true };
+}
+
 function startMenuScript({ programsDir, root }) {
   const link = (name, target, text) => [
     `$l = $sh.CreateShortcut(${psQuote(path.win32.join(programsDir, `${name}.lnk`))})`,
@@ -141,7 +150,8 @@ function startMenuScript({ programsDir, root }) {
     '$sh = New-Object -ComObject WScript.Shell',
     ...link('Zeiterfassung', 'Zeiterfassung.vbs', 'Zeiterfassung starten'),
     ...link('Zeiterfassung Mini', 'Zeiterfassung-Mini.vbs', 'Zeiterfassung als kleines Fenster starten'),
+    ...link('Zeiterfassung im Browser', 'Zeiterfassung-Browser.vbs', 'Zeiterfassung im Standardbrowser öffnen (als Tab)'),
   ].join('; ');
 }
 
-module.exports = { shouldDetach, startMenuScript, KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };
+module.exports = { shouldDetach, startMenuScript, windowSpawnOptions, KINDS, KIND_LABEL, browserCandidates, candidatesFor, defaultBrowserKind, listBrowsers, chooseBrowser, findBrowser, appWindowArgs, psQuote, appleScriptQuote };

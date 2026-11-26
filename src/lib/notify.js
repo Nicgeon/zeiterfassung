@@ -37,6 +37,7 @@ function notify({ title, body }, { platform = process.platform, spawnImpl = spaw
     const child = spawnImpl(cmd, finalArgs, {
       stdio: 'ignore',
       windowsHide: true,
+      detached: true, // überlebt den Starter, der sich beim zweiten Start gleich wieder beendet (Windows: Job-Objekt)
       env: { ...process.env, ZEIT_TITLE: t, ZEIT_BODY: b },
     });
     child.on('error', (err) => log(`Benachrichtigung nicht möglich (${cmd}): ${err.message}`));

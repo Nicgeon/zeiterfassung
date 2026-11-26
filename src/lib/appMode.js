@@ -41,7 +41,7 @@ function createIdleMonitor({ idleMs = 150_000, closingMs = 10_000, onIdle, setTi
  * Ping ist ein GET (die Seite nutzt beim Verlassen fetch mit keepalive), darum prueft er den Herkunfts-
  * Header: Eine fremde Webseite darf den Server nicht per Link/Bild beenden koennen.
  */
-function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, autostart, openExternal, setTimer = setTimeout }) {
+function createRouter({ monitor, appMode, quit, openWindow, settingsFile, currentBrowser, autostart, openExternal, openSelfInBrowser, setTimer = setTimeout }) {
   const router = express.Router();
   router.get('/ping', (req, res) => {
     const site = req.get('sec-fetch-site');
@@ -113,6 +113,11 @@ function createRouter({ monitor, appMode, quit, openWindow, settingsFile, curren
     const url = req.body && req.body.url;
     if (typeof url !== 'string' || !TICKET_URL.test(url)) return res.status(400).json({ error: 'Nur Jira-Tickets lassen sich so öffnen.' });
     res.json({ opened: !!(openExternal && openExternal(url)) });
+  });
+  // Die Zeiterfassung selbst im Standardbrowser öffnen (Tab mit Zugangsschlüssel; danach kennt der Browser das Cookie
+  // und http://localhost:<Port> lässt sich dort auch als Lesezeichen öffnen). POST mit CSRF-Schutz, nur angemeldet.
+  router.post('/open-in-browser', (req, res) => {
+    res.json({ opened: !!(openSelfInBrowser && openSelfInBrowser()) });
   });
   router.post('/quit', (req, res) => {
     res.json({ status: 'ok' });

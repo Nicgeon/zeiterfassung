@@ -8,6 +8,7 @@
 //   node src/launcher.js --mini       statt des grossen Fensters nur das Mini-Fenster (Aufgabe + Zeit)
 //   node src/launcher.js --hintergrund   ohne Fenster starten und im Hintergrund laufen (Autostart; Erinnerungen)
 //   node src/launcher.js --kein-fenster   nur den Server beaufsichtigen (z. B. fuer Tests)
+//   node src/launcher.js --browser    statt des App-Fensters im Standardbrowser öffnen (als Tab, mit Zugangsschlüssel)
 //
 // Gestartet wird es ueber Zeiterfassung.vbs (Windows), Zeiterfassung.app (macOS) bzw. start-app.sh. Unter Windows
 // startet es sich sofort ohne Konsole neu, das Konsolenfenster schliesst sich dadurch (--konsole: bleibt sichtbar).
@@ -19,9 +20,9 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 const { spawn, spawnSync } = require('child_process');
-const { appWindowArgs, psQuote, appleScriptQuote, shouldDetach, startMenuScript } = require('./lib/launcherUtil');
+const { appWindowArgs, windowSpawnOptions, psQuote, appleScriptQuote, shouldDetach, startMenuScript } = require('./lib/launcherUtil');
 const systemToast = require('./lib/notify');
-const { findBrowsers, profileDirFor } = require('./lib/appWindow');
+const { findBrowsers, profileDirFor, openInDefaultBrowser } = require('./lib/appWindow');
 const { defaultLocalDataDir, readAccessToken } = require('./lib/localKeys');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -55,6 +56,8 @@ const MINI_URL = `${URL_LOCAL}/index.html?mini=1`;
 const MINI_SIZE = [460, 400];
 const windowFor = (kind) => (kind === 'mini' ? { url: MINI_URL, size: MINI_SIZE } : { url: URL_LOCAL, size: null });
 const START_KIND = MINI ? 'mini' : 'main';
+// Im Standardbrowser statt im App-Fenster öffnen (Startmenü „Zeiterfassung im Browser“)
+const BROWSER_TAB = process.argv.includes('--browser');
 const DATA_DIR = process.env.DATA_DIR || defaultLocalDataDir();
 const LOG_FILE = path.join(DATA_DIR, 'zeiterfassung.log');
 const PROFILE_DIR = profileDirFor(DATA_DIR);
@@ -104,21 +107,25 @@ function toast(title, body) {
   systemToast.notify({ title, body }, { log });
 }
 
+// Erhöhen, wenn Einträge dazukommen: dann werden sie beim nächsten Start neu angelegt
+const START_MENU_VERSION = 2;
 /** Windows: Startmenü-Einträge anlegen bzw. nach einem Umzug des Programmordners erneuern (für die Windows-Suche). */
 function ensureStartMenu() {
   if (process.platform !== 'win32' || !process.env.APPDATA) return;
   const programsDir = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs');
   const marker = path.join(DATA_DIR, 'startmenu.json');
   try {
-    if (fs.existsSync(path.join(programsDir, 'Zeiterfassung.lnk')) && JSON.parse(fs.readFileSync(marker, 'utf8')).root === ROOT) return;
+    const m = JSON.parse(fs.readFileSync(marker, 'utf8'));
+    if (fs.existsSync(path.join(programsDir, 'Zeiterfassung.lnk')) && m.root === ROOT && m.version === START_MENU_VERSION) return;
   } catch { /* neu anlegen */ }
   try {
-    const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', startMenuScript({ programsDir, root: ROOT })], { stdio: 'ignore', windowsHide: true });
+    // detached: Beim zweiten Start beendet sich der Starter gleich wieder, das Anlegen soll trotzdem fertig werden
+    const child = spawn('powershell', ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', startMenuScript({ programsDir, root: ROOT })], { stdio: 'ignore', windowsHide: true, detached: true });
     child.on('error', (err) => log(`Startmenü-Einträge nicht möglich: ${err.message}`));
     child.on('exit', (code) => {
       if (code !== 0) { log(`Startmenü-Einträge konnten nicht angelegt werden (Code ${code}).`); return; }
-      try { fs.writeFileSync(marker, JSON.stringify({ root: ROOT })); } catch { /* egal */ }
-      log('Startmenü-Einträge „Zeiterfassung“ und „Zeiterfassung Mini“ angelegt.');
+      try { fs.writeFileSync(marker, JSON.stringify({ root: ROOT, version: START_MENU_VERSION })); } catch { /* egal */ }
+      log('Startmenü-Einträge „Zeiterfassung“, „Zeiterfassung Mini“ und „Zeiterfassung im Browser“ angelegt.');
     });
   } catch (err) {
     log(`Startmenü-Einträge nicht möglich: ${err.message}`);
@@ -265,9 +272,7 @@ function stopAll(exitCode = 0) {
 // --- Fenster --------------------------------------------------------------------------------------------------------
 
 function openDefaultBrowser(url) {
-  const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '""', url]]
-    : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
-  try { const c = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true }); c.on('error', () => {}); c.unref(); } catch { /* nur Komfort */ }
+  openInDefaultBrowser(url);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -277,7 +282,10 @@ function launchApp(choice, { url, size }) {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   log(`App-Fenster: ${choice.exe} (${choice.kind || 'angegeben'}, ${choice.how})`);
   const state = { started: Date.now(), exited: false, code: null, error: null, onExit: null };
-  const child = spawn(choice.exe, appWindowArgs(withAccess(url), PROFILE_DIR, { size }), { stdio: 'ignore', detached: false });
+  // detached ist unter Windows Pflicht: Node legt alle anderen Kindprozesse in ein Job-Objekt, das sie beim Ende des
+  // Starters mitbeendet. Beim zweiten Start (Zeiterfassung läuft schon) beendet sich der Starter, sobald das Fenster
+  // da ist – ohne detached ging das Fenster dabei gleich wieder zu. Das Ende des Browsers wird trotzdem gemeldet.
+  const child = spawn(choice.exe, appWindowArgs(withAccess(url), PROFILE_DIR, { size }), windowSpawnOptions());
   child.on('error', (err) => { state.error = err; log(`Browser konnte nicht gestartet werden: ${err.message}`); });
   child.on('exit', (code) => {
     state.exited = true;
@@ -323,11 +331,20 @@ function warnNoWindow(since) {
   waitForLoad(since, 120_000).then((ok) => { if (ok) { windowShown = true; log('Fenster hat sich doch noch gemeldet.'); } });
 }
 
+/** Im Standardbrowser als Tab öffnen (mit Zugangsschlüssel; danach kennt der Browser das Cookie). */
+async function openBrowserTab(w) {
+  const since = Date.now();
+  log('Öffne die Zeiterfassung im Standardbrowser.');
+  openDefaultBrowser(withAccess(w.url));
+  if (await waitForLoad(since, 30_000)) { windowShown = true; log('Seite im Standardbrowser geladen.'); }
+}
+
 /**
  * Erstes Fenster: probiert die Browser der Reihe nach und prueft, ob sich die Seite wirklich meldet (Ping).
  * Der Standardbrowser (als Tab) kommt erst, wenn keiner funktioniert hat - dann mit Hinweis.
  */
 async function openFirstWindow(w) {
+  if (BROWSER_TAB) { await openBrowserTab(w); return; }
   if (!CHOICES.length) {
     notify('Zeiterfassung', 'Es wurde weder Edge noch Chrome noch Brave gefunden. Die Zeiterfassung wird im Standardbrowser geöffnet (als Tab). Mit ZEIT_BROWSER oder unter Konto → Programm lässt sich ein Browser festlegen.');
     openDefaultBrowser(withAccess(w.url));
@@ -366,6 +383,7 @@ async function openFirstWindow(w) {
  * check: prüfen, ob sich die Seite meldet (beim zweiten Start), sonst Hinweis und Standardbrowser.
  */
 async function openExtraWindow(w, { check = false } = {}) {
+  if (BROWSER_TAB) { await openBrowserTab(w); return; }
   if (!CHOICES.length) { openDefaultBrowser(withAccess(w.url)); return; }
   for (const choice of CHOICES) {
     const since = Date.now();
@@ -396,10 +414,12 @@ async function main() {
 
   // Laeuft die Zeiterfassung schon? Dann nur ein weiteres Fenster oeffnen.
   if (await portInUse()) {
-    if (await probe()) {
+    const running = await probeInfo();
+    if (running) {
       log('Zeiterfassung läuft bereits - öffne nur das Fenster.');
       ensureStartMenu();
-      if (!NO_WINDOW && !BACKGROUND_START) await openExtraWindow(windowFor(START_KIND), { check: true });
+      // Nur ein Server im Programm-Modus meldet, wann eine Seite geladen ist (nicht: Zeiterfassung-starten --konsole)
+      if (!NO_WINDOW && !BACKGROUND_START) await openExtraWindow(windowFor(START_KIND), { check: running.appMode });
       process.exit(0);
     }
     notify('Zeiterfassung', `Der Port ${PORT} ist von einem anderen Programm belegt. Bitte mit PORT=4712 (Umgebungsvariable) starten.`);
